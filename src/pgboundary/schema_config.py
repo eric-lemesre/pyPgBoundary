@@ -3,7 +3,7 @@
 import logging
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field
@@ -164,6 +164,10 @@ class SchemaConfig(BaseModel):
     field_prefixes: FieldPrefixes = Field(default_factory=FieldPrefixes)
     table_names: TableNames = Field(default_factory=TableNames)
     srid: int = Field(default=4326, description="SRID des géométries (WGS84 par défaut)")
+    imports: dict[str, dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Configuration des imports par produit",
+    )
 
     def get_full_table_name(self, table_key: str) -> str:
         """Retourne le nom complet de la table selon le mode de stockage.
@@ -202,6 +206,35 @@ class SchemaConfig(BaseModel):
         """
         prefix = getattr(self.field_prefixes, field_type)
         return f"{prefix}{name}"
+
+    def get_import_config(self, product_id: str) -> dict[str, Any] | None:
+        """Retourne la configuration d'import pour un produit.
+
+        Args:
+            product_id: Identifiant du produit.
+
+        Returns:
+            Configuration d'import ou None.
+        """
+        return self.imports.get(product_id)
+
+    def get_enabled_imports(self) -> dict[str, dict[str, Any]]:
+        """Retourne les imports activés.
+
+        Returns:
+            Dictionnaire des imports avec enabled=True.
+        """
+        return {k: v for k, v in self.imports.items() if v.get("enabled", True)}
+
+    def count_imports(self) -> tuple[int, int]:
+        """Compte les imports (activés, total).
+
+        Returns:
+            Tuple (nombre activés, nombre total).
+        """
+        total = len(self.imports)
+        enabled = sum(1 for v in self.imports.values() if v.get("enabled", True))
+        return enabled, total
 
 
 def get_default_config() -> SchemaConfig:
@@ -254,6 +287,22 @@ table_names:
 
 # SRID des géométries (4326 = WGS84, standard international)
 srid: 4326
+
+# Configuration des imports de produits
+# Utilisez 'pgboundary config add-data' pour ajouter des produits
+imports:
+  # Exemple de configuration Admin Express COG
+  # admin-express-cog:
+  #   enabled: true
+  #   layers: [REGION, DEPARTEMENT, EPCI, COMMUNE]
+  #   territory: FRA
+  #   format: shp
+  #   years: ["2024"]
+  #   historization:
+  #     enabled: true
+  #     method: jaccard    # md5 | jaccard | hausdorff
+  #     threshold: 0.95    # ratio pour jaccard, mètres pour hausdorff
+  #     key_field: cd_insee
 """
 
 

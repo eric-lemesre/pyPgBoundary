@@ -42,6 +42,11 @@ app = typer.Typer(
     help="Chargement des limites administratives françaises dans PostgreSQL/PostGIS.",
     add_completion=False,
 )
+
+# Importer et ajouter les sous-commandes de configuration
+from pgboundary.cli_config import config_app  # noqa: E402
+
+app.add_typer(config_app, name="config")
 console = Console()
 
 
@@ -403,8 +408,38 @@ def download(
         source.close()
 
 
-@app.command()
-def load(
+@app.command(name="load")
+def load_cmd(
+    all_products: Annotated[
+        bool,
+        typer.Option("--all", "-a", help="Importe tous les produits activés sans validation."),
+    ] = False,
+    product: Annotated[
+        str | None,
+        typer.Option("--product", "-p", help="ID du produit à importer."),
+    ] = None,
+    config_file: Annotated[
+        Path | None,
+        typer.Option("--config", "-c", help="Fichier de configuration."),
+    ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-V", help="Mode verbeux."),
+    ] = False,
+) -> None:
+    """Charge les données selon la configuration.
+
+    Sans option: affiche la configuration et demande validation.
+    Avec --all: importe sans validation.
+    Avec --product: importe un seul produit.
+    """
+    from pgboundary.cli_load import load_command
+
+    load_command(all_products, product, config_file, verbose)
+
+
+@app.command(name="load-legacy", hidden=True)
+def load_legacy(
     source_path: Annotated[
         Path | None,
         typer.Option("--source", "-s", help="Chemin vers les données extraites."),
@@ -438,7 +473,7 @@ def load(
         typer.Option("--verbose", "-V", help="Mode verbeux."),
     ] = False,
 ) -> None:
-    """Charge les limites administratives dans PostgreSQL."""
+    """[Legacy] Charge les limites Admin Express dans PostgreSQL."""
     setup_logging(verbose)
 
     config_path = config_file or Path.cwd() / DEFAULT_CONFIG_FILENAME
