@@ -19,7 +19,7 @@ import geopandas as gpd
 from sqlalchemy import text
 
 from pgboundary.geometry_compare import GeometryMatcher
-from pgboundary.import_config import SimilarityMethod
+from pgboundary.import_config import SimilarityMethod, SimilarityThresholds
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
@@ -188,6 +188,12 @@ class HistorizationManager:
 
     Cette classe orchestre le processus d'historisation lors de l'import
     de nouveaux millésimes de données géographiques.
+
+    Utilise la matrice de décision pour classifier les correspondances:
+    - IDENTICAL: fusion automatique
+    - LIKELY_MATCH: correspondance probable
+    - SUSPECT: conflit potentiel
+    - DISTINCT: objets différents
     """
 
     def __init__(
@@ -196,8 +202,10 @@ class HistorizationManager:
         schema: str | None,
         table: str,
         key_field: str = "cd_insee",
-        method: SimilarityMethod = SimilarityMethod.JACCARD,
-        threshold: float = 0.95,
+        method: SimilarityMethod = SimilarityMethod.COMBINED,
+        thresholds: SimilarityThresholds | None = None,
+        # Rétrocompatibilité
+        threshold: float | None = None,
     ) -> None:
         """Initialise le gestionnaire.
 
@@ -206,14 +214,20 @@ class HistorizationManager:
             schema: Nom du schéma.
             table: Nom de la table.
             key_field: Champ clé pour l'identification.
-            method: Méthode de comparaison géométrique.
-            threshold: Seuil de similarité.
+            method: Méthode de comparaison (COMBINED recommandé).
+            thresholds: Seuils de la matrice de décision.
+            threshold: [DEPRECATED] Utilisez thresholds à la place.
         """
         self.engine = engine
         self.schema = schema
         self.table = table
         self.key_field = key_field
-        self.matcher = GeometryMatcher(method, threshold, key_field)
+        self.matcher = GeometryMatcher(
+            method=method,
+            thresholds=thresholds,
+            key_field=key_field,
+            threshold=threshold,
+        )
 
     def prepare_import(
         self,

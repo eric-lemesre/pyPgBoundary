@@ -2,10 +2,17 @@
 
 Ce module définit les structures de configuration pour les imports
 de produits IGN avec support de l'historisation.
+
+Matrice de décision pour la similarité géométrique:
+- [0.95 - 1.00] : IDENTICAL - Fusion automatique sans vérification
+- [0.80 - 0.95] : LIKELY_MATCH - Correspondance forte, validation si attributs diffèrent
+- [0.50 - 0.80] : SUSPECT - Conflit potentiel ou changement temporel
+- < 0.50 : DISTINCT - Objets distincts
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -17,6 +24,84 @@ class SimilarityMethod(StrEnum):
     MD5 = "md5"  # Hash MD5 des coordonnées (identité stricte)
     JACCARD = "jaccard"  # Indice de Jaccard / IoU (superposition spatiale)
     HAUSDORFF = "hausdorff"  # Distance de Hausdorff (ressemblance des formes)
+    COMBINED = "combined"  # Combinaison IoU + Hausdorff (recommandé)
+
+
+class SimilarityLevel(StrEnum):
+    """Niveaux de similarité selon la matrice de décision."""
+
+    IDENTICAL = "identical"  # [0.95 - 1.00] Fusion automatique
+    LIKELY_MATCH = "likely_match"  # [0.80 - 0.95] Correspondance forte
+    SUSPECT = "suspect"  # [0.50 - 0.80] Conflit potentiel
+    DISTINCT = "distinct"  # < 0.50 Objets distincts
+
+
+@dataclass
+class SimilarityResult:
+    """Résultat d'une comparaison de similarité géométrique.
+
+    Attributes:
+        level: Niveau de similarité selon la matrice de décision.
+        iou_score: Score IoU/Jaccard (0.0 à 1.0).
+        hausdorff_distance: Distance de Hausdorff (en unités du CRS).
+        combined_score: Score combiné normalisé (0.0 à 1.0).
+        needs_validation: Indique si une validation manuelle est recommandée.
+        reason: Explication du résultat.
+    """
+
+    level: SimilarityLevel
+    iou_score: float
+    hausdorff_distance: float | None = None
+    combined_score: float = 0.0
+    needs_validation: bool = False
+    reason: str = ""
+
+    def is_match(self) -> bool:
+        """Détermine si les géométries correspondent.
+
+        Returns:
+            True si IDENTICAL ou LIKELY_MATCH.
+        """
+        return self.level in (SimilarityLevel.IDENTICAL, SimilarityLevel.LIKELY_MATCH)
+
+    def is_auto_merge(self) -> bool:
+        """Détermine si la fusion automatique est possible.
+
+        Returns:
+            True si IDENTICAL (pas de validation nécessaire).
+        """
+        return self.level == SimilarityLevel.IDENTICAL
+
+
+class SimilarityThresholds(BaseModel):
+    """Seuils de la matrice de décision pour la similarité.
+
+    Les seuils définissent les limites entre les niveaux de similarité.
+    """
+
+    identical_min: float = Field(
+        default=0.95,
+        ge=0.0,
+        le=1.0,
+        description="Seuil minimum pour IDENTICAL (IoU >= ce seuil)",
+    )
+    likely_match_min: float = Field(
+        default=0.80,
+        ge=0.0,
+        le=1.0,
+        description="Seuil minimum pour LIKELY_MATCH (IoU >= ce seuil)",
+    )
+    suspect_min: float = Field(
+        default=0.50,
+        ge=0.0,
+        le=1.0,
+        description="Seuil minimum pour SUSPECT (IoU >= ce seuil)",
+    )
+    hausdorff_max: float = Field(
+        default=10.0,
+        ge=0.0,
+        description="Distance Hausdorff max (mètres) pour confirmer LIKELY_MATCH",
+    )
 
 
 class HistorizationConfig(BaseModel):
@@ -25,39 +110,67 @@ class HistorizationConfig(BaseModel):
     L'historisation permet de conserver l'historique des modifications
     des entités géographiques au fil des millésimes.
 
+    La méthode recommandée est COMBINED qui utilise:
+    1. Calcul IoU d'abord - si très élevé (>= 0.95), c'est identique
+    2. Si IoU moyen, vérification Hausdorff pour confirmer la proximité des contours
+
     Attributes:
         enabled: Active l'historisation pour ce produit.
-        method: Méthode de comparaison géométrique.
-        threshold: Seuil de similarité (interprétation selon la méthode).
+        method: Méthode de comparaison géométrique (COMBINED recommandé).
+        thresholds: Seuils de la matrice de décision.
         key_field: Champ utilisé comme clé d'identification (ex: cd_insee).
     """
 
     enabled: bool = Field(default=False, description="Active l'historisation")
     method: SimilarityMethod = Field(
-        default=SimilarityMethod.JACCARD,
-        description="Méthode de comparaison géométrique",
+        default=SimilarityMethod.COMBINED,
+        description="Méthode de comparaison (combined recommandé)",
     )
-    threshold: float = Field(
-        default=0.95,
-        description="Seuil de similarité (ratio pour Jaccard, mètres pour Hausdorff)",
+    thresholds: SimilarityThresholds = Field(
+        default_factory=SimilarityThresholds,
+        description="Seuils de la matrice de décision",
     )
     key_field: str = Field(
         default="cd_insee",
         description="Champ clé pour l'identification des entités",
     )
+    # Rétrocompatibilité avec l'ancien champ threshold
+    threshold: float | None = Field(
+        default=None,
+        description="[DEPRECATED] Utilisez thresholds à la place",
+    )
 
-    def get_threshold_description(self) -> str:
-        """Retourne une description du seuil selon la méthode.
+    def get_effective_thresholds(self) -> SimilarityThresholds:
+        """Retourne les seuils effectifs (avec rétrocompatibilité).
 
         Returns:
-            Description lisible du seuil.
+            Seuils à utiliser.
+        """
+        if self.threshold is not None:
+            # Rétrocompatibilité: utiliser l'ancien threshold comme identical_min
+            return SimilarityThresholds(identical_min=self.threshold)
+        return self.thresholds
+
+    def get_threshold_description(self) -> str:
+        """Retourne une description des seuils selon la méthode.
+
+        Returns:
+            Description lisible.
         """
         if self.method == SimilarityMethod.MD5:
-            return "N/A (comparaison exacte)"
+            return "Comparaison exacte (hash MD5)"
+        elif self.method == SimilarityMethod.COMBINED:
+            t = self.get_effective_thresholds()
+            return (
+                f"IoU >= {t.identical_min:.0%} (identique), "
+                f">= {t.likely_match_min:.0%} + Hausdorff <= {t.hausdorff_max:.0f}m (probable)"
+            )
         elif self.method == SimilarityMethod.JACCARD:
-            return f"{self.threshold:.0%} de superposition minimum"
+            t = self.get_effective_thresholds()
+            return f"IoU >= {t.identical_min:.0%}"
         else:  # HAUSDORFF
-            return f"{self.threshold:.0f}m de distance maximum"
+            t = self.get_effective_thresholds()
+            return f"Distance <= {t.hausdorff_max:.0f}m"
 
 
 class ProductImportConfig(BaseModel):
@@ -196,8 +309,13 @@ DEFAULT_PRODUCT_CONFIGS: dict[str, ProductImportConfig] = {
         years=["2024"],
         historization=HistorizationConfig(
             enabled=True,
-            method=SimilarityMethod.JACCARD,
-            threshold=0.95,
+            method=SimilarityMethod.COMBINED,
+            thresholds=SimilarityThresholds(
+                identical_min=0.95,
+                likely_match_min=0.80,
+                suspect_min=0.50,
+                hausdorff_max=10.0,
+            ),
             key_field="cd_insee",
         ),
     ),
@@ -209,8 +327,13 @@ DEFAULT_PRODUCT_CONFIGS: dict[str, ProductImportConfig] = {
         years=["2024"],
         historization=HistorizationConfig(
             enabled=True,
-            method=SimilarityMethod.JACCARD,
-            threshold=0.90,
+            method=SimilarityMethod.COMBINED,
+            thresholds=SimilarityThresholds(
+                identical_min=0.90,
+                likely_match_min=0.75,
+                suspect_min=0.50,
+                hausdorff_max=15.0,
+            ),
             key_field="code_iris",
         ),
     ),
