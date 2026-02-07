@@ -7,8 +7,52 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Non publié]
 
-### En cours
-- Développement initial du projet
+## [0.2.0] - 2026-02-07
+
+### Ajouté
+
+- **Architecture multi-produits IGN**
+  - Catalogue de produits (`ProductCatalog`, `IGNProduct`, `LayerConfig`)
+  - Support de 5 variantes Admin Express (EXPRESS, COG, COG-CARTO, COG-CARTO PE, COG-CARTO PLUS PE)
+  - Support de 7 produits IGN additionnels :
+    - Contours IRIS (découpage infra-communal INSEE)
+    - BD FORÊT (occupation du sol forestier)
+    - Masque FORÊT
+    - BD CARTO (base cartographique multi-thèmes)
+    - ADRESSE PREMIUM (points adresse enrichis)
+    - BAN PLUS (base adresse nationale enrichie)
+    - BCAE (bonnes conditions agricoles et environnementales)
+
+- **Support des codes postaux** (4 sources)
+  - Contours BAN (GeoJSON officiel, 2021)
+  - Base La Poste (CSV avec correspondance CP/INSEE, mise à jour 2x/an)
+  - Fond de carte Géoclip (Shapefile, 2013, métropole uniquement)
+  - Génération Voronoï (tessellation locale à partir de La Poste + AdminExpress)
+
+- **Loader générique `ProductLoader`**
+  - Chargement unifié pour tous les produits IGN
+  - Support des formats SHP et GPKG
+  - Gestion multi-territoires (FRA, FXX, GLP, MTQ, GUF, REU, MYT)
+
+- **Loader spécialisé `CodesPostauxLoader`**
+  - Support des 4 sources de codes postaux
+  - Génération Voronoï avec scipy (dépendance optionnelle)
+  - Avertissements sur les limitations de chaque source
+
+- **Nouvelles commandes CLI**
+  - `pgboundary products` : Liste des produits IGN disponibles
+  - `pgboundary product-info <id>` : Détails d'un produit
+  - `pgboundary load-product <id>` : Chargement générique d'un produit
+
+- **Configuration étendue**
+  - Tables pour tous les nouveaux produits dans `schema_config.py`
+  - Dépendance optionnelle `[voronoi]` pour scipy
+
+### Modifié
+
+- `AdminExpressLoader` hérite maintenant de `ProductLoader`
+- `IGNDataSource` refactorisé avec interface `DataSource` abstraite
+- Méthode `download_legacy()` pour rétrocompatibilité CLI
 
 ## [0.1.0] - 2026-02-07
 

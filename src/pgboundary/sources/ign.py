@@ -1,9 +1,15 @@
-"""Source de données IGN Admin Express."""
+"""Source de données IGN Geoservices.
+
+Ce module implémente l'accès aux données du géoportail IGN,
+incluant le téléchargement, l'extraction et la découverte de fichiers.
+"""
+
+from __future__ import annotations
 
 import logging
+import subprocess
 import zipfile
-from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import httpx
 from rich.progress import (
@@ -15,12 +21,19 @@ from rich.progress import (
     TransferSpeedColumn,
 )
 
-from pgboundary.config import Settings
 from pgboundary.exceptions import DownloadError
+from pgboundary.products.catalog import FileFormat, TerritoryCode
+from pgboundary.sources.base import DataSource
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from pgboundary.config import Settings
+    from pgboundary.products.catalog import IGNProduct
 
 logger = logging.getLogger(__name__)
 
-# URLs des données Admin Express sur data.gouv.fr
+# URLs des données Admin Express sur data.geopf.fr (rétrocompatibilité)
 ADMIN_EXPRESS_URLS = {
     "france_metropolitaine": (
         "https://data.geopf.fr/telechargement/download/ADMIN-EXPRESS-COG/"
@@ -34,7 +47,7 @@ ADMIN_EXPRESS_URLS = {
     ),
 }
 
-# Couches disponibles dans Admin Express
+# Couches disponibles dans Admin Express (rétrocompatibilité)
 ADMIN_EXPRESS_LAYERS = [
     "REGION",
     "DEPARTEMENT",
@@ -46,12 +59,24 @@ ADMIN_EXPRESS_LAYERS = [
 
 Territory = Literal["france_metropolitaine", "france_entiere"]
 
+# Mapping des territoires legacy vers les codes standards
+TERRITORY_MAPPING: dict[str, TerritoryCode] = {
+    "france_metropolitaine": TerritoryCode.FRA,
+    "france_entiere": TerritoryCode.FXX,
+}
 
-class IGNDataSource:
-    """Source de données IGN Admin Express.
+# Mapping inverse
+TERRITORY_REVERSE_MAPPING: dict[TerritoryCode, str] = {
+    TerritoryCode.FRA: "france_metropolitaine",
+    TerritoryCode.FXX: "france_entiere",
+}
 
-    Permet de télécharger et extraire les données Admin Express COG
-    depuis le géoservice de l'IGN.
+
+class IGNDataSource(DataSource):
+    """Source de données IGN Geoservices.
+
+    Permet de télécharger et extraire les données géographiques
+    depuis le géoportail de l'IGN (data.geopf.fr).
     """
 
     def __init__(self, settings: Settings | None = None) -> None:
@@ -60,6 +85,8 @@ class IGNDataSource:
         Args:
             settings: Configuration du module.
         """
+        from pgboundary.config import Settings
+
         self.settings = settings or Settings()
         self._client: httpx.Client | None = None
 
@@ -73,35 +100,54 @@ class IGNDataSource:
             )
         return self._client
 
-    def get_download_url(
+    # =========================================================================
+    # Méthodes de l'interface DataSource
+    # =========================================================================
+
+    def build_url(
         self,
-        territory: Territory = "france_metropolitaine",
-        year: str = "2024",
+        product: IGNProduct,
+        file_format: FileFormat,
+        territory: str,
+        year: str,
     ) -> str:
-        """Construit l'URL de téléchargement.
+        """Construit l'URL de téléchargement selon le template du produit.
 
         Args:
-            territory: Territoire à télécharger.
+            product: Produit IGN à télécharger.
+            file_format: Format de fichier (SHP ou GPKG).
+            territory: Code du territoire.
             year: Année des données.
 
         Returns:
             URL de téléchargement.
         """
-        template = ADMIN_EXPRESS_URLS[territory]
-        return template.format(year=year)
+        # Conversion du format en string IGN
+        format_str = self._format_to_ign_string(file_format)
+
+        # Utiliser le template du produit
+        return product.url_template.format(
+            version=product.version_pattern,
+            format=format_str,
+            crs="WGS84G",
+            territory=territory,
+            date=year,
+        )
 
     def download(
         self,
-        territory: Territory = "france_metropolitaine",
-        year: str = "2024",
+        url: str,
+        dest_dir: Path,
+        filename: str | None = None,
         force: bool = False,
     ) -> Path:
-        """Télécharge les données Admin Express.
+        """Télécharge un fichier depuis une URL.
 
         Args:
-            territory: Territoire à télécharger.
-            year: Année des données.
-            force: Force le re-téléchargement même si le fichier existe.
+            url: URL du fichier à télécharger.
+            dest_dir: Répertoire de destination.
+            filename: Nom du fichier (déduit de l'URL si non fourni).
+            force: Force le re-téléchargement.
 
         Returns:
             Chemin vers le fichier téléchargé.
@@ -109,15 +155,17 @@ class IGNDataSource:
         Raises:
             DownloadError: En cas d'erreur de téléchargement.
         """
-        data_dir = self.settings.ensure_data_dir()
-        filename = f"admin_express_{territory}_{year}.7z"
-        filepath = data_dir / filename
+        dest_dir.mkdir(parents=True, exist_ok=True)
+
+        if filename is None:
+            filename = url.split("/")[-1]
+
+        filepath = dest_dir / filename
 
         if filepath.exists() and not force:
             logger.info("Fichier déjà téléchargé: %s", filepath)
             return filepath
 
-        url = self.get_download_url(territory, year)
         logger.info("Téléchargement depuis: %s", url)
 
         try:
@@ -147,11 +195,17 @@ class IGNDataSource:
         except httpx.RequestError as e:
             raise DownloadError(f"Erreur de requête: {e}") from e
 
-    def extract(self, archive_path: Path, force: bool = False) -> Path:
+    def extract(
+        self,
+        archive_path: Path,
+        dest_dir: Path | None = None,
+        force: bool = False,
+    ) -> Path:
         """Extrait l'archive téléchargée.
 
         Args:
             archive_path: Chemin vers l'archive.
+            dest_dir: Répertoire de destination (déduit du nom d'archive si non fourni).
             force: Force la ré-extraction.
 
         Returns:
@@ -163,37 +217,126 @@ class IGNDataSource:
         if not archive_path.exists():
             raise DownloadError(f"Archive introuvable: {archive_path}")
 
-        extract_dir = archive_path.parent / archive_path.stem
+        if dest_dir is None:
+            dest_dir = archive_path.parent / archive_path.stem
 
-        if extract_dir.exists() and not force:
-            logger.info("Données déjà extraites: %s", extract_dir)
-            return extract_dir
+        if dest_dir.exists() and not force:
+            logger.info("Données déjà extraites: %s", dest_dir)
+            return dest_dir
 
         logger.info("Extraction de: %s", archive_path)
 
         try:
             if archive_path.suffix == ".zip":
                 with zipfile.ZipFile(archive_path, "r") as zf:
-                    zf.extractall(extract_dir)
+                    zf.extractall(dest_dir)
             elif archive_path.suffix == ".7z":
-                import subprocess
-
                 subprocess.run(
-                    ["7z", "x", "-y", f"-o{extract_dir}", str(archive_path)],
+                    ["7z", "x", "-y", f"-o{dest_dir}", str(archive_path)],
                     check=True,
                     capture_output=True,
                 )
             else:
                 raise DownloadError(f"Format d'archive non supporté: {archive_path.suffix}")
 
-            logger.info("Extraction terminée: %s", extract_dir)
-            return extract_dir
+            logger.info("Extraction terminée: %s", dest_dir)
+            return dest_dir
 
+        except subprocess.CalledProcessError as e:
+            raise DownloadError(f"Erreur d'extraction 7z: {e.stderr.decode()}") from e
         except Exception as e:
             raise DownloadError(f"Erreur d'extraction: {e}") from e
 
+    def find_data_files(
+        self,
+        extract_dir: Path,
+        product: IGNProduct,
+        file_format: FileFormat,
+    ) -> dict[str, Path]:
+        """Trouve les fichiers de données selon le format et le produit.
+
+        Args:
+            extract_dir: Répertoire contenant les données extraites.
+            product: Produit IGN pour lequel chercher les fichiers.
+            file_format: Format de fichier (SHP ou GPKG).
+
+        Returns:
+            Dictionnaire {nom_couche: chemin_fichier}.
+        """
+        files: dict[str, Path] = {}
+
+        if file_format == FileFormat.GPKG:
+            # GPKG: un seul fichier contenant toutes les couches
+            gpkg_files = list(extract_dir.glob("**/*.gpkg"))
+            if gpkg_files:
+                gpkg_path = gpkg_files[0]
+                for layer in product.layers:
+                    files[layer.name] = gpkg_path
+        else:
+            # SHP: un fichier par couche
+            for layer in product.layers:
+                pattern = f"**/{layer.name}.shp"
+                matches = list(extract_dir.glob(pattern))
+                if matches:
+                    files[layer.name] = matches[0]
+                    logger.debug("Shapefile trouvé: %s -> %s", layer.name, matches[0])
+
+        return files
+
+    def close(self) -> None:
+        """Ferme le client HTTP."""
+        if self._client is not None:
+            self._client.close()
+            self._client = None
+
+    # =========================================================================
+    # Méthodes de rétrocompatibilité (legacy)
+    # =========================================================================
+
+    def get_download_url(
+        self,
+        territory: Territory = "france_metropolitaine",
+        year: str = "2024",
+    ) -> str:
+        """Construit l'URL de téléchargement (méthode legacy).
+
+        Args:
+            territory: Territoire à télécharger.
+            year: Année des données.
+
+        Returns:
+            URL de téléchargement.
+        """
+        template = ADMIN_EXPRESS_URLS[territory]
+        return template.format(year=year)
+
+    def download_legacy(
+        self,
+        territory: Territory = "france_metropolitaine",
+        year: str = "2024",
+        force: bool = False,
+    ) -> Path:
+        """Télécharge les données Admin Express (méthode legacy).
+
+        Args:
+            territory: Territoire à télécharger.
+            year: Année des données.
+            force: Force le re-téléchargement même si le fichier existe.
+
+        Returns:
+            Chemin vers le fichier téléchargé.
+
+        Raises:
+            DownloadError: En cas d'erreur de téléchargement.
+        """
+        data_dir = self.settings.ensure_data_dir()
+        filename = f"admin_express_{territory}_{year}.7z"
+        url = self.get_download_url(territory, year)
+
+        return self.download(url, data_dir, filename, force)
+
     def find_shapefiles(self, extract_dir: Path) -> dict[str, Path]:
-        """Trouve les shapefiles dans le répertoire extrait.
+        """Trouve les shapefiles dans le répertoire extrait (méthode legacy).
 
         Args:
             extract_dir: Répertoire contenant les données extraites.
@@ -212,8 +355,44 @@ class IGNDataSource:
 
         return shapefiles
 
-    def close(self) -> None:
-        """Ferme le client HTTP."""
-        if self._client is not None:
-            self._client.close()
-            self._client = None
+    # =========================================================================
+    # Méthodes utilitaires
+    # =========================================================================
+
+    @staticmethod
+    def _format_to_ign_string(file_format: FileFormat) -> str:
+        """Convertit un FileFormat en string IGN.
+
+        Args:
+            file_format: Format de fichier.
+
+        Returns:
+            String pour l'URL IGN (ex: "SHP_WGS84G").
+        """
+        if file_format == FileFormat.SHP:
+            return "SHP_WGS84G"
+        return "GPKG_WGS84G"
+
+    @staticmethod
+    def territory_to_code(territory: Territory) -> TerritoryCode:
+        """Convertit un territoire legacy en TerritoryCode.
+
+        Args:
+            territory: Territoire legacy.
+
+        Returns:
+            Code de territoire.
+        """
+        return TERRITORY_MAPPING.get(territory, TerritoryCode.FRA)
+
+    @staticmethod
+    def code_to_territory(code: TerritoryCode) -> str:
+        """Convertit un TerritoryCode en territoire legacy.
+
+        Args:
+            code: Code de territoire.
+
+        Returns:
+            Territoire legacy.
+        """
+        return TERRITORY_REVERSE_MAPPING.get(code, "france_metropolitaine")

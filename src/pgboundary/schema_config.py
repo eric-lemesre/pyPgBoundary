@@ -29,15 +29,114 @@ class FieldPrefixes(BaseModel):
 
 
 class TableNames(BaseModel):
-    """Noms des tables."""
+    """Noms des tables.
 
+    Cette classe définit les noms de tables pour tous les produits IGN supportés.
+    Les tables sont organisées par catégorie de produit.
+    """
+
+    # Admin Express - Couches de base
     region: str = Field(default="region", description="Table des régions")
     departement: str = Field(default="departement", description="Table des départements")
+    arrondissement: str = Field(default="arrondissement", description="Table des arrondissements")
     epci: str = Field(default="epci", description="Table des EPCI")
     commune: str = Field(default="commune", description="Table des communes")
     commune_associee_deleguee: str = Field(
         default="commune_associee_deleguee",
         description="Table des communes associées/déléguées",
+    )
+
+    # Admin Express - Couches enrichies (CARTO, PLUS)
+    arrondissement_municipal: str = Field(
+        default="arrondissement_municipal",
+        description="Table des arrondissements municipaux (Paris, Lyon, Marseille)",
+    )
+    chef_lieu_commune: str = Field(
+        default="chef_lieu_commune",
+        description="Table des chefs-lieux de commune",
+    )
+    chef_lieu_arrondissement_municipal: str = Field(
+        default="chef_lieu_arrondissement_municipal",
+        description="Table des chefs-lieux d'arrondissement municipal",
+    )
+    canton: str = Field(default="canton", description="Table des cantons")
+    collectivite_territoriale: str = Field(
+        default="collectivite_territoriale",
+        description="Table des collectivités territoriales",
+    )
+
+    # Contours IRIS
+    iris: str = Field(default="iris", description="Table des contours IRIS")
+
+    # BD FORÊT
+    formation_vegetale: str = Field(
+        default="formation_vegetale",
+        description="Table des formations végétales forestières",
+    )
+    masque_foret: str = Field(
+        default="masque_foret",
+        description="Table du masque forestier",
+    )
+
+    # BD CARTO
+    commune_carto: str = Field(
+        default="commune_carto",
+        description="Table des communes (BD CARTO)",
+    )
+    limite_administrative: str = Field(
+        default="limite_administrative",
+        description="Table des limites administratives linéaires",
+    )
+    zone_activite: str = Field(
+        default="zone_activite",
+        description="Table des zones d'activité",
+    )
+    zone_habitation: str = Field(
+        default="zone_habitation",
+        description="Table des zones d'habitation",
+    )
+    aerodrome: str = Field(default="aerodrome", description="Table des aérodromes")
+    cimetiere: str = Field(default="cimetiere", description="Table des cimetières")
+    construction_surfacique: str = Field(
+        default="construction_surfacique",
+        description="Table des constructions surfaciques",
+    )
+    terrain_sport: str = Field(
+        default="terrain_sport",
+        description="Table des terrains de sport",
+    )
+
+    # Adresses
+    adresse: str = Field(
+        default="adresse",
+        description="Table des adresses (ADRESSE PREMIUM)",
+    )
+    adresse_ban: str = Field(
+        default="adresse_ban",
+        description="Table des adresses BAN PLUS",
+    )
+
+    # BCAE
+    bcae: str = Field(default="bcae", description="Table des zones BCAE")
+    haie: str = Field(default="haie", description="Table des haies")
+    mare: str = Field(default="mare", description="Table des mares")
+
+    # Codes postaux
+    code_postal: str = Field(
+        default="code_postal",
+        description="Table des codes postaux (générés Voronoï)",
+    )
+    code_postal_ban: str = Field(
+        default="code_postal_ban",
+        description="Table des codes postaux (contours BAN)",
+    )
+    code_postal_geoclip: str = Field(
+        default="code_postal_geoclip",
+        description="Table des codes postaux (Géoclip)",
+    )
+    correspondance_cp_insee: str = Field(
+        default="correspondance_cp_insee",
+        description="Table de correspondance codes postaux - INSEE",
     )
 
 

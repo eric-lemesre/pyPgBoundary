@@ -12,9 +12,20 @@ from rich.prompt import Confirm, Prompt
 from rich.table import Table
 
 from pgboundary import __version__
-from pgboundary.config import Settings
+from pgboundary.config import (
+    Settings,
+    build_database_url,
+    has_database_url_configured,
+    save_database_url_to_env,
+)
 from pgboundary.db.connection import DatabaseManager
 from pgboundary.loaders.admin_express import AdminExpressLoader
+from pgboundary.loaders.product_loader import ProductLoader
+from pgboundary.products import (
+    FileFormat,
+    ProductCategory,
+    get_default_catalog,
+)
 from pgboundary.schema_config import (
     DEFAULT_CONFIG_FILENAME,
     SchemaConfig,
@@ -110,6 +121,80 @@ def config(
         console.print(f"[green]Fichier de configuration créé: {config_path}[/green]")
 
 
+def _interactive_database_config() -> str:
+    """Configure la connexion à la base de données en mode interactif.
+
+    Returns:
+        URL de connexion PostgreSQL.
+    """
+    console.print(Panel("[bold]Configuration de la connexion PostgreSQL[/bold]"))
+
+    host = Prompt.ask("Hôte PostgreSQL", default="localhost")
+    port = int(Prompt.ask("Port", default="5432"))
+    database = Prompt.ask("Nom de la base de données", default="boundaries")
+    user = Prompt.ask("Utilisateur", default="postgres")
+    password = Prompt.ask("Mot de passe", password=True, default="")
+
+    database_url = build_database_url(
+        host=host,
+        port=port,
+        database=database,
+        user=user,
+        password=password,
+    )
+
+    # Afficher l'URL (sans le mot de passe)
+    display_url = database_url
+    if password:
+        display_url = database_url.replace(f":{password}@", ":****@")
+    console.print(f"\n[cyan]URL de connexion:[/cyan] {display_url}")
+
+    if Confirm.ask("\nSauvegarder dans le fichier .env ?", default=True):
+        save_database_url_to_env(database_url)
+        console.print("[green]✓ Configuration sauvegardée dans .env[/green]")
+
+    return database_url
+
+
+def _ensure_database_configured(
+    database_url: str | None = None,
+    interactive: bool = False,
+) -> str | None:
+    """S'assure que la base de données est configurée.
+
+    Si aucune URL n'est fournie et qu'aucune configuration n'existe,
+    propose la configuration interactive.
+
+    Args:
+        database_url: URL fournie en paramètre CLI.
+        interactive: Mode interactif activé.
+
+    Returns:
+        URL de connexion ou None si configuration annulée.
+    """
+    # Si une URL est fournie en paramètre, l'utiliser
+    if database_url:
+        return database_url
+
+    # Vérifier si une configuration existe
+    if has_database_url_configured():
+        return None  # Utiliser la config existante
+
+    # Pas de configuration, proposer le mode interactif
+    console.print("[yellow]Aucune configuration de base de données détectée.[/yellow]")
+
+    if interactive or Confirm.ask(
+        "Voulez-vous configurer la connexion à la base de données maintenant ?"
+    ):
+        return _interactive_database_config()
+
+    console.print(
+        "[dim]Vous pouvez configurer la base de données plus tard avec:[/dim]\n"
+        "  [cyan]pgboundary setup-db[/cyan]"
+    )
+    return None
+
+
 def _interactive_config() -> SchemaConfig:
     """Crée une configuration en mode interactif."""
     console.print(Panel("[bold]Configuration du schéma de base de données[/bold]"))
@@ -189,6 +274,25 @@ def _display_config(cfg: SchemaConfig, config_path: Path) -> None:
             console.print(f"  • {full_name}")
 
 
+@app.command(name="setup-db")
+def setup_db(
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-V", help="Mode verbeux."),
+    ] = False,
+) -> None:
+    """Configure la connexion à la base de données de manière interactive."""
+    setup_logging(verbose)
+
+    if has_database_url_configured():
+        settings = Settings()
+        console.print(f"[yellow]Configuration existante:[/yellow] {settings.database_url}")
+        if not Confirm.ask("Voulez-vous la modifier ?"):
+            raise typer.Exit()
+
+    _interactive_database_config()
+
+
 @app.command()
 def init(
     database_url: Annotated[
@@ -211,6 +315,9 @@ def init(
     """Initialise la base de données (schéma et tables)."""
     setup_logging(verbose)
 
+    # Vérifier/configurer la connexion à la base de données
+    db_url = _ensure_database_configured(database_url, interactive)
+
     config_path = config_file or Path.cwd() / DEFAULT_CONFIG_FILENAME
 
     if not config_path.exists():
@@ -226,8 +333,8 @@ def init(
             raise typer.Exit(1)
 
     settings = Settings(config_file=config_path)
-    if database_url:
-        settings.database_url = database_url
+    if db_url:
+        settings.database_url = db_url
 
     console.print("[bold blue]Initialisation de la base de données...[/bold blue]")
     _display_config(settings.schema_config, config_path)
@@ -272,7 +379,7 @@ def download(
 
     try:
         territory_lit = cast("Literal['france_metropolitaine', 'france_entiere']", territory)
-        archive_path = source.download(territory=territory_lit, year=year, force=force)
+        archive_path = source.download_legacy(territory=territory_lit, year=year, force=force)
         console.print(f"[green]Archive téléchargée: {archive_path}[/green]")
 
         extract_path = source.extract(archive_path, force=force)
@@ -374,7 +481,7 @@ def info(
     config_path = config_file or Path.cwd() / DEFAULT_CONFIG_FILENAME
     settings = Settings(config_file=config_path)
 
-    table = Table(title="Configuration pyPgBoundary")
+    table = Table(title="Configuration pgBoundary")
     table.add_column("Paramètre", style="cyan")
     table.add_column("Valeur", style="green")
 
@@ -424,6 +531,232 @@ def check(
 
     except Exception as e:
         console.print(f"[bold red]✗ Erreur: {e}[/bold red]")
+        raise typer.Exit(1) from e
+
+
+@app.command()
+def products(
+    category: Annotated[
+        str | None,
+        typer.Option(
+            "--category", "-c", help="Filtrer par catégorie (admin, stats, land, address, carto)."
+        ),
+    ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-V", help="Affiche plus de détails."),
+    ] = False,
+) -> None:
+    """Liste les produits IGN disponibles."""
+    catalog = get_default_catalog()
+
+    # Filtrage par catégorie si demandé
+    if category:
+        category_map = {
+            "admin": ProductCategory.ADMIN,
+            "administrative": ProductCategory.ADMIN,
+            "stats": ProductCategory.STATS,
+            "statistics": ProductCategory.STATS,
+            "land": ProductCategory.LAND,
+            "landcover": ProductCategory.LAND,
+            "address": ProductCategory.ADDRESS,
+            "carto": ProductCategory.CARTO,
+            "cartography": ProductCategory.CARTO,
+        }
+        cat_enum = category_map.get(category.lower())
+        if cat_enum:
+            products_list = catalog.list_by_category(cat_enum)
+        else:
+            console.print(f"[red]Catégorie inconnue: {category}[/red]")
+            console.print(f"Catégories valides: {', '.join(category_map.keys())}")
+            raise typer.Exit(1)
+    else:
+        products_list = catalog.list_all()
+
+    if not products_list:
+        console.print("[yellow]Aucun produit trouvé.[/yellow]")
+        return
+
+    table = Table(title="Produits IGN disponibles")
+    table.add_column("ID", style="cyan")
+    table.add_column("Nom", style="bold")
+    table.add_column("Catégorie", style="green")
+    table.add_column("Formats")
+
+    if verbose:
+        table.add_column("Territoires")
+        table.add_column("Description")
+
+    for product in products_list:
+        formats_str = ", ".join(f.value for f in product.formats)
+
+        if verbose:
+            territories_str = ", ".join(t.value for t in product.territories)
+            desc = product.description_fr
+            if len(desc) > 50:
+                desc = desc[:47] + "..."
+            table.add_row(
+                product.id,
+                product.name,
+                product.category.value,
+                formats_str,
+                territories_str,
+                desc,
+            )
+        else:
+            table.add_row(
+                product.id,
+                product.name,
+                product.category.value,
+                formats_str,
+            )
+
+    console.print(table)
+
+
+@app.command(name="product-info")
+def product_info(
+    product_id: Annotated[
+        str,
+        typer.Argument(help="ID du produit (ex: admin-express-cog, contours-iris)."),
+    ],
+) -> None:
+    """Affiche les détails d'un produit IGN."""
+    catalog = get_default_catalog()
+    product = catalog.get(product_id)
+
+    if product is None:
+        console.print(f"[red]Produit non trouvé: {product_id}[/red]")
+        console.print(f"Produits disponibles: {', '.join(catalog.list_ids())}")
+        raise typer.Exit(1)
+
+    # Informations générales
+    console.print(Panel(f"[bold]{product.name}[/bold]", title="Produit IGN"))
+
+    info_table = Table(show_header=False)
+    info_table.add_column("Attribut", style="cyan")
+    info_table.add_column("Valeur")
+
+    info_table.add_row("ID", product.id)
+    info_table.add_row("Catégorie", product.category.value)
+    info_table.add_row("Formats", ", ".join(f.value for f in product.formats))
+    info_table.add_row("Territoires", ", ".join(t.value for t in product.territories))
+    info_table.add_row("Version", product.version_pattern)
+
+    console.print(info_table)
+
+    # Description
+    console.print(f"\n[bold]Description:[/bold]\n{product.description_fr}")
+
+    # Couches disponibles
+    console.print("\n[bold]Couches disponibles:[/bold]")
+
+    layers_table = Table()
+    layers_table.add_column("Nom", style="cyan")
+    layers_table.add_column("Table", style="green")
+    layers_table.add_column("Géométrie")
+    layers_table.add_column("Description")
+
+    for layer in product.layers:
+        optional = " (optionnel)" if layer.optional else ""
+        layers_table.add_row(
+            layer.name,
+            layer.table_key,
+            layer.geometry_type.value,
+            layer.description_fr + optional,
+        )
+
+    console.print(layers_table)
+
+
+@app.command(name="load-product")
+def load_product(
+    product_id: Annotated[
+        str,
+        typer.Argument(help="ID du produit à charger (ex: admin-express-cog, contours-iris)."),
+    ],
+    file_format: Annotated[
+        str,
+        typer.Option("--format", "-f", help="Format des données (shp, gpkg)."),
+    ] = "shp",
+    territory: Annotated[
+        str,
+        typer.Option("--territory", "-t", help="Territoire (FRA, FXX, GLP, MTQ, GUF, REU, MYT)."),
+    ] = "FRA",
+    year: Annotated[
+        str,
+        typer.Option("--year", "-y", help="Année des données."),
+    ] = "2024",
+    layers: Annotated[
+        str | None,
+        typer.Option("--layers", "-l", help="Couches à charger (séparées par des virgules)."),
+    ] = None,
+    database_url: Annotated[
+        str | None,
+        typer.Option("--database-url", "-d", help="URL de connexion PostgreSQL."),
+    ] = None,
+    config_file: Annotated[
+        Path | None,
+        typer.Option("--config", "-c", help="Chemin du fichier de configuration."),
+    ] = None,
+    replace: Annotated[
+        bool,
+        typer.Option("--replace", "-r", help="Remplace les tables existantes."),
+    ] = True,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-V", help="Mode verbeux."),
+    ] = False,
+) -> None:
+    """Charge les données d'un produit IGN dans PostgreSQL."""
+    setup_logging(verbose)
+
+    # Vérification du produit
+    catalog = get_default_catalog()
+    product = catalog.get(product_id)
+
+    if product is None:
+        console.print(f"[red]Produit non trouvé: {product_id}[/red]")
+        console.print(f"Produits disponibles: {', '.join(catalog.list_ids())}")
+        raise typer.Exit(1)
+
+    # Configuration
+    config_path = config_file or Path.cwd() / DEFAULT_CONFIG_FILENAME
+    settings = Settings(config_file=config_path)
+    if database_url:
+        settings.database_url = database_url
+
+    # Conversion du format
+    format_enum = FileFormat.SHP if file_format.lower() == "shp" else FileFormat.GPKG
+
+    # Liste des couches
+    layers_list = layers.split(",") if layers else None
+    if_exists_lit: Literal["replace", "append", "fail"] = "replace" if replace else "fail"
+
+    console.print(f"[bold blue]Chargement du produit {product.name}...[/bold blue]")
+    console.print(f"  Territoire: {territory}")
+    console.print(f"  Année: {year}")
+    console.print(f"  Format: {file_format}")
+
+    try:
+        loader = ProductLoader(
+            product=product,
+            catalog=catalog,
+            settings=settings,
+        )
+
+        count = loader.load(
+            file_format=format_enum,
+            territory=territory,
+            year=year,
+            layers=layers_list,
+            if_exists=if_exists_lit,
+        )
+
+        console.print(f"[bold green]Chargement terminé: {count} entités chargées[/bold green]")
+
+    except Exception as e:
+        console.print(f"[bold red]Erreur: {e}[/bold red]")
         raise typer.Exit(1) from e
 
 

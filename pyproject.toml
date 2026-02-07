@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pgboundary"
-version = "0.1.0"
+version = "0.2.0"
 description = "Module Python pour charger les limites administratives françaises dans PostgreSQL/PostGIS"
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -44,6 +44,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+voronoi = [
+    "scipy>=1.11.0",  # Pour la génération Voronoï des codes postaux
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-cov>=5.0.0",
@@ -52,6 +55,7 @@ dev = [
     "mypy>=1.10.0",
     "pre-commit>=3.7.0",
     "types-PyYAML>=6.0.0",
+    "scipy>=1.11.0",  # Pour tester la génération Voronoï
 ]
 
 [project.scripts]
@@ -104,6 +108,7 @@ module = [
     "geopandas.*",
     "shapely.*",
     "geoalchemy2.*",
+    "scipy.*",
 ]
 ignore_missing_imports = true
 

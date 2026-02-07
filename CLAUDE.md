@@ -91,12 +91,15 @@ pyPgBoundary/
 ### CLI Commands
 
 ```bash
-# Configuration
-pgboundary config --interactive    # Create config interactively
+# Database connection setup (interactive)
+pgboundary setup-db                # Configure database connection interactively
+
+# Schema configuration
+pgboundary config --interactive    # Create schema config interactively
 pgboundary config --show           # Display current config
 pgboundary info                    # Show configuration summary
 
-# Database
+# Database operations
 pgboundary check                   # Verify DB connection + PostGIS
 pgboundary init                    # Create schema and tables
 
@@ -104,6 +107,18 @@ pgboundary init                    # Create schema and tables
 pgboundary download --territory france_metropolitaine --year 2024
 pgboundary load --layers "REGION,DEPARTEMENT,COMMUNE"
 ```
+
+### Database Connection Configuration
+
+The database connection URL is resolved in the following priority order:
+
+1. **CLI parameter** `--database-url` (highest priority)
+2. **Environment variable** `PGBOUNDARY_DATABASE_URL`
+3. **`.env` file** in current directory
+4. **Interactive prompt** (if none of the above are configured)
+5. **Default value** `postgresql://postgres:postgres@localhost:5432/boundaries` (lowest priority)
+
+When running `pgboundary init` without a configured database URL, the CLI will prompt you to configure the connection interactively and save it to `.env`.
 
 ### API Usage
 

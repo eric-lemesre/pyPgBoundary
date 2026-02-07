@@ -1,5 +1,8 @@
-"""Configuration du module pyPgBoundary."""
+"""Configuration du module pgBoundary."""
 
+import logging
+import os
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -11,6 +14,11 @@ from pgboundary.schema_config import (
     SchemaConfig,
     load_config,
 )
+
+logger = logging.getLogger(__name__)
+
+ENV_FILE = Path.cwd() / ".env"
+ENV_VAR_DATABASE_URL = "PGBOUNDARY_DATABASE_URL"
 
 
 class Settings(BaseSettings):
@@ -89,3 +97,141 @@ class Settings(BaseSettings):
         """Force le rechargement de la configuration du schéma."""
         self._schema_config = load_config(self.config_file)
         return self._schema_config
+
+
+def has_database_url_configured(env_file: Path | None = None) -> bool:
+    """Vérifie si une URL de base de données est configurée.
+
+    Vérifie dans l'ordre:
+    1. Variable d'environnement PGBOUNDARY_DATABASE_URL
+    2. Fichier .env
+
+    Args:
+        env_file: Chemin vers le fichier .env (par défaut: ./.env)
+
+    Returns:
+        True si une URL est configurée, False sinon.
+    """
+    # Vérifier la variable d'environnement
+    if os.environ.get(ENV_VAR_DATABASE_URL):
+        return True
+
+    # Vérifier le fichier .env
+    env_path = env_file or ENV_FILE
+    if env_path.exists():
+        content = env_path.read_text(encoding="utf-8")
+        # Chercher une ligne non commentée avec DATABASE_URL
+        for line in content.splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and line.startswith(f"{ENV_VAR_DATABASE_URL}="):
+                return True
+
+    return False
+
+
+def build_database_url(
+    host: str = "localhost",
+    port: int = 5432,
+    database: str = "boundaries",
+    user: str = "postgres",
+    password: str = "",
+) -> str:
+    """Construit une URL de connexion PostgreSQL.
+
+    Args:
+        host: Hôte PostgreSQL.
+        port: Port PostgreSQL.
+        database: Nom de la base de données.
+        user: Nom d'utilisateur.
+        password: Mot de passe.
+
+    Returns:
+        URL de connexion PostgreSQL.
+    """
+    if password:
+        return f"postgresql://{user}:{password}@{host}:{port}/{database}"
+    return f"postgresql://{user}@{host}:{port}/{database}"
+
+
+def save_database_url_to_env(
+    database_url: str,
+    env_file: Path | None = None,
+) -> None:
+    """Sauvegarde l'URL de la base de données dans le fichier .env.
+
+    Si le fichier existe, met à jour la ligne PGBOUNDARY_DATABASE_URL.
+    Sinon, crée le fichier avec l'URL.
+
+    Args:
+        database_url: URL de connexion PostgreSQL.
+        env_file: Chemin vers le fichier .env (par défaut: ./.env)
+    """
+    env_path = env_file or ENV_FILE
+    env_line = f"{ENV_VAR_DATABASE_URL}={database_url}"
+
+    if env_path.exists():
+        content = env_path.read_text(encoding="utf-8")
+        lines = content.splitlines()
+        updated = False
+
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            # Remplacer la ligne existante (commentée ou non)
+            if stripped.startswith(f"{ENV_VAR_DATABASE_URL}=") or stripped.startswith(
+                f"# {ENV_VAR_DATABASE_URL}="
+            ):
+                lines[i] = env_line
+                updated = True
+                break
+
+        if not updated:
+            # Ajouter à la fin si non trouvé
+            lines.append(env_line)
+
+        env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    else:
+        # Créer le fichier avec un en-tête
+        content = f"""# Configuration pgBoundary
+# Généré automatiquement
+
+# URL de connexion PostgreSQL
+{env_line}
+
+# Niveau de journalisation (DEBUG, INFO, WARNING, ERROR)
+PGBOUNDARY_LOG_LEVEL=INFO
+"""
+        env_path.write_text(content, encoding="utf-8")
+
+    logger.info("Configuration sauvegardée dans: %s", env_path)
+
+
+def parse_database_url(url: str) -> dict[str, str | int]:
+    """Parse une URL de connexion PostgreSQL.
+
+    Args:
+        url: URL de connexion PostgreSQL.
+
+    Returns:
+        Dictionnaire avec host, port, database, user, password.
+    """
+    # Pattern pour parser postgresql://user:pass@host:port/database
+    pattern = r"postgresql://(?:([^:]+)(?::([^@]*))?@)?([^:/]+)(?::(\d+))?/(.+)"
+    match = re.match(pattern, url)
+
+    if match:
+        return {
+            "user": match.group(1) or "postgres",
+            "password": match.group(2) or "",
+            "host": match.group(3) or "localhost",
+            "port": int(match.group(4) or 5432),
+            "database": match.group(5) or "boundaries",
+        }
+
+    # Valeurs par défaut si le parsing échoue
+    return {
+        "user": "postgres",
+        "password": "",
+        "host": "localhost",
+        "port": 5432,
+        "database": "boundaries",
+    }

@@ -1,63 +1,115 @@
-"""Loader pour les données Admin Express de l'IGN."""
+"""Loader pour les données Admin Express de l'IGN.
+
+Ce module fournit un loader spécialisé pour les produits Admin Express,
+avec rétrocompatibilité pour l'API existante.
+"""
+
+from __future__ import annotations
 
 import logging
-import uuid
-from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
-import geopandas as gpd
-
-from pgboundary.config import Settings
-from pgboundary.db.connection import DatabaseManager
-from pgboundary.db.models import TableFactory
 from pgboundary.exceptions import LoaderError
-from pgboundary.loaders.base import BaseLoader
-from pgboundary.sources.ign import IGNDataSource, Territory
+from pgboundary.loaders.product_loader import ProductLoader
+from pgboundary.products.admin_express import get_admin_express_product
+from pgboundary.products.catalog import FileFormat
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from pgboundary.config import Settings
+    from pgboundary.db.connection import DatabaseManager
+    from pgboundary.products.catalog import ProductCatalog
+    from pgboundary.sources.ign import Territory
 
 logger = logging.getLogger(__name__)
 
-# Mapping des couches vers les clés de table
+# Mapping des couches vers les clés de table (rétrocompatibilité)
 LAYER_TO_TABLE_KEY = {
     "REGION": "region",
     "DEPARTEMENT": "departement",
+    "ARRONDISSEMENT": "arrondissement",
     "EPCI": "epci",
     "COMMUNE": "commune",
     "COMMUNE_ASSOCIEE_OU_DELEGUEE": "commune_associee_deleguee",
+    "ARRONDISSEMENT_MUNICIPAL": "arrondissement_municipal",
+    "CHFLIEU_COMMUNE": "chef_lieu_commune",
+    "CHFLIEU_ARRONDISSEMENT_MUNICIPAL": "chef_lieu_arrondissement_municipal",
+    "CANTON": "canton",
+    "COLLECTIVITE_TERRITORIALE": "collectivite_territoriale",
+}
+
+# Mapping des territoires legacy vers les codes standards
+TERRITORY_TO_CODE = {
+    "france_metropolitaine": "FRA",
+    "france_entiere": "FXX",
 }
 
 
-class AdminExpressLoader(BaseLoader):
-    """Loader pour les données Admin Express COG de l'IGN.
+class AdminExpressLoader(ProductLoader):
+    """Loader spécialisé pour Admin Express COG.
 
-    Ce loader permet de:
-    - Télécharger les données Admin Express depuis l'IGN
-    - Charger les différentes couches dans PostgreSQL/PostGIS
+    Ce loader hérite de ProductLoader et ajoute des méthodes de commodité
+    pour charger spécifiquement les données Admin Express.
+
+    Example:
+        >>> loader = AdminExpressLoader()
+        >>> loader.load(territory="france_metropolitaine", year="2024")
+
+        >>> # Ou avec une variante spécifique
+        >>> loader = AdminExpressLoader(variant="carto")
+        >>> loader.load_communes()
     """
 
     def __init__(
         self,
+        variant: str = "cog",
+        catalog: ProductCatalog | None = None,
         db_manager: DatabaseManager | None = None,
         settings: Settings | None = None,
     ) -> None:
         """Initialise le loader Admin Express.
 
         Args:
+            variant: Variante du produit:
+                - "base" ou "express": ADMIN EXPRESS
+                - "cog": ADMIN EXPRESS COG (défaut)
+                - "carto": ADMIN EXPRESS COG CARTO
+                - "pe": ADMIN EXPRESS COG CARTO PE
+                - "plus" ou "plus-pe": ADMIN EXPRESS COG CARTO PLUS PE
+            catalog: Catalogue de produits.
             db_manager: Gestionnaire de base de données.
             settings: Configuration du module.
         """
-        super().__init__(db_manager, settings)
-        self.data_source = IGNDataSource(self.settings)
+        product = get_admin_express_product(variant)
+        if product is None:
+            # Fallback sur le produit par défaut
+            fallback = get_admin_express_product("cog")
+            if fallback is None:
+                raise LoaderError(f"Variante Admin Express inconnue: {variant}")
+            product = fallback
 
-    def load(
+        super().__init__(
+            product=product,
+            catalog=catalog,
+            db_manager=db_manager,
+            settings=settings,
+        )
+
+    def load(  # type: ignore[override]
         self,
         source_path: Path | None = None,
         layers: list[str] | None = None,
         territory: Territory = "france_metropolitaine",
         year: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
-        **_kwargs: Any,
+        file_format: FileFormat = FileFormat.SHP,
+        **kwargs: Any,
     ) -> int:
         """Charge les données Admin Express dans PostgreSQL.
+
+        Cette méthode surcharge la méthode parente pour maintenir
+        la rétrocompatibilité avec l'API existante.
 
         Args:
             source_path: Chemin vers le répertoire extrait (optionnel).
@@ -65,183 +117,217 @@ class AdminExpressLoader(BaseLoader):
             territory: Territoire à télécharger si source_path non fourni.
             year: Année des données.
             if_exists: Comportement si la table existe.
+            file_format: Format de fichier (SHP par défaut).
 
         Returns:
             Nombre total d'enregistrements chargés.
-
-        Raises:
-            LoaderError: En cas d'erreur de chargement.
         """
-        if source_path is None:
-            source_path = self._download_and_extract(territory, year)
+        # Conversion du territoire legacy vers le code standard
+        territory_code = TERRITORY_TO_CODE.get(territory, territory)
 
-        shapefiles = self.data_source.find_shapefiles(source_path)
-        if not shapefiles:
-            raise LoaderError(f"Aucun shapefile trouvé dans: {source_path}")
-
-        layers_to_load = layers or list(LAYER_TO_TABLE_KEY.keys())
-        total_loaded = 0
-
-        for layer in layers_to_load:
-            if layer not in shapefiles:
-                logger.warning("Couche non trouvée: %s", layer)
-                continue
-
-            count = self._load_layer(
-                layer=layer,
-                shapefile_path=shapefiles[layer],
-                if_exists=if_exists,
-            )
-            total_loaded += count
-
-        logger.info("Chargement terminé: %d entités au total", total_loaded)
-        return total_loaded
-
-    def _download_and_extract(self, territory: Territory, year: str) -> Path:
-        """Télécharge et extrait les données.
-
-        Args:
-            territory: Territoire à télécharger.
-            year: Année des données.
-
-        Returns:
-            Chemin vers le répertoire extrait.
-        """
-        archive_path = self.data_source.download(territory, year)
-        return self.data_source.extract(archive_path)
-
-    def _load_layer(
-        self,
-        layer: str,
-        shapefile_path: Path,
-        if_exists: Literal["replace", "append", "fail"] = "replace",
-    ) -> int:
-        """Charge une couche spécifique.
-
-        Args:
-            layer: Nom de la couche.
-            shapefile_path: Chemin vers le shapefile.
-            if_exists: Comportement si la table existe.
-
-        Returns:
-            Nombre d'enregistrements chargés.
-        """
-        logger.info("Chargement de la couche: %s", layer)
-
-        gdf = self.read_shapefile(shapefile_path)
-        gdf = self._prepare_geodataframe(gdf, layer)
-        gdf = self.reproject(gdf)
-        gdf = self.to_multipolygon(gdf)
-
-        table_key = LAYER_TO_TABLE_KEY.get(layer, layer.lower())
-        schema_config = self.settings.schema_config
-        table_name = schema_config.get_full_table_name(table_key)
-        schema_name = schema_config.get_schema_name()
-
-        return self.load_geodataframe(
-            gdf=gdf,
-            table_name=table_name,
-            schema=schema_name,
+        return super().load(
+            source_path=source_path,
+            file_format=file_format,
+            territory=territory_code,
+            year=year,
+            layers=layers,
             if_exists=if_exists,
+            **kwargs,
         )
 
-    def _prepare_geodataframe(
-        self,
-        gdf: gpd.GeoDataFrame,
-        layer: str,
-    ) -> gpd.GeoDataFrame:
-        """Prépare le GeoDataFrame pour le chargement.
-
-        Renomme les colonnes selon le mapping dynamique et ajoute les UIDs.
-
-        Args:
-            gdf: GeoDataFrame source.
-            layer: Nom de la couche.
-
-        Returns:
-            GeoDataFrame préparé.
-        """
-        table_factory = TableFactory(self.settings.schema_config)
-        column_mapping = table_factory.get_column_mapping(layer)
-
-        gdf = gdf.copy()
-
-        existing_cols = {
-            col: new_col for col, new_col in column_mapping.items() if col in gdf.columns
-        }
-        gdf = gdf.rename(columns=existing_cols)
-
-        gdf["uid"] = [uuid.uuid4() for _ in range(len(gdf))]
-
-        cols_to_keep = ["uid", *list(existing_cols.values()), "geometry"]
-        gdf = gdf[[col for col in cols_to_keep if col in gdf.columns]]
-
-        for col in gdf.columns:
-            if gdf[col].dtype == "object" and col not in ("geometry", "uid"):
-                gdf[col] = gdf[col].astype(str).replace("nan", None).replace("None", None)
-
-        return gdf
+    # =========================================================================
+    # Méthodes de commodité pour charger des couches spécifiques
+    # =========================================================================
 
     def load_regions(
         self,
         source_path: Path | None = None,
+        territory: Territory = "france_metropolitaine",
+        year: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
         """Charge uniquement les régions.
 
         Args:
             source_path: Chemin vers les données.
+            territory: Territoire à utiliser.
+            year: Année des données.
             if_exists: Comportement si la table existe.
 
         Returns:
             Nombre d'enregistrements chargés.
         """
-        return self.load(source_path=source_path, layers=["REGION"], if_exists=if_exists)
+        return self.load(
+            source_path=source_path,
+            layers=["REGION"],
+            territory=territory,
+            year=year,
+            if_exists=if_exists,
+        )
 
     def load_departements(
         self,
         source_path: Path | None = None,
+        territory: Territory = "france_metropolitaine",
+        year: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
         """Charge uniquement les départements.
 
         Args:
             source_path: Chemin vers les données.
+            territory: Territoire à utiliser.
+            year: Année des données.
             if_exists: Comportement si la table existe.
 
         Returns:
             Nombre d'enregistrements chargés.
         """
-        return self.load(source_path=source_path, layers=["DEPARTEMENT"], if_exists=if_exists)
+        return self.load(
+            source_path=source_path,
+            layers=["DEPARTEMENT"],
+            territory=territory,
+            year=year,
+            if_exists=if_exists,
+        )
 
     def load_communes(
         self,
         source_path: Path | None = None,
+        territory: Territory = "france_metropolitaine",
+        year: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
         """Charge uniquement les communes.
 
         Args:
             source_path: Chemin vers les données.
+            territory: Territoire à utiliser.
+            year: Année des données.
             if_exists: Comportement si la table existe.
 
         Returns:
             Nombre d'enregistrements chargés.
         """
-        return self.load(source_path=source_path, layers=["COMMUNE"], if_exists=if_exists)
+        return self.load(
+            source_path=source_path,
+            layers=["COMMUNE"],
+            territory=territory,
+            year=year,
+            if_exists=if_exists,
+        )
 
     def load_epci(
         self,
         source_path: Path | None = None,
+        territory: Territory = "france_metropolitaine",
+        year: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
         """Charge uniquement les EPCI.
 
         Args:
             source_path: Chemin vers les données.
+            territory: Territoire à utiliser.
+            year: Année des données.
             if_exists: Comportement si la table existe.
 
         Returns:
             Nombre d'enregistrements chargés.
         """
-        return self.load(source_path=source_path, layers=["EPCI"], if_exists=if_exists)
+        return self.load(
+            source_path=source_path,
+            layers=["EPCI"],
+            territory=territory,
+            year=year,
+            if_exists=if_exists,
+        )
+
+    def load_arrondissements(
+        self,
+        source_path: Path | None = None,
+        territory: Territory = "france_metropolitaine",
+        year: str = "2024",
+        if_exists: Literal["replace", "append", "fail"] = "replace",
+    ) -> int:
+        """Charge uniquement les arrondissements.
+
+        Args:
+            source_path: Chemin vers les données.
+            territory: Territoire à utiliser.
+            year: Année des données.
+            if_exists: Comportement si la table existe.
+
+        Returns:
+            Nombre d'enregistrements chargés.
+        """
+        return self.load(
+            source_path=source_path,
+            layers=["ARRONDISSEMENT"],
+            territory=territory,
+            year=year,
+            if_exists=if_exists,
+        )
+
+    def load_communes_associees(
+        self,
+        source_path: Path | None = None,
+        territory: Territory = "france_metropolitaine",
+        year: str = "2024",
+        if_exists: Literal["replace", "append", "fail"] = "replace",
+    ) -> int:
+        """Charge uniquement les communes associées ou déléguées.
+
+        Args:
+            source_path: Chemin vers les données.
+            territory: Territoire à utiliser.
+            year: Année des données.
+            if_exists: Comportement si la table existe.
+
+        Returns:
+            Nombre d'enregistrements chargés.
+        """
+        return self.load(
+            source_path=source_path,
+            layers=["COMMUNE_ASSOCIEE_OU_DELEGUEE"],
+            territory=territory,
+            year=year,
+            if_exists=if_exists,
+        )
+
+    def load_all_admin_layers(
+        self,
+        source_path: Path | None = None,
+        territory: Territory = "france_metropolitaine",
+        year: str = "2024",
+        if_exists: Literal["replace", "append", "fail"] = "replace",
+    ) -> int:
+        """Charge toutes les couches administratives de base.
+
+        Charge: REGION, DEPARTEMENT, ARRONDISSEMENT, EPCI, COMMUNE,
+        COMMUNE_ASSOCIEE_OU_DELEGUEE.
+
+        Args:
+            source_path: Chemin vers les données.
+            territory: Territoire à utiliser.
+            year: Année des données.
+            if_exists: Comportement si la table existe.
+
+        Returns:
+            Nombre total d'enregistrements chargés.
+        """
+        layers = [
+            "REGION",
+            "DEPARTEMENT",
+            "ARRONDISSEMENT",
+            "EPCI",
+            "COMMUNE",
+            "COMMUNE_ASSOCIEE_OU_DELEGUEE",
+        ]
+        return self.load(
+            source_path=source_path,
+            layers=layers,
+            territory=territory,
+            year=year,
+            if_exists=if_exists,
+        )

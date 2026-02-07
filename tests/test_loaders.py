@@ -9,6 +9,7 @@ from pgboundary.config import Settings
 from pgboundary.db.models import TableFactory
 from pgboundary.loaders.admin_express import AdminExpressLoader
 from pgboundary.loaders.base import BaseLoader
+from pgboundary.products.catalog import GeometryType, LayerConfig
 
 
 class TestBaseLoader:
@@ -78,10 +79,43 @@ class TestAdminExpressLoader:
             crs="EPSG:4326",
         )
 
+        # Créer un LayerConfig pour la couche REGION
+        region_layer = LayerConfig(
+            name="REGION",
+            table_key="region",
+            geometry_type=GeometryType.MULTIPOLYGON,
+            description_fr="Régions administratives",
+        )
+
         loader = AdminExpressLoader(settings=settings)
-        result = loader._prepare_geodataframe(gdf, "REGION")
+        result = loader._prepare_geodataframe(gdf, region_layer)
 
         # Les colonnes renommées utilisent les préfixes
         assert "lb_nom" in result.columns
         assert "cd_insee" in result.columns
         assert "EXTRA_COL" not in result.columns
+
+    def test_loader_has_product(self, settings: Settings) -> None:
+        """Teste que le loader a un produit associé."""
+        loader = AdminExpressLoader(settings=settings)
+
+        assert loader.product is not None
+        assert loader.product.id == "admin-express-cog"
+
+    def test_loader_variant_selection(self, settings: Settings) -> None:
+        """Teste la sélection de variante."""
+        loader_cog = AdminExpressLoader(variant="cog", settings=settings)
+        assert loader_cog.product.id == "admin-express-cog"
+
+        loader_carto = AdminExpressLoader(variant="carto", settings=settings)
+        assert loader_carto.product.id == "admin-express-cog-carto"
+
+    def test_list_available_layers(self, settings: Settings) -> None:
+        """Teste la liste des couches disponibles."""
+        loader = AdminExpressLoader(settings=settings)
+        layers = loader.list_available_layers()
+
+        assert "REGION" in layers
+        assert "DEPARTEMENT" in layers
+        assert "COMMUNE" in layers
+        assert "EPCI" in layers

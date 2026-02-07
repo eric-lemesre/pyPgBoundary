@@ -14,7 +14,6 @@ def settings() -> Settings:
     """Fixture pour la configuration de test."""
     return Settings(
         database_url="postgresql://test:test@localhost:5432/test_boundaries",
-        schema_name="test_admin_express",
         data_dir=Path("/tmp/pgboundary_test"),
     )
 
