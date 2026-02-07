@@ -7,6 +7,53 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Non publié]
 
+## [0.3.0] - 2026-02-07
+
+### Ajouté
+
+- **Système de comparaison géométrique combiné**
+  - Nouvelle méthode `COMBINED` (recommandée) qui combine IoU et Hausdorff
+  - Logique séquentielle : calcul IoU d'abord, puis Hausdorff si nécessaire
+  - Utilise Shapely pour toutes les opérations géométriques
+
+- **Matrice de décision pour la similarité**
+  - `IDENTICAL` [0.95 - 1.00] : Fusion automatique sans vérification
+  - `LIKELY_MATCH` [0.80 - 0.95] : Correspondance forte, validation si attributs diffèrent
+  - `SUSPECT` [0.50 - 0.80] : Conflit potentiel ou changement temporel
+  - `DISTINCT` [< 0.50] : Objets distincts
+
+- **Nouvelles structures de données** (`import_config.py`)
+  - `SimilarityLevel` : Énumération des 4 niveaux de similarité
+  - `SimilarityResult` : Résultat détaillé avec score IoU, distance Hausdorff, score combiné
+  - `SimilarityThresholds` : Seuils configurables de la matrice de décision
+
+- **Fonctions de calcul** (`geometry_compare.py`)
+  - `compute_combined_similarity()` : Logique séquentielle IoU puis Hausdorff
+  - `compute_similarity()` : Fonction principale retournant un `SimilarityResult`
+  - `_compute_combined_score()` : Score normalisé pondéré (70% IoU, 30% Hausdorff)
+
+- **Configuration des imports améliorée**
+  - Commandes CLI `config` : résumé, info, init, update, add-data
+  - Configuration YAML des produits à importer avec historisation
+  - Commande `load` avec sélection multiple interactive
+
+### Modifié
+
+- `SimilarityMethod` : Ajout de la méthode `COMBINED` (nouvelle valeur par défaut)
+- `HistorizationConfig` : Utilise maintenant `SimilarityThresholds` au lieu d'un simple seuil
+- `GeometryMatcher.find_matches()` : Retourne maintenant 4 listes
+  - `auto_matches` : Correspondances automatiques (IDENTICAL)
+  - `removed` : Features supprimées
+  - `added` : Features ajoutées
+  - `needs_validation` : Correspondances à valider (LIKELY_MATCH, SUSPECT)
+- `HistorizationManager` : Support des nouveaux seuils et de la méthode combinée
+
+### Déprécié
+
+- Paramètre `threshold` simple dans `HistorizationConfig` (utiliser `thresholds` à la place)
+- Paramètre `threshold` dans `GeometryMatcher` (utiliser `thresholds` à la place)
+- Fonction `compute_similarity_score()` (utiliser `compute_similarity()` à la place)
+
 ## [0.2.0] - 2026-02-07
 
 ### Ajouté

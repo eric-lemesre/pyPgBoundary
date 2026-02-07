@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pgboundary"
-version = "0.2.0"
+version = "0.3.0"
 description = "Module Python pour charger les limites administratives françaises dans PostgreSQL/PostGIS"
 readme = "README.md"
 license = "GPL-3.0-or-later"

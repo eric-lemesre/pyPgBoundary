@@ -27,7 +27,7 @@ from pgboundary.products import (
 )
 from pgboundary.schema_config import SchemaConfig, StorageMode
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __all__ = [
     # Loaders
     "AdminExpressLoader",
