@@ -11,7 +11,7 @@ import pytest
 
 from pgboundary.config import Settings
 from pgboundary.db.connection import DatabaseManager
-from pgboundary.exceptions import ConnectionError, SchemaError
+from pgboundary.exceptions import ConnectionError, DatabaseNotFoundError, SchemaError
 
 
 class TestDatabaseManagerInit:
@@ -435,3 +435,165 @@ class TestDatabaseManagerClose:
         manager.close()
 
         assert manager._engine is None
+
+
+class TestDatabaseManagerDatabaseHelpers:
+    """Tests pour les méthodes helper de gestion de base de données."""
+
+    def test_get_database_name(self, settings: Settings) -> None:
+        """Test extraction du nom de la base depuis l'URL."""
+        manager = DatabaseManager(settings=settings)
+
+        # La fixture settings utilise postgresql://postgres:postgres@localhost:5432/test_boundaries
+        db_name = manager._get_database_name()
+        assert db_name == "test_boundaries"
+
+    def test_get_admin_url(self, settings: Settings) -> None:
+        """Test construction de l'URL admin (base postgres)."""
+        manager = DatabaseManager(settings=settings)
+
+        admin_url = manager._get_admin_url()
+        assert "postgres" in admin_url
+        assert "/postgres" in admin_url
+
+
+class TestDatabaseManagerCheckConnectionDatabaseNotFound:
+    """Tests pour la détection de base de données inexistante."""
+
+    def test_check_connection_database_not_found(self, settings: Settings) -> None:
+        """Test que DatabaseNotFoundError est levée si la base n'existe pas."""
+        manager = DatabaseManager(settings=settings)
+
+        with patch("pgboundary.db.connection.create_engine") as mock_create:
+            mock_engine = MagicMock()
+            mock_conn = MagicMock()
+            mock_conn.execute.side_effect = Exception('database "nonexistent" does not exist')
+
+            mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
+            mock_create.return_value = mock_engine
+
+            with pytest.raises(DatabaseNotFoundError) as exc_info:
+                manager.check_connection()
+
+            assert "n'existe pas" in str(exc_info.value)
+
+
+class TestDatabaseManagerDatabaseExists:
+    """Tests pour database_exists."""
+
+    def test_database_exists_true(self, settings: Settings) -> None:
+        """Test database_exists retourne True si la base existe."""
+        manager = DatabaseManager(settings=settings)
+
+        with patch("pgboundary.db.connection.create_engine") as mock_create:
+            mock_engine = MagicMock()
+            mock_conn = MagicMock()
+            mock_result = MagicMock()
+            mock_result.scalar.return_value = 1  # Base existe
+
+            mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
+            mock_conn.execute.return_value = mock_result
+            mock_create.return_value = mock_engine
+
+            exists = manager.database_exists()
+
+            assert exists is True
+
+    def test_database_exists_false(self, settings: Settings) -> None:
+        """Test database_exists retourne False si la base n'existe pas."""
+        manager = DatabaseManager(settings=settings)
+
+        with patch("pgboundary.db.connection.create_engine") as mock_create:
+            mock_engine = MagicMock()
+            mock_conn = MagicMock()
+            mock_result = MagicMock()
+            mock_result.scalar.return_value = None  # Base n'existe pas
+
+            mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
+            mock_conn.execute.return_value = mock_result
+            mock_create.return_value = mock_engine
+
+            exists = manager.database_exists()
+
+            assert exists is False
+
+    def test_database_exists_error(self, settings: Settings) -> None:
+        """Test database_exists retourne False en cas d'erreur de connexion."""
+        manager = DatabaseManager(settings=settings)
+
+        with patch("pgboundary.db.connection.create_engine") as mock_create:
+            mock_create.side_effect = Exception("Connection refused")
+
+            exists = manager.database_exists()
+
+            assert exists is False
+
+
+class TestDatabaseManagerCreateDatabase:
+    """Tests pour create_database."""
+
+    def test_create_database_success(self, settings: Settings) -> None:
+        """Test création de base de données réussie."""
+        manager = DatabaseManager(settings=settings)
+
+        with patch("pgboundary.db.connection.create_engine") as mock_create:
+            mock_engine = MagicMock()
+            mock_conn = MagicMock()
+            mock_result = MagicMock()
+            mock_result.scalar.return_value = None  # Base n'existe pas encore
+
+            mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
+            mock_conn.execute.return_value = mock_result
+            mock_create.return_value = mock_engine
+
+            manager.create_database()
+
+            # Vérifier que CREATE DATABASE a été appelé
+            assert mock_conn.execute.call_count >= 2  # SELECT + CREATE
+
+    def test_create_database_already_exists(self, settings: Settings) -> None:
+        """Test création quand la base existe déjà (pas d'erreur)."""
+        manager = DatabaseManager(settings=settings)
+
+        with patch("pgboundary.db.connection.create_engine") as mock_create:
+            mock_engine = MagicMock()
+            mock_conn = MagicMock()
+            mock_result = MagicMock()
+            mock_result.scalar.return_value = 1  # Base existe déjà
+
+            mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
+            mock_conn.execute.return_value = mock_result
+            mock_create.return_value = mock_engine
+
+            # Pas d'erreur
+            manager.create_database()
+
+            # Un seul appel (SELECT pour vérifier)
+            assert mock_conn.execute.call_count == 1
+
+    def test_create_database_failure(self, settings: Settings) -> None:
+        """Test échec de création de base de données."""
+        manager = DatabaseManager(settings=settings)
+
+        with patch("pgboundary.db.connection.create_engine") as mock_create:
+            mock_engine = MagicMock()
+            mock_conn = MagicMock()
+            mock_result = MagicMock()
+            mock_result.scalar.return_value = None  # Base n'existe pas
+
+            # Premier appel OK (SELECT), deuxième échoue (CREATE)
+            mock_conn.execute.side_effect = [mock_result, Exception("Permission denied")]
+
+            mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
+            mock_create.return_value = mock_engine
+
+            with pytest.raises(SchemaError) as exc_info:
+                manager.create_database()
+
+            assert "Impossible de créer la base de données" in str(exc_info.value)
