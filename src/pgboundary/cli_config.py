@@ -409,17 +409,41 @@ def _update_imports(config: SchemaConfig) -> None:
 
 def _modify_product_config(config: SchemaConfig, product_id: str) -> None:
     """Modifie la configuration d'un produit."""
+    from pgboundary.cli_widgets import select_layers, select_years
+
     prod_config = config.imports[product_id]
+    catalog = get_default_catalog()
+    product = catalog.get(product_id)
 
     console.print(f"\n[bold]Modification de {product_id}[/bold]")
 
-    # Années
+    # Couches (si le produit est connu)
+    if product:
+        current_layers = prod_config.get("layers", [])
+        # Si liste vide = toutes les couches
+        if not current_layers:
+            current_layers = [layer.name for layer in product.layers]
+
+        layers_data = [(layer.name, layer.description_fr or layer.name) for layer in product.layers]
+
+        layers_result = select_layers(layers_data, preselected=current_layers)
+        if layers_result.cancelled:
+            console.print("[yellow]Modification annulée[/yellow]")
+            return
+
+        # Si toutes les couches sont sélectionnées, stocker une liste vide
+        if len(layers_result.selected_values) == len(product.layers):
+            prod_config["layers"] = []
+        else:
+            prod_config["layers"] = layers_result.selected_values
+
+    # Années (checkbox interactif)
     current_years = prod_config.get("years", ["2024"])
-    years_str = Prompt.ask(
-        "Années (séparées par des virgules)",
-        default=",".join(current_years),
-    )
-    prod_config["years"] = [y.strip() for y in years_str.split(",")]
+    years_result = select_years(preselected=current_years)
+    if years_result.cancelled:
+        console.print("[yellow]Modification annulée[/yellow]")
+        return
+    prod_config["years"] = years_result.selected_values
 
     # Territoire
     prod_config["territory"] = Prompt.ask(
@@ -458,6 +482,8 @@ def _modify_product_config(config: SchemaConfig, product_id: str) -> None:
         )
     else:
         prod_config["historization"] = {"enabled": False}
+
+    console.print(f"[green]Configuration de {product_id} mise à jour[/green]")
 
 
 @data_app.command(name="add")
@@ -952,31 +978,34 @@ def _select_product_from_category(
 
 def _configure_product(config: SchemaConfig, product: IGNProduct) -> None:
     """Configure un produit pour l'import."""
+    from pgboundary.cli_widgets import select_layers, select_years
+
     console.print()
     console.print(Panel.fit(f"[bold blue]{product.name}[/bold blue]"))
     console.print(f"[dim]{product.description_fr}[/dim]")
     console.print()
 
-    # Afficher les couches disponibles
-    console.print("[bold]Couches disponibles :[/bold]")
-    tree = Tree(f"[cyan]{product.id}[/cyan]")
-    for layer in product.layers:
-        layer_desc = layer.description_fr or layer.name
-        tree.add(f"{layer.name} - [dim]{layer_desc}[/dim]")
-    console.print(tree)
-    console.print()
+    # Sélectionner les couches (checkbox interactif)
+    layers_data = [(layer.name, layer.description_fr or layer.name) for layer in product.layers]
 
-    # Sélectionner les couches
-    all_layers = [layer.name for layer in product.layers]
-    console.print("Couches à importer (séparées par des virgules, ou 'all' pour toutes) :")
-    layers_input = Prompt.ask("Couches", default="all")
+    layers_result = select_layers(layers_data)
+    if layers_result.cancelled:
+        console.print("[yellow]Configuration annulée[/yellow]")
+        return
 
-    if layers_input.lower() == "all":
+    # Si toutes les couches sont sélectionnées, stocker une liste vide (= toutes)
+    if len(layers_result.selected_values) == len(product.layers):
         selected_layers: list[str] = []
     else:
-        selected_layers = [
-            layer.strip() for layer in layers_input.split(",") if layer.strip() in all_layers
-        ]
+        selected_layers = layers_result.selected_values
+
+    # Sélectionner les millésimes (checkbox interactif)
+    years_result = select_years()
+    if years_result.cancelled:
+        console.print("[yellow]Configuration annulée[/yellow]")
+        return
+
+    years = years_result.selected_values
 
     # Territoire
     territories = [t.value for t in product.territories]
@@ -992,10 +1021,6 @@ def _configure_product(config: SchemaConfig, product: IGNProduct) -> None:
         choices=formats,
         default=formats[0] if formats else "shp",
     )
-
-    # Années
-    years_input = Prompt.ask("Années (séparées par des virgules)", default="2024")
-    years = [y.strip() for y in years_input.split(",")]
 
     # Historisation
     hist_config: dict[str, Any] = {"enabled": False}

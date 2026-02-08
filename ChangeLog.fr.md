@@ -55,6 +55,14 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - Actions rapides : activer/désactiver, configurer, ajouter, supprimer des produits
   - Affiche les années configurées, le nombre d'entités et le statut d'injection
 
+- **Sélection par cases à cocher pour couches et millésimes**
+  - Nouveau module `cli_widgets.py` avec composant checkbox réutilisable
+  - Touches fléchées (↑↓) pour naviguer, Espace pour cocher, Entrée pour valider, Échap pour annuler
+  - `a` pour tout sélectionner, `n` pour tout désélectionner
+  - Millésimes : liste prédéfinie des 5 dernières années
+  - Couches : liste à cocher avec descriptions
+  - Nouvelle dépendance : `readchar>=4.0.0`
+
 ## [0.4.0] - 2026-02-08
 
 ### Ajouté

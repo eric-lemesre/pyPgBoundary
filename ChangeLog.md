@@ -55,6 +55,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Quick actions: enable/disable, configure, add, remove products
   - Shows configured years, entity counts, and injection status
 
+- **Interactive checkbox selection for layers and years**
+  - New `cli_widgets.py` module with reusable checkbox component
+  - Arrow keys (↑↓) to navigate, Space to toggle, Enter to validate, Escape to cancel
+  - `a` to select all, `n` to deselect all
+  - Years: predefined list of last 5 years with checkbox selection
+  - Layers: checkbox list with descriptions
+  - New dependency: `readchar>=4.0.0`
+
 ## [0.4.0] - 2026-02-08
 
 ### Added
