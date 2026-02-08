@@ -145,6 +145,10 @@ class TableNames(BaseModel):
         default="circonscription_legislative",
         description="Table des circonscriptions législatives",
     )
+    bureau_vote: str = Field(
+        default="bureau_vote",
+        description="Table des bureaux de vote",
+    )
 
 
 class LayerTableOverride(BaseModel):

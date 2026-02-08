@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **New product: Polling Stations (Bureaux de Vote)**
+  - Product `bureaux-de-vote` (~69,000 polling stations in France)
+  - Source: data.gouv.fr / Etalab (Voronoi contours from REU)
+  - Format: GeoJSON (645 MB)
+  - Vintage: September 2022
+
 - **Custom table names per product/layer**
   - Table name overrides configurable in YAML (`table_overrides` section)
   - CLI option `--table-name` / `-T` for `load-product` command (highest priority)

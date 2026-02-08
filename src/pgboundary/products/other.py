@@ -418,6 +418,49 @@ CIRCONSCRIPTIONS_LEGISLATIVES = IGNProduct(
 )
 
 
+# =============================================================================
+# BUREAUX DE VOTE
+# =============================================================================
+BUREAU_VOTE_LAYERS = [
+    LayerConfig(
+        name="BUREAU_DE_VOTE",
+        table_key="bureau_vote",
+        geometry_type=GeometryType.MULTIPOLYGON,
+        description_fr="Contours des bureaux de vote (environ 69 000 en France)",
+        description_en="Polling station boundaries (approximately 69,000 in France)",
+    ),
+]
+
+BUREAUX_DE_VOTE = IGNProduct(
+    id="bureaux-de-vote",
+    name="Bureaux de Vote",
+    description_fr=(
+        "Contours approximatifs des bureaux de vote français générés par diagrammes "
+        "de Voronoï à partir des adresses du Répertoire Électoral Unique (REU). "
+        "Source: data.gouv.fr / Etalab. Millésime septembre 2022. "
+        "Environ 69 000 bureaux de vote couvrant la France entière."
+    ),
+    description_en=(
+        "Approximate boundaries of French polling stations generated using Voronoi "
+        "diagrams from addresses in the Single Electoral Register (REU). "
+        "Source: data.gouv.fr / Etalab. Vintage September 2022. "
+        "Approximately 69,000 polling stations covering all of France."
+    ),
+    category=ProductCategory.ELECTORAL,
+    formats=[FileFormat.GPKG],  # GeoJSON converti en GPKG pour compatibilité
+    territories=[TerritoryCode.FRA],
+    layers=BUREAU_VOTE_LAYERS,
+    # Source: data.gouv.fr (contours Voronoï Etalab)
+    url_template=(
+        "https://object.files.data.gouv.fr/data-pipeline-open/reu/"
+        "contours-france-entiere-latest-v2.geojson"
+    ),
+    version_pattern="2022",
+    archive_extension="geojson",  # Téléchargement direct, pas d'archive
+    size_mb=645,
+)
+
+
 # Liste de tous les autres produits
 OTHER_PRODUCTS: list[IGNProduct] = [
     CONTOURS_IRIS,
@@ -428,4 +471,5 @@ OTHER_PRODUCTS: list[IGNProduct] = [
     BAN_PLUS,
     BCAE,
     CIRCONSCRIPTIONS_LEGISLATIVES,
+    BUREAUX_DE_VOTE,
 ]

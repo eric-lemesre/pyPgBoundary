@@ -11,6 +11,12 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Ajouté
 
+- **Nouveau produit : Bureaux de Vote**
+  - Produit `bureaux-de-vote` (~69 000 bureaux de vote en France)
+  - Source : data.gouv.fr / Etalab (contours Voronoï depuis le REU)
+  - Format : GeoJSON (645 Mo)
+  - Millésime : septembre 2022
+
 - **Noms de tables personnalisés par produit/couche**
   - Configuration des overrides de tables dans le YAML (section `table_overrides`)
   - Option CLI `--table-name` / `-T` pour la commande `load-product` (priorité maximale)
