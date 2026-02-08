@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Shell completion** (`pgboundary completion`)
+  - Support for bash, zsh, fish, and PowerShell
+  - Subcommands: `install`, `show`, `status`
+  - Auto-detection of current shell
+  - Global options `--install-completion` / `--show-completion`
+
 ## [0.4.0] - 2026-02-08
 
 ### Added

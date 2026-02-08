@@ -188,6 +188,7 @@ srid: 4326
 | `pgboundary products` | Lister les produits IGN disponibles |
 | `pgboundary product-info` | Afficher les détails d'un produit |
 | `pgboundary load-product` | Charger un produit spécifique |
+| `pgboundary completion` | Gérer la complétion shell |
 
 **Note** : Une indication de la base de données active s'affiche en haut de chaque commande. Utilisez `-q` pour la désactiver.
 
@@ -309,6 +310,27 @@ pgboundary load-product admin-express-cog --verbose
 | `--verbose`, `-V` | Active le mode verbeux (logging DEBUG) |
 | `--config`, `-c` | Chemin du fichier de configuration |
 | `--database-url`, `-d` | URL de connexion PostgreSQL |
+| `--quiet`, `-q` | Désactive l'affichage du statut de la base |
+| `--install-completion` | Installe la complétion shell |
+| `--show-completion` | Affiche le script de complétion shell |
+
+### Complétion Shell (`pgboundary completion`)
+
+Active la complétion par tabulation pour bash, zsh, fish ou PowerShell.
+
+```bash
+# Installation rapide (détecte le shell automatiquement)
+pgboundary completion install
+
+# Afficher le script de complétion pour un shell spécifique
+pgboundary completion show bash
+pgboundary completion show zsh
+pgboundary completion show fish
+pgboundary completion show powershell
+
+# Vérifier le statut de la complétion pour tous les shells
+pgboundary completion status
+```
 
 ## API Python
 

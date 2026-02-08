@@ -186,6 +186,7 @@ srid: 4326
 | `pgboundary products` | List available IGN products |
 | `pgboundary product-info` | Show product details |
 | `pgboundary load-product` | Load a specific product |
+| `pgboundary completion` | Manage shell completion |
 
 **Note**: A database indicator is displayed at the top of each command. Use `-q` to disable it.
 
@@ -254,6 +255,26 @@ pgboundary load-product admin-express-cog --replace     # Replace tables
 | `--config`, `-c` | Configuration file path |
 | `--database-url`, `-d` | PostgreSQL connection URL |
 | `--quiet`, `-q` | Disable database status display |
+| `--install-completion` | Install shell completion |
+| `--show-completion` | Show shell completion script |
+
+### Shell Completion (`pgboundary completion`)
+
+Enable tab-completion for bash, zsh, fish, or PowerShell.
+
+```bash
+# Quick install (auto-detects shell)
+pgboundary completion install
+
+# Show completion script for a specific shell
+pgboundary completion show bash
+pgboundary completion show zsh
+pgboundary completion show fish
+pgboundary completion show powershell
+
+# Check completion status for all shells
+pgboundary completion status
+```
 
 ## Python API
 

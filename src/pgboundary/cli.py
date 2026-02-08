@@ -45,13 +45,15 @@ from pgboundary.sources.ign import IGNDataSource
 app = typer.Typer(
     name="pgboundary",
     help="Chargement des limites administratives françaises dans PostgreSQL/PostGIS.",
-    add_completion=False,
+    add_completion=True,
 )
 
-# Importer et ajouter les sous-commandes de configuration
+# Importer et ajouter les sous-commandes
+from pgboundary.cli_completion import completion_app  # noqa: E402
 from pgboundary.cli_config import config_app  # noqa: E402
 
 app.add_typer(config_app, name="config")
+app.add_typer(completion_app, name="completion")
 console = Console()
 
 
