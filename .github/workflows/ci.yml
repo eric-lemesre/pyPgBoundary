@@ -27,7 +27,7 @@ concurrency:
 jobs:
   # ===========================================================================
   # Linting & Formatting
-  # FR: Vérifie le style de code avec ruff
+  # FR: Vérifie le style de code avec ruff (sans auto-fix)
   # ===========================================================================
   lint:
     name: Lint & Format
@@ -43,33 +43,11 @@ jobs:
       - name: Install ruff
         run: pip install ruff
 
-      - name: Run ruff linter with auto-fix
-        run: ruff check src/ tests/ --fix --show-fixes
-        continue-on-error: true
+      - name: Run ruff linter
+        run: ruff check src/ tests/ --output-format=full
 
-      - name: Run ruff formatter
-        run: ruff format src/ tests/
-
-      - name: Check for changes
-        id: changes
-        run: |
-          if git diff --quiet; then
-            echo "has_changes=false" >> "$GITHUB_OUTPUT"
-            echo "✅ Aucune modification nécessaire"
-          else
-            echo "has_changes=true" >> "$GITHUB_OUTPUT"
-            echo "📝 Modifications détectées:"
-            git diff --stat
-          fi
-
-      - name: Commit and push changes
-        if: steps.changes.outputs.has_changes == 'true'
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add -A
-          git commit -m "style: auto-fix code formatting (ruff)"
-          git push
+      - name: Check ruff formatting
+        run: ruff format --check --diff src/ tests/
 
   # ===========================================================================
   # Type Checking
