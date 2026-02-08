@@ -7,13 +7,13 @@ name: CI
 
 on:
   push:
-    branches: [master, main]
+    branches: [master, devel]
     paths:
       - "src/**"
       - "tests/**"
       - "pyproject.toml"
   pull_request:
-    branches: [master, main]
+    branches: [master, devel]
     paths:
       - "src/**"
       - "tests/**"
