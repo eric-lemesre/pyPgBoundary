@@ -159,6 +159,9 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-v --cov=pgboundary --cov-report=term-missing"
+markers = [
+    "integration: tests d'intégration nécessitant PostgreSQL/PostGIS (désélectionner avec '-m \"not integration\"')",
+]
 
 # =============================================================================
 # Coverage
