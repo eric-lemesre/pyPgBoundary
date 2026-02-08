@@ -18,6 +18,12 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - `ChangeLog.fr.md` (français)
   - Liens croisés entre les versions
 
+### Corrigé
+
+- **Fix #1 :** `save_config()` sérialise les enums correctement
+  - Utilisation de `model_dump(mode="json")` pour convertir les enums en chaînes
+  - Évite `ConstructorError` lors du chargement YAML avec `safe_load()`
+
 ## [0.3.0] - 2026-02-07
 
 ### Ajouté

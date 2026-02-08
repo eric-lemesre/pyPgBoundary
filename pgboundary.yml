@@ -1,6 +1,5 @@
 storage:
-  mode: !!python/object/apply:pgboundary.schema_config.StorageMode
-  - schema
+  mode: schema
   schema_name: geo
   table_prefix: geo_
 field_prefixes:

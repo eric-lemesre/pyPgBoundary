@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ChangeLog.fr.md` (French)
   - Cross-links between versions
 
+### Fixed
+- **Fix #1 :** `save_config()` serializes enums correctly
+  - Use `model_dump(mode="json")` to convert enums to strings
+  - Prevents `ConstructorError` when loading YAML with `safe_load()`
+
 ## [0.3.0] - 2026-02-07
 
 ### Added
