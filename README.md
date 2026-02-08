@@ -214,8 +214,10 @@ pgboundary config init --force     # Overwrite existing file
 pgboundary config update           # Modify existing configuration
 pgboundary config db               # Configure database connection
 
-# Product management
-pgboundary config data add                          # Interactive mode
+# Product management (interactive tree view)
+pgboundary config data                              # Tree view (default)
+pgboundary config data update                       # Same, interactive navigation
+pgboundary config data add                          # Add products
 pgboundary config data remove                       # Interactive mode
 pgboundary config data remove admin-express-cog     # Direct removal
 pgboundary config data remove prod1 prod2 prod3     # Multiple removal

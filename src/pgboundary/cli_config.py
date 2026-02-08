@@ -6,6 +6,8 @@ Ce module fournit les sous-commandes de configuration :
 - config init : création interactive
 - config update : modification interactive
 - config db : configuration de la connexion à la base de données
+- config data : gestion interactive des produits (arborescence)
+- config data update : modification interactive via arborescence (défaut)
 - config data add : ajout de produits à importer
 - config data remove : suppression de produits
 """
@@ -46,6 +48,15 @@ console = Console()
 config_app = typer.Typer(help="Gestion de la configuration pgBoundary")
 data_app = typer.Typer(help="Gestion des produits à importer")
 config_app.add_typer(data_app, name="data")
+
+
+@data_app.callback(invoke_without_command=True)
+def data_main(ctx: typer.Context) -> None:
+    """Gestion interactive des produits (action par défaut: update)."""
+    if ctx.invoked_subcommand is not None:
+        return
+    # Par défaut, lancer data update
+    data_update()
 
 
 def _get_config_path() -> Path:
@@ -512,6 +523,199 @@ def data_remove(
         _remove_products_interactive(config)
         save_config(config, config_path)
         console.print(f"[green]Configuration sauvegardée: {config_path}[/green]")
+
+
+@data_app.command(name="update")
+def data_update() -> None:
+    """Modifie les produits via une arborescence interactive.
+
+    Affiche tous les produits par catégorie avec leur statut
+    et permet d'activer, désactiver, configurer ou supprimer.
+    """
+    config_path = _get_config_path()
+
+    if not config_path.exists():
+        console.print("[yellow]Fichier de configuration non trouvé.[/yellow]")
+        console.print("Création d'une configuration par défaut...")
+        config = SchemaConfig()
+    else:
+        config = load_config(config_path)
+
+    catalog = get_default_catalog()
+
+    while True:
+        console.print()
+        _display_products_tree(config, catalog)
+        console.print()
+
+        console.print("[bold]Actions disponibles :[/bold]")
+        console.print("  [cyan]<num>[/cyan]  : Sélectionner un produit par numéro")
+        console.print("  [cyan]a[/cyan]      : Ajouter un nouveau produit")
+        console.print("  [cyan]q[/cyan]      : Quitter et sauvegarder")
+        console.print()
+
+        choice = Prompt.ask("Choix", default="q")
+
+        if choice.lower() == "q":
+            break
+        elif choice.lower() == "a":
+            _add_products_interactive(config)
+        else:
+            try:
+                product_num = int(choice)
+                _select_product_by_number(config, catalog, product_num)
+            except ValueError:
+                console.print("[red]Choix invalide[/red]")
+
+    save_config(config, config_path)
+    console.print(f"[green]Configuration sauvegardée: {config_path}[/green]")
+
+
+def _display_products_tree(config: SchemaConfig, catalog: Any) -> None:
+    """Affiche l'arborescence des produits par catégorie."""
+
+    # Grouper par catégorie
+    categories: dict[str, list[IGNProduct]] = {}
+    for product in catalog:
+        cat = product.category.value
+        categories.setdefault(cat, []).append(product)
+
+    # Créer l'arbre
+    tree = Tree("[bold blue]Produits disponibles[/bold blue]")
+
+    product_counter = 0
+    for cat_name in sorted(categories.keys()):
+        products = categories[cat_name]
+
+        # Compter les produits configurés dans cette catégorie
+        configured_count = sum(1 for p in products if p.id in config.imports)
+        cat_label = f"[bold]{cat_name}[/bold] ({configured_count}/{len(products)} configurés)"
+        cat_branch = tree.add(cat_label)
+
+        for product in products:
+            product_counter += 1
+            prod_config = config.imports.get(product.id)
+
+            if prod_config:
+                # Produit configuré
+                enabled = prod_config.get("enabled", True)
+                status = "[green]✓ activé[/green]" if enabled else "[yellow]○ désactivé[/yellow]"
+
+                # Infos supplémentaires
+                years = prod_config.get("years", [])
+                years_str = f" ({', '.join(years)})" if years else ""
+
+                injection = prod_config.get("injection", {})
+                if injection.get("injected"):
+                    count = injection.get("count", 0)
+                    inject_str = f" [dim]→ {count:,} entités[/dim]"
+                else:
+                    inject_str = ""
+
+                label = f"[cyan]{product_counter:2}[/cyan] {product.name} {status}{years_str}{inject_str}"
+            else:
+                # Produit non configuré
+                size_str = _format_size(product.size_mb)
+                label = f"[dim]{product_counter:2}[/dim] {product.name} [dim]({size_str})[/dim]"
+
+            cat_branch.add(label)
+
+    console.print(tree)
+
+
+def _format_size(size_mb: int | float | None) -> str:
+    """Formate la taille en unité appropriée."""
+    if size_mb is None:
+        return "?"
+    if size_mb >= 1024:
+        return f"{size_mb / 1024:.1f} Go"
+    return f"{size_mb} Mo"
+
+
+def _select_product_by_number(config: SchemaConfig, catalog: Any, num: int) -> None:
+    """Sélectionne un produit par son numéro et affiche les actions."""
+
+    # Trouver le produit par numéro
+    categories: dict[str, list[IGNProduct]] = {}
+    for product in catalog:
+        cat = product.category.value
+        categories.setdefault(cat, []).append(product)
+
+    product_counter = 0
+    target_product: IGNProduct | None = None
+
+    for cat_name in sorted(categories.keys()):
+        for product in categories[cat_name]:
+            product_counter += 1
+            if product_counter == num:
+                target_product = product
+                break
+        if target_product:
+            break
+
+    if not target_product:
+        console.print(f"[red]Produit #{num} non trouvé[/red]")
+        return
+
+    # Afficher les infos du produit
+    console.print()
+    console.print(Panel.fit(f"[bold blue]{target_product.name}[/bold blue]"))
+    console.print(f"[dim]{target_product.description_fr}[/dim]")
+    console.print()
+
+    prod_config = config.imports.get(target_product.id)
+
+    if prod_config:
+        # Produit configuré - afficher le statut et les actions
+        enabled = prod_config.get("enabled", True)
+        status = "[green]activé[/green]" if enabled else "[yellow]désactivé[/yellow]"
+        console.print(f"Statut: {status}")
+
+        years = prod_config.get("years", [])
+        if years:
+            console.print(f"Années: {', '.join(years)}")
+
+        territory = prod_config.get("territory", "FRA")
+        console.print(f"Territoire: {territory}")
+
+        layers = prod_config.get("layers", [])
+        if layers:
+            console.print(f"Couches: {', '.join(layers)}")
+        else:
+            console.print("Couches: toutes")
+
+        console.print()
+        console.print("[bold]Actions :[/bold]")
+        toggle_action = "d" if enabled else "e"
+        toggle_label = "Désactiver" if enabled else "Activer"
+        console.print(f"  [cyan]{toggle_action}[/cyan] : {toggle_label}")
+        console.print("  [cyan]m[/cyan] : Modifier la configuration")
+        console.print("  [cyan]s[/cyan] : Supprimer de la configuration")
+        console.print("  [cyan]q[/cyan] : Retour")
+        console.print()
+
+        action = Prompt.ask("Action", choices=[toggle_action, "m", "s", "q"], default="q")
+
+        if action == toggle_action:
+            config.imports[target_product.id]["enabled"] = not enabled
+            new_status = "activé" if not enabled else "désactivé"
+            console.print(f"[green]Produit {new_status}[/green]")
+        elif action == "m":
+            _modify_product_config(config, target_product.id)
+        elif action == "s":
+            if Confirm.ask(f"Supprimer [cyan]{target_product.id}[/cyan] de la configuration ?"):
+                del config.imports[target_product.id]
+                console.print("[green]Produit supprimé[/green]")
+    else:
+        # Produit non configuré - proposer d'ajouter
+        size_str = _format_size(target_product.size_mb)
+        console.print(f"Taille: {size_str}")
+        console.print(f"Formats: {', '.join(f.value for f in target_product.formats)}")
+        console.print(f"Territoires: {', '.join(t.value for t in target_product.territories)}")
+        console.print()
+
+        if Confirm.ask("Ajouter ce produit à la configuration ?", default=True):
+            _configure_product(config, target_product)
 
 
 @config_app.command(name="sync-product")

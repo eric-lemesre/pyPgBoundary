@@ -49,6 +49,12 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - Commandes groupées en panels : Configuration, Produits & Données, Utilitaires
   - Ordre chronologique correspondant au workflow typique d'utilisation
 
+- **Gestion interactive des produits** (`pgboundary config data`)
+  - Vue arborescente de tous les produits par catégorie avec indicateurs de statut
+  - `config data` ou `config data update` : navigation arborescente interactive (défaut)
+  - Actions rapides : activer/désactiver, configurer, ajouter, supprimer des produits
+  - Affiche les années configurées, le nombre d'entités et le statut d'injection
+
 ## [0.4.0] - 2026-02-08
 
 ### Ajouté

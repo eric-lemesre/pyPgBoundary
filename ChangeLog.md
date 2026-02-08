@@ -49,6 +49,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Commands grouped into panels: Configuration, Products & Data, Utilities
   - Chronological order matching typical usage workflow
 
+- **Interactive product management** (`pgboundary config data`)
+  - Tree view of all products by category with status indicators
+  - `config data` or `config data update`: interactive tree navigation (default)
+  - Quick actions: enable/disable, configure, add, remove products
+  - Shows configured years, entity counts, and injection status
+
 ## [0.4.0] - 2026-02-08
 
 ### Added

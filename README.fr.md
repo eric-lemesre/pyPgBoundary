@@ -225,8 +225,10 @@ pgboundary config update
 # Configurer la connexion à la base de données
 pgboundary config db
 
-# Gestion des produits à importer
-pgboundary config data add                          # Mode interactif
+# Gestion des produits à importer (arborescence interactive)
+pgboundary config data                              # Vue arborescente (défaut)
+pgboundary config data update                       # Idem, navigation interactive
+pgboundary config data add                          # Ajouter des produits
 pgboundary config data remove                       # Mode interactif
 pgboundary config data remove admin-express-cog     # Suppression directe
 pgboundary config data remove prod1 prod2 prod3     # Suppression multiple
