@@ -24,7 +24,7 @@ pyPgBoundary automates the download and import of French administrative boundary
 
 ## Supported IGN Products
 
-pyPgBoundary supports 17 IGN products organized in 6 categories.
+pyPgBoundary supports 18 products organized in 6 categories.
 
 ### Administrative Boundaries
 
@@ -49,6 +49,7 @@ pyPgBoundary supports 17 IGN products organized in 6 categories.
 | Product | Size | Description |
 |---------|-----:|-------------|
 | `circonscriptions-legislatives` | 10 MB | Legislative constituencies (577 in France, 2012 redistricting) |
+| `bureaux-de-vote` | 645 MB | Polling station boundaries (~69,000, Voronoi from REU) |
 
 ### Land Cover
 

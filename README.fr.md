@@ -26,7 +26,7 @@ avec l'extension PostGIS.
 
 ## Produits IGN supportés
 
-pyPgBoundary supporte 17 produits de l'IGN organisés en 6 catégories.
+pyPgBoundary supporte 18 produits organisés en 6 catégories.
 
 ### Limites administratives
 
@@ -51,6 +51,7 @@ pyPgBoundary supporte 17 produits de l'IGN organisés en 6 catégories.
 | Produit | Taille | Description |
 |---------|-------:|-------------|
 | `circonscriptions-legislatives` | 10 Mo | Circonscriptions législatives (577 en France, découpage 2012) |
+| `bureaux-de-vote` | 645 Mo | Contours des bureaux de vote (~69 000, Voronoï depuis le REU) |
 
 ### Occupation du sol
 

@@ -437,13 +437,13 @@ BUREAUX_DE_VOTE = IGNProduct(
     description_fr=(
         "Contours approximatifs des bureaux de vote français générés par diagrammes "
         "de Voronoï à partir des adresses du Répertoire Électoral Unique (REU). "
-        "Source: data.gouv.fr / Etalab. Millésime septembre 2022. "
+        "Source: data.gouv.fr / Etalab. Version unique (latest), non mise à jour. "
         "Environ 69 000 bureaux de vote couvrant la France entière."
     ),
     description_en=(
         "Approximate boundaries of French polling stations generated using Voronoi "
         "diagrams from addresses in the Single Electoral Register (REU). "
-        "Source: data.gouv.fr / Etalab. Vintage September 2022. "
+        "Source: data.gouv.fr / Etalab. Single version (latest), not updated. "
         "Approximately 69,000 polling stations covering all of France."
     ),
     category=ProductCategory.ELECTORAL,
@@ -451,11 +451,12 @@ BUREAUX_DE_VOTE = IGNProduct(
     territories=[TerritoryCode.FRA],
     layers=BUREAU_VOTE_LAYERS,
     # Source: data.gouv.fr (contours Voronoï Etalab)
+    # Note: Version unique "latest", pas de millésimes séparés
     url_template=(
         "https://object.files.data.gouv.fr/data-pipeline-open/reu/"
         "contours-france-entiere-latest-v2.geojson"
     ),
-    version_pattern="2022",
+    version_pattern="latest",
     archive_extension="geojson",  # Téléchargement direct, pas d'archive
     size_mb=645,
 )

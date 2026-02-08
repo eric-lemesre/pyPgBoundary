@@ -15,7 +15,7 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - Produit `bureaux-de-vote` (~69 000 bureaux de vote en France)
   - Source : data.gouv.fr / Etalab (contours Voronoï depuis le REU)
   - Format : GeoJSON (645 Mo)
-  - Millésime : septembre 2022
+  - Version unique "latest" (pas de millésimes annuels, jeu de données non mis à jour)
 
 - **Noms de tables personnalisés par produit/couche**
   - Configuration des overrides de tables dans le YAML (section `table_overrides`)
