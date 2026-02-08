@@ -1,157 +1,201 @@
 # Changelog
 
-Toutes les modifications notables de ce projet seront documentées dans ce fichier.
+All notable changes to this project will be documented in this file.
 
-Le format est basé sur [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/),
-et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Non publié]
+**[Version française](ChangeLog.fr.md)**
+
+## [Unreleased]
+
+## [0.4.0] - 2026-02-08
+
+### Added
+
+- **Bilingual changelog**
+  - `ChangeLog.md` (English, default)
+  - `ChangeLog.fr.md` (French)
+  - Cross-links between versions
 
 ## [0.3.0] - 2026-02-07
 
-### Ajouté
+### Added
 
-- **Système de comparaison géométrique combiné**
-  - Nouvelle méthode `COMBINED` (recommandée) qui combine IoU et Hausdorff
-  - Logique séquentielle : calcul IoU d'abord, puis Hausdorff si nécessaire
-  - Utilise Shapely pour toutes les opérations géométriques
+- **New product: Legislative Constituencies**
+  - Product `circonscriptions-legislatives` (577 constituencies in France)
+  - New product category: `electoral`
+  - Source: data.gouv.fr (redistricting unchanged since 2012)
 
-- **Matrice de décision pour la similarité**
-  - `IDENTICAL` [0.95 - 1.00] : Fusion automatique sans vérification
-  - `LIKELY_MATCH` [0.80 - 0.95] : Correspondance forte, validation si attributs diffèrent
-  - `SUSPECT` [0.50 - 0.80] : Conflit potentiel ou changement temporel
-  - `DISTINCT` [< 0.50] : Objets distincts
+- **Product size display**
+  - Approximate size shown in `pgboundary products`
+  - Size documented in READMEs (KB, MB, GB as appropriate)
 
-- **Nouvelles structures de données** (`import_config.py`)
-  - `SimilarityLevel` : Énumération des 4 niveaux de similarité
-  - `SimilarityResult` : Résultat détaillé avec score IoU, distance Hausdorff, score combiné
-  - `SimilarityThresholds` : Seuils configurables de la matrice de décision
+- **Combined geometric comparison system**
+  - New `COMBINED` method (recommended) combining IoU and Hausdorff
+  - Sequential logic: IoU calculation first, then Hausdorff if needed
+  - Uses Shapely for all geometric operations
 
-- **Fonctions de calcul** (`geometry_compare.py`)
-  - `compute_combined_similarity()` : Logique séquentielle IoU puis Hausdorff
-  - `compute_similarity()` : Fonction principale retournant un `SimilarityResult`
-  - `_compute_combined_score()` : Score normalisé pondéré (70% IoU, 30% Hausdorff)
+- **Similarity decision matrix**
+  - `IDENTICAL` [0.95 - 1.00]: Automatic merge without verification
+  - `LIKELY_MATCH` [0.80 - 0.95]: Strong match, validation if attributes differ
+  - `SUSPECT` [0.50 - 0.80]: Potential conflict or temporal change
+  - `DISTINCT` [< 0.50]: Distinct objects
 
-- **Configuration des imports améliorée**
-  - Commandes CLI `config` : résumé, info, init, update, add-data
-  - Configuration YAML des produits à importer avec historisation
-  - Commande `load` avec sélection multiple interactive
+- **New data structures** (`import_config.py`)
+  - `SimilarityLevel`: Enumeration of 4 similarity levels
+  - `SimilarityResult`: Detailed result with IoU score, Hausdorff distance, combined score
+  - `SimilarityThresholds`: Configurable decision matrix thresholds
 
-### Modifié
+- **Computation functions** (`geometry_compare.py`)
+  - `compute_combined_similarity()`: Sequential IoU then Hausdorff logic
+  - `compute_similarity()`: Main function returning a `SimilarityResult`
+  - `_compute_combined_score()`: Weighted normalized score (70% IoU, 30% Hausdorff)
 
-- `SimilarityMethod` : Ajout de la méthode `COMBINED` (nouvelle valeur par défaut)
-- `HistorizationConfig` : Utilise maintenant `SimilarityThresholds` au lieu d'un simple seuil
-- `GeometryMatcher.find_matches()` : Retourne maintenant 4 listes
-  - `auto_matches` : Correspondances automatiques (IDENTICAL)
-  - `removed` : Features supprimées
-  - `added` : Features ajoutées
-  - `needs_validation` : Correspondances à valider (LIKELY_MATCH, SUSPECT)
-- `HistorizationManager` : Support des nouveaux seuils et de la méthode combinée
+- **CLI configuration commands**
+  - `pgboundary config`: Display configuration summary
+  - `pgboundary config info`: Display formatted YAML configuration
+  - `pgboundary config init`: Create configuration interactively
+  - `pgboundary config update`: Modify existing configuration
+  - `pgboundary config db`: Configure database connection
+  - `pgboundary config data add`: Add products interactively
+  - `pgboundary config data remove`: Remove products (interactive or direct)
+  - `pgboundary config sync-product`: Sync injection status with database
 
-### Déprécié
+- **Inspection command**
+  - `pgboundary inspect`: Inspect geographic tables
+  - Options `--summary`, `--detailed`, `--full` for different detail levels
+  - Option `--table` to inspect a specific table
 
-- Paramètre `threshold` simple dans `HistorizationConfig` (utiliser `thresholds` à la place)
-- Paramètre `threshold` dans `GeometryMatcher` (utiliser `thresholds` à la place)
-- Fonction `compute_similarity_score()` (utiliser `compute_similarity()` à la place)
+- **Database indicator**
+  - Active database displayed at top of each CLI command
+  - Option `-q` / `--quiet` to disable display
+
+- **Product injection tracking**
+  - Tracking in configuration (date, entity count, vintage, layers)
+  - YAML configuration for products to import with historization
+
+### Changed
+
+- CLI commands restructured under `pgboundary config`
+- `SimilarityMethod`: Added `COMBINED` method (new default value)
+- `HistorizationConfig`: Now uses `SimilarityThresholds` instead of simple threshold
+- `GeometryMatcher.find_matches()`: Now returns 4 lists
+  - `auto_matches`: Automatic matches (IDENTICAL)
+  - `removed`: Removed features
+  - `added`: Added features
+  - `needs_validation`: Matches requiring validation (LIKELY_MATCH, SUSPECT)
+- `HistorizationManager`: Support for new thresholds and combined method
+
+### Removed
+
+- Command `pgboundary setup-db` (replaced by `pgboundary config db`)
+- Options `--interactive` and `--show` from `config` command (replaced by subcommands)
+
+### Deprecated
+
+- Simple `threshold` parameter in `HistorizationConfig` (use `thresholds` instead)
+- `threshold` parameter in `GeometryMatcher` (use `thresholds` instead)
+- Function `compute_similarity_score()` (use `compute_similarity()` instead)
 
 ## [0.2.0] - 2026-02-07
 
-### Ajouté
+### Added
 
-- **Architecture multi-produits IGN**
-  - Catalogue de produits (`ProductCatalog`, `IGNProduct`, `LayerConfig`)
-  - Support de 5 variantes Admin Express (EXPRESS, COG, COG-CARTO, COG-CARTO PE, COG-CARTO PLUS PE)
-  - Support de 7 produits IGN additionnels :
-    - Contours IRIS (découpage infra-communal INSEE)
-    - BD FORÊT (occupation du sol forestier)
-    - Masque FORÊT
-    - BD CARTO (base cartographique multi-thèmes)
-    - ADRESSE PREMIUM (points adresse enrichis)
-    - BAN PLUS (base adresse nationale enrichie)
-    - BCAE (bonnes conditions agricoles et environnementales)
+- **Multi-product IGN architecture**
+  - Product catalog (`ProductCatalog`, `IGNProduct`, `LayerConfig`)
+  - Support for 5 Admin Express variants (EXPRESS, COG, COG-CARTO, COG-CARTO PE, COG-CARTO PLUS PE)
+  - Support for 7 additional IGN products:
+    - IRIS Contours (INSEE sub-municipal divisions)
+    - BD FORET (forest land cover)
+    - Forest Mask
+    - BD CARTO (multi-theme cartographic database)
+    - ADRESSE PREMIUM (enriched address points)
+    - BAN PLUS (enriched national address database)
+    - BCAE (good agricultural and environmental conditions)
 
-- **Support des codes postaux** (4 sources)
-  - Contours BAN (GeoJSON officiel, 2021)
-  - Base La Poste (CSV avec correspondance CP/INSEE, mise à jour 2x/an)
-  - Fond de carte Géoclip (Shapefile, 2013, métropole uniquement)
-  - Génération Voronoï (tessellation locale à partir de La Poste + AdminExpress)
+- **Postal code support** (4 sources)
+  - BAN Contours (official GeoJSON, 2021)
+  - La Poste Database (CSV with postal code/INSEE correspondence, updated 2x/year)
+  - Geoclip Basemap (Shapefile, 2013, mainland only)
+  - Voronoi Generation (local tessellation from La Poste + AdminExpress)
 
-- **Loader générique `ProductLoader`**
-  - Chargement unifié pour tous les produits IGN
-  - Support des formats SHP et GPKG
-  - Gestion multi-territoires (FRA, FXX, GLP, MTQ, GUF, REU, MYT)
+- **Generic `ProductLoader`**
+  - Unified loading for all IGN products
+  - SHP and GPKG format support
+  - Multi-territory management (FRA, FXX, GLP, MTQ, GUF, REU, MYT)
 
-- **Loader spécialisé `CodesPostauxLoader`**
-  - Support des 4 sources de codes postaux
-  - Génération Voronoï avec scipy (dépendance optionnelle)
-  - Avertissements sur les limitations de chaque source
+- **Specialized `CodesPostauxLoader`**
+  - Support for 4 postal code sources
+  - Voronoi generation with scipy (optional dependency)
+  - Warnings about each source's limitations
 
-- **Nouvelles commandes CLI**
-  - `pgboundary products` : Liste des produits IGN disponibles
-  - `pgboundary product-info <id>` : Détails d'un produit
-  - `pgboundary load-product <id>` : Chargement générique d'un produit
+- **New CLI commands**
+  - `pgboundary products`: List available IGN products
+  - `pgboundary product-info <id>`: Product details
+  - `pgboundary load-product <id>`: Generic product loading
 
-- **Configuration étendue**
-  - Tables pour tous les nouveaux produits dans `schema_config.py`
-  - Dépendance optionnelle `[voronoi]` pour scipy
+- **Extended configuration**
+  - Tables for all new products in `schema_config.py`
+  - Optional `[voronoi]` dependency for scipy
 
-### Modifié
+### Changed
 
-- `AdminExpressLoader` hérite maintenant de `ProductLoader`
-- `IGNDataSource` refactorisé avec interface `DataSource` abstraite
-- Méthode `download_legacy()` pour rétrocompatibilité CLI
+- `AdminExpressLoader` now inherits from `ProductLoader`
+- `IGNDataSource` refactored with abstract `DataSource` interface
+- `download_legacy()` method for CLI backward compatibility
 
 ## [0.1.0] - 2026-02-07
 
-### Ajouté
-- **CLI interactive** avec Rich pour une meilleure expérience utilisateur
-  - `pgboundary config` : Gestion de la configuration
-  - `pgboundary init` : Initialisation du schéma de base de données
-  - `pgboundary download` : Téléchargement des données Admin Express
-  - `pgboundary load` : Chargement des données dans PostgreSQL
-  - `pgboundary check` : Vérification de la connexion à la base
-  - `pgboundary info` : Affichage de la configuration actuelle
+### Added
+- **Interactive CLI** with Rich for better user experience
+  - `pgboundary config`: Configuration management
+  - `pgboundary init`: Database schema initialization
+  - `pgboundary download`: Admin Express data download
+  - `pgboundary load`: Data loading into PostgreSQL
+  - `pgboundary check`: Database connection verification
+  - `pgboundary info`: Current configuration display
 
-- **Support des niveaux administratifs français**
-  - Régions
-  - Départements
-  - EPCI (Établissements Publics de Coopération Intercommunale)
-  - Communes
-  - Communes associées et déléguées
+- **French administrative levels support**
+  - Regions
+  - Departments
+  - EPCI (Intercommunal Cooperation Establishments)
+  - Municipalities
+  - Associated and delegated municipalities
 
-- **Configuration flexible**
-  - Fichier de configuration YAML (`pgboundary.yml`)
-  - Mode schéma : tables dans un schéma dédié
-  - Mode préfixe : tables avec préfixe dans le schéma public
-  - Conventions de nommage des colonnes configurables (`cd_*`, `lb_*`, `dt_*`)
+- **Flexible configuration**
+  - YAML configuration file (`pgboundary.yml`)
+  - Schema mode: tables in dedicated schema
+  - Prefix mode: tables with prefix in public schema
+  - Configurable column naming conventions (`cd_*`, `lb_*`, `dt_*`)
 
-- **Fonctionnalités techniques**
-  - Téléchargement automatique depuis les géoservices IGN
-  - Clés primaires UUID pour toutes les entités
-  - Système de coordonnées WGS84 (EPSG:4326) par défaut
-  - Support de SRID configurable
-  - Type hints complets
+- **Technical features**
+  - Automatic download from IGN geoservices
+  - UUID primary keys for all entities
+  - WGS84 (EPSG:4326) coordinate system by default
+  - Configurable SRID support
+  - Complete type hints
   - Configuration via pydantic-settings
 
-- **Dépendances**
+- **Dependencies**
   - Python 3.11+
-  - PostgreSQL 12+ avec PostGIS
+  - PostgreSQL 12+ with PostGIS
   - GeoPandas, SQLAlchemy, GeoAlchemy2
-  - Typer, Rich pour la CLI
+  - Typer, Rich for CLI
 
 ### Documentation
-- README en anglais et français
-- Guide d'installation
-- Guide de développement
-- Guide de contribution
+- README in English and French
+- Installation guide
+- Development guide
+- Contribution guide
 
 ---
 
-## Types de changements
+## Change Types
 
-- **Ajouté** : Nouvelles fonctionnalités
-- **Modifié** : Changements dans les fonctionnalités existantes
-- **Déprécié** : Fonctionnalités qui seront supprimées prochainement
-- **Supprimé** : Fonctionnalités supprimées
-- **Corrigé** : Corrections de bugs
-- **Sécurité** : Corrections de vulnérabilités
+- **Added**: New features
+- **Changed**: Changes in existing features
+- **Deprecated**: Features that will be removed soon
+- **Removed**: Removed features
+- **Fixed**: Bug fixes
+- **Security**: Vulnerability fixes

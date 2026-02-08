@@ -66,6 +66,7 @@ CONTOURS_CODES_POSTAUX_BAN = IGNProduct(
     url_template=("https://www.data.gouv.fr/fr/datasets/r/f9cbd039-6c7f-4e1b-aed0-5e361e8de0ec"),
     version_pattern="2021",
     archive_extension="geojson",  # Téléchargement direct, pas d'archive
+    size_mb=50,
 )
 
 
@@ -108,6 +109,7 @@ BASE_CODES_POSTAUX_LAPOSTE = IGNProduct(
     ),
     version_pattern="latest",
     archive_extension="csv",
+    size_mb=2,
 )
 
 
@@ -147,6 +149,7 @@ FOND_CARTE_CODES_POSTAUX_GEOCLIP = IGNProduct(
     url_template="http://www.geoclip.fr/data/codes_postaux_V5.zip",
     version_pattern="V5",
     archive_extension="zip",
+    size_mb=15,
 )
 
 
@@ -187,6 +190,7 @@ CODES_POSTAUX_GENERATED = IGNProduct(
     url_template="generated://codes-postaux",
     version_pattern="{year}",
     archive_extension="gpkg",
+    size_mb=100,  # Variable selon la génération
 )
 
 

@@ -20,6 +20,71 @@ pyPgBoundary automates the download and import of French administrative boundary
 - **Communes** (Municipalities)
 - **Communes associées/déléguées** (Associated/Delegated municipalities)
 
+## Supported IGN Products
+
+pyPgBoundary supports 17 IGN products organized in 6 categories.
+
+### Administrative Boundaries
+
+| Product | Size | Description |
+|---------|-----:|-------------|
+| `admin-express` | 400 MB | Simplified administrative boundaries (version 3-2) |
+| `admin-express-cog` | 500 MB | With Official Geographic Code (COG) |
+| `admin-express-cog-carto` | 550 MB | Cartographic version with municipal centers |
+| `admin-express-cog-carto-pe` | 200 MB | Small-scale cartographic version |
+| `admin-express-cog-carto-plus-pe` | 250 MB | Enriched version with cantons |
+
+**Layers**: REGION, DEPARTEMENT, ARRONDISSEMENT, EPCI, COMMUNE, COMMUNE_ASSOCIEE_OU_DELEGUEE, CANTON, COLLECTIVITE_TERRITORIALE, ARRONDISSEMENT_MUNICIPAL, CHEF_LIEU_*
+
+### Statistical Data
+
+| Product | Size | Description |
+|---------|-----:|-------------|
+| `contours-iris` | 150 MB | IRIS contours - sub-municipal statistical divisions (communes >10,000 inhabitants) |
+
+### Electoral Constituencies
+
+| Product | Size | Description |
+|---------|-----:|-------------|
+| `circonscriptions-legislatives` | 10 MB | Legislative constituencies (577 in France, 2012 redistricting) |
+
+### Land Cover
+
+| Product | Size | Description |
+|---------|-----:|-------------|
+| `bd-foret` | 2.5 GB | Forest vegetation formations and land cover |
+| `masque-foret` | 300 MB | Simplified forest area mask |
+| `bcae` | 800 MB | Good Agricultural and Environmental Conditions (hedgerows, grasslands, ponds) |
+
+### Addresses and Postal Codes
+
+| Product | Size | Description |
+|---------|-----:|-------------|
+| `codes-postaux-ban` | 50 MB | Postal code contours (BAN convex hulls) |
+| `codes-postaux-laposte` | 2 MB | Official La Poste database (points/centroids) |
+| `codes-postaux-geoclip` | 15 MB | Géoclip basemap (mainland only) |
+| `codes-postaux-generated` | ~100 MB | Voronoi-generated contours (local computation) |
+| `adresse-premium` | 4 GB | Geolocated enriched address points |
+| `ban-plus` | 3 GB | National Address Database enriched by IGN |
+
+### Cartography
+
+| Product | Size | Description |
+|---------|-----:|-------------|
+| `bd-carto` | 1.2 GB | Multi-theme cartographic database (boundaries, activity zones, facilities) |
+
+### Available Territories
+
+| Code | Territory |
+|------|-----------|
+| `FRA` | France (complete) |
+| `FXX` | Metropolitan France |
+| `GLP` | Guadeloupe |
+| `MTQ` | Martinique |
+| `GUF` | French Guiana |
+| `REU` | Réunion |
+| `MYT` | Mayotte |
+
 ## Features
 
 - Automatic download from IGN Geoservices
@@ -107,14 +172,88 @@ srid: 4326
 
 ## CLI Commands
 
+### Overview
+
 | Command | Description |
 |---------|-------------|
-| `pgboundary config` | Manage configuration file |
-| `pgboundary init` | Initialize database schema and tables |
-| `pgboundary download` | Download Admin Express data |
-| `pgboundary load` | Load data into PostgreSQL |
+| `pgboundary config` | Manage configuration (schema, DB, products) |
+| `pgboundary init` | Initialize schema and tables |
 | `pgboundary check` | Verify database connection |
+| `pgboundary inspect` | Inspect geographic tables |
 | `pgboundary info` | Display current configuration |
+| `pgboundary download` | Download Admin Express data |
+| `pgboundary load` | Load data according to configuration |
+| `pgboundary products` | List available IGN products |
+| `pgboundary product-info` | Show product details |
+| `pgboundary load-product` | Load a specific product |
+
+**Note**: A database indicator is displayed at the top of each command. Use `-q` to disable it.
+
+### Configuration (`pgboundary config`)
+
+```bash
+pgboundary config                  # Show configuration summary
+pgboundary config info             # Show full formatted configuration
+pgboundary config init             # Create configuration interactively
+pgboundary config init --force     # Overwrite existing file
+pgboundary config update           # Modify existing configuration
+pgboundary config db               # Configure database connection
+
+# Product management
+pgboundary config data add                          # Interactive mode
+pgboundary config data remove                       # Interactive mode
+pgboundary config data remove admin-express-cog     # Direct removal
+pgboundary config data remove prod1 prod2 prod3     # Multiple removal
+
+# Sync injection status with database
+pgboundary config sync-product                      # All products
+pgboundary config sync-product admin-express-cog    # Specific product
+```
+
+### Geographic Table Inspection (`pgboundary inspect`)
+
+```bash
+pgboundary inspect                    # Summary (default)
+pgboundary inspect --summary          # Summary: rows, geometry type, SRID
+pgboundary inspect --detailed         # Detailed: + columns, indexes, size
+pgboundary inspect --full             # Full: + statistics, extent
+pgboundary inspect --table commune    # Specific table
+```
+
+### IGN Product Catalog
+
+```bash
+pgboundary products                        # List all available products
+pgboundary products --verbose              # With more details
+pgboundary products --category admin       # Administrative boundaries
+pgboundary products --category stats       # Statistical data (IRIS, etc.)
+pgboundary products --category land        # Land cover
+pgboundary products --category address     # Addresses
+pgboundary products --category carto       # Cartographic data
+
+pgboundary product-info admin-express-cog  # Product details
+```
+
+### Loading a Product (`pgboundary load-product`)
+
+```bash
+pgboundary load-product admin-express-cog               # Load Admin Express
+pgboundary load-product contours-iris --territory FXX   # Metropolitan only
+pgboundary load-product admin-express-cog --format gpkg # GeoPackage format
+pgboundary load-product admin-express-cog --year 2023
+pgboundary load-product admin-express-cog --layers "REGION,DEPARTEMENT"
+pgboundary load-product admin-express-cog --replace     # Replace tables
+```
+
+### Global Options
+
+| Option | Description |
+|--------|-------------|
+| `--version`, `-v` | Show pgboundary version |
+| `--verbose`, `-V` | Enable verbose mode (DEBUG logging) |
+| `--config`, `-c` | Configuration file path |
+| `--database-url`, `-d` | PostgreSQL connection URL |
+| `--quiet`, `-q` | Disable database status display |
 
 ## Python API
 

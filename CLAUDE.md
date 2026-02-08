@@ -91,22 +91,31 @@ pyPgBoundary/
 ### CLI Commands
 
 ```bash
-# Database connection setup (interactive)
-pgboundary setup-db                # Configure database connection interactively
+# Configuration management
+pgboundary config                  # Show configuration summary
+pgboundary config info             # Display current config (YAML formatted)
+pgboundary config init             # Create schema config interactively
+pgboundary config update           # Modify configuration interactively
+pgboundary config db               # Configure database connection interactively
 
-# Schema configuration
-pgboundary config --interactive    # Create schema config interactively
-pgboundary config --show           # Display current config
-pgboundary info                    # Show configuration summary
+# Data products management
+pgboundary config data add         # Add products interactively
+pgboundary config data remove      # Remove products interactively
+pgboundary config sync-product     # Sync injection status with database
 
 # Database operations
 pgboundary check                   # Verify DB connection + PostGIS
 pgboundary init                    # Create schema and tables
+pgboundary inspect                 # Inspect geographic tables (--summary/--detailed/--full)
 
 # Data operations
 pgboundary download --territory france_metropolitaine --year 2024
-pgboundary load --layers "REGION,DEPARTEMENT,COMMUNE"
+pgboundary load                    # Load data according to config
+pgboundary products                # List available IGN products
+pgboundary load-product admin-express-cog  # Load specific product
 ```
+
+Note: A database status indicator is displayed at the top of each command. Use `-q` to disable.
 
 ### Database Connection Configuration
 

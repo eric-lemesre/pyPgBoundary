@@ -27,6 +27,7 @@ class ProductCategory(StrEnum):
 
     ADMIN = "administrative"  # Limites administratives
     STATS = "statistics"  # Données statistiques (IRIS)
+    ELECTORAL = "electoral"  # Circonscriptions électorales
     LAND = "landcover"  # Occupation du sol (forêt, BCAE)
     ADDRESS = "address"  # Adresses
     CARTO = "cartography"  # Données cartographiques
@@ -96,6 +97,7 @@ class IGNProduct(BaseModel):
         url_template: Template d'URL pour le téléchargement.
         version_pattern: Pattern de version (ex: "3-2", "{year}").
         archive_extension: Extension de l'archive (7z par défaut).
+        size_mb: Taille approximative en Mo (pour France entière, format SHP).
     """
 
     id: str = Field(..., description="Identifiant unique du produit")
@@ -109,6 +111,9 @@ class IGNProduct(BaseModel):
     url_template: str = Field(..., description="Template URL pour le téléchargement")
     version_pattern: str = Field(..., description="Pattern de version")
     archive_extension: str = Field(default="7z", description="Extension de l'archive")
+    size_mb: float | None = Field(
+        default=None, description="Taille approximative en Mo (France entière, SHP)"
+    )
 
     def get_layer(self, name: str) -> LayerConfig | None:
         """Retourne la configuration d'une couche par son nom.
@@ -153,6 +158,22 @@ class IGNProduct(BaseModel):
             True si le territoire est supporté.
         """
         return territory in self.territories
+
+    def get_size_formatted(self) -> str:
+        """Retourne la taille formatée avec l'unité appropriée.
+
+        Returns:
+            Taille formatée (ex: "500 Mo", "1.2 Go", "50 Ko") ou "?" si inconnue.
+        """
+        if self.size_mb is None:
+            return "?"
+
+        if self.size_mb >= 1000:
+            return f"{self.size_mb / 1000:.1f} Go"
+        elif self.size_mb >= 1:
+            return f"{self.size_mb:.0f} Mo"
+        else:
+            return f"{self.size_mb * 1000:.0f} Ko"
 
 
 class ProductCatalog:

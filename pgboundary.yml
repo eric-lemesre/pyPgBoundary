@@ -1,35 +1,43 @@
-# Configuration pyPgBoundary - Schéma de base de données
-# Ce fichier est créé automatiquement avec les valeurs par défaut
-
-# Mode de stockage des tables
 storage:
-  # Mode: 'prefix' (tables dans public avec préfixe) ou 'schema' (schéma dédié)
-  mode: schema
-
-  # Nom du schéma PostgreSQL (utilisé si mode = 'schema')
+  mode: !!python/object/apply:pgboundary.schema_config.StorageMode
+  - schema
   schema_name: geo
-
-  # Préfixe des tables (utilisé si mode = 'prefix')
   table_prefix: geo_
-
-# Préfixes des colonnes selon leur type
 field_prefixes:
-  # Champs de code (ex: cd_insee, cd_postal)
   code: cd_
-
-  # Champs de libellé/nom (ex: lb_nom, lb_region)
   label: lb_
-
-  # Champs de date (ex: dt_creation, dt_modification)
   date: dt_
-
-# Noms des tables (sans préfixe, celui-ci est ajouté automatiquement si mode='prefix')
 table_names:
   region: region
   departement: departement
+  arrondissement: arrondissement
   epci: epci
   commune: commune
   commune_associee_deleguee: commune_associee_deleguee
-
-# SRID des géométries (4326 = WGS84, standard international)
+  arrondissement_municipal: arrondissement_municipal
+  chef_lieu_commune: chef_lieu_commune
+  chef_lieu_arrondissement_municipal: chef_lieu_arrondissement_municipal
+  canton: canton
+  collectivite_territoriale: collectivite_territoriale
+  iris: iris
+  formation_vegetale: formation_vegetale
+  masque_foret: masque_foret
+  commune_carto: commune_carto
+  limite_administrative: limite_administrative
+  zone_activite: zone_activite
+  zone_habitation: zone_habitation
+  aerodrome: aerodrome
+  cimetiere: cimetiere
+  construction_surfacique: construction_surfacique
+  terrain_sport: terrain_sport
+  adresse: adresse
+  adresse_ban: adresse_ban
+  bcae: bcae
+  haie: haie
+  mare: mare
+  code_postal: code_postal
+  code_postal_ban: code_postal_ban
+  code_postal_geoclip: code_postal_geoclip
+  correspondance_cp_insee: correspondance_cp_insee
 srid: 4326
+imports: {}

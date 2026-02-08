@@ -162,6 +162,7 @@ ADMIN_EXPRESS_PRODUCTS: list[IGNProduct] = [
         layers=BASE_ADMIN_LAYERS.copy(),
         url_template=_build_url_template("ADMIN-EXPRESS"),
         version_pattern="3-2",
+        size_mb=400,
     ),
     # 2. ADMIN EXPRESS COG - Avec Code Officiel Géographique
     IGNProduct(
@@ -181,6 +182,7 @@ ADMIN_EXPRESS_PRODUCTS: list[IGNProduct] = [
         layers=BASE_ADMIN_LAYERS.copy(),
         url_template=_build_url_template("ADMIN-EXPRESS-COG"),
         version_pattern="3-2",
+        size_mb=500,
     ),
     # 3. ADMIN EXPRESS COG CARTO - Version cartographique
     IGNProduct(
@@ -200,6 +202,7 @@ ADMIN_EXPRESS_PRODUCTS: list[IGNProduct] = [
         layers=BASE_ADMIN_LAYERS + ARRONDISSEMENT_MUNICIPAL_LAYERS + CARTO_LAYERS,
         url_template=_build_url_template("ADMIN-EXPRESS-COG-CARTO"),
         version_pattern="3-2",
+        size_mb=550,
     ),
     # 4. ADMIN EXPRESS COG CARTO PE - Petite Échelle
     IGNProduct(
@@ -218,6 +221,7 @@ ADMIN_EXPRESS_PRODUCTS: list[IGNProduct] = [
         layers=BASE_ADMIN_LAYERS + ARRONDISSEMENT_MUNICIPAL_LAYERS + CARTO_LAYERS,
         url_template=_build_url_template("ADMIN-EXPRESS-COG-CARTO-PE"),
         version_pattern="3-2",
+        size_mb=200,
     ),
     # 5. ADMIN EXPRESS COG CARTO PLUS PE - Enrichie Petite Échelle
     IGNProduct(
@@ -237,6 +241,7 @@ ADMIN_EXPRESS_PRODUCTS: list[IGNProduct] = [
         layers=(BASE_ADMIN_LAYERS + ARRONDISSEMENT_MUNICIPAL_LAYERS + CARTO_LAYERS + PLUS_LAYERS),
         url_template=_build_url_template("ADMIN-EXPRESS-COG-CARTO-PLUS-PE"),
         version_pattern="3-2",
+        size_mb=250,
     ),
 ]
 

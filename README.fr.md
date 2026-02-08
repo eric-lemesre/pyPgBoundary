@@ -10,7 +10,9 @@ Module Python pour charger les limites administratives françaises dans une base
 
 ## Présentation
 
-pyPgBoundary automatise le téléchargement et l'import des données de limites administratives françaises depuis le jeu de données Admin Express de l'IGN (Institut Géographique National) vers une base de données PostgreSQL avec l'extension PostGIS.
+pyPgBoundary automatise le téléchargement et l'import des données de limites administratives françaises depuis
+le jeu de données Admin Express de l'IGN (Institut Géographique National) vers une base de données PostgreSQL
+avec l'extension PostGIS.
 
 ### Niveaux administratifs supportés
 
@@ -19,6 +21,71 @@ pyPgBoundary automatise le téléchargement et l'import des données de limites 
 - **EPCI** (Établissements Publics de Coopération Intercommunale)
 - **Communes**
 - **Communes associées/déléguées**
+
+## Produits IGN supportés
+
+pyPgBoundary supporte 17 produits de l'IGN organisés en 6 catégories.
+
+### Limites administratives
+
+| Produit | Taille | Description |
+|---------|-------:|-------------|
+| `admin-express` | 400 Mo | Limites administratives simplifiées (version 3-2) |
+| `admin-express-cog` | 500 Mo | Avec Code Officiel Géographique (COG) |
+| `admin-express-cog-carto` | 550 Mo | Version cartographique avec chefs-lieux |
+| `admin-express-cog-carto-pe` | 200 Mo | Version cartographique petite échelle |
+| `admin-express-cog-carto-plus-pe` | 250 Mo | Version enrichie avec cantons |
+
+**Couches** : REGION, DEPARTEMENT, ARRONDISSEMENT, EPCI, COMMUNE, COMMUNE_ASSOCIEE_OU_DELEGUEE, CANTON, COLLECTIVITE_TERRITORIALE, ARRONDISSEMENT_MUNICIPAL, CHEF_LIEU_*
+
+### Données statistiques
+
+| Produit | Taille | Description |
+|---------|-------:|-------------|
+| `contours-iris` | 150 Mo | Contours IRIS - divisions statistiques infra-communales (communes >10 000 hab.) |
+
+### Circonscriptions électorales
+
+| Produit | Taille | Description |
+|---------|-------:|-------------|
+| `circonscriptions-legislatives` | 10 Mo | Circonscriptions législatives (577 en France, découpage 2012) |
+
+### Occupation du sol
+
+| Produit | Taille | Description |
+|---------|-------:|-------------|
+| `bd-foret` | 2.5 Go | Formations végétales forestières et occupation du sol |
+| `masque-foret` | 300 Mo | Masque simplifié des zones forestières |
+| `bcae` | 800 Mo | Bonnes Conditions Agricoles et Environnementales (haies, prairies, mares) |
+
+### Adresses et codes postaux
+
+| Produit | Taille | Description |
+|---------|-------:|-------------|
+| `codes-postaux-ban` | 50 Mo | Contours des codes postaux (enveloppes convexes BAN) |
+| `codes-postaux-laposte` | 2 Mo | Base officielle La Poste (points/centroïdes) |
+| `codes-postaux-geoclip` | 15 Mo | Fond de carte Géoclip (métropole uniquement) |
+| `codes-postaux-generated` | ~100 Mo | Contours générés par Voronoï (calcul local) |
+| `adresse-premium` | 4 Go | Points adresses géolocalisés et enrichis |
+| `ban-plus` | 3 Go | Base Adresse Nationale enrichie par l'IGN |
+
+### Cartographie
+
+| Produit | Taille | Description |
+|---------|-------:|-------------|
+| `bd-carto` | 1.2 Go | Base cartographique multi-thèmes (limites, zones d'activité, équipements) |
+
+### Territoires disponibles
+
+| Code | Territoire |
+|------|------------|
+| `FRA` | France entière |
+| `FXX` | France métropolitaine |
+| `GLP` | Guadeloupe |
+| `MTQ` | Martinique |
+| `GUF` | Guyane française |
+| `REU` | La Réunion |
+| `MYT` | Mayotte |
 
 ## Fonctionnalités
 
@@ -107,14 +174,141 @@ srid: 4326
 
 ## Commandes CLI
 
+### Vue d'ensemble
+
 | Commande | Description |
 |----------|-------------|
-| `pgboundary config` | Gérer le fichier de configuration |
+| `pgboundary config` | Gérer la configuration (schéma, DB, produits) |
 | `pgboundary init` | Initialiser le schéma et les tables |
-| `pgboundary download` | Télécharger les données Admin Express |
-| `pgboundary load` | Charger les données dans PostgreSQL |
 | `pgboundary check` | Vérifier la connexion à la base |
+| `pgboundary inspect` | Inspecter les tables géographiques |
 | `pgboundary info` | Afficher la configuration actuelle |
+| `pgboundary download` | Télécharger les données Admin Express |
+| `pgboundary load` | Charger les données selon la configuration |
+| `pgboundary products` | Lister les produits IGN disponibles |
+| `pgboundary product-info` | Afficher les détails d'un produit |
+| `pgboundary load-product` | Charger un produit spécifique |
+
+**Note** : Une indication de la base de données active s'affiche en haut de chaque commande. Utilisez `-q` pour la désactiver.
+
+### Configuration (`pgboundary config`)
+
+```bash
+# Afficher un résumé de la configuration
+pgboundary config
+
+# Afficher la configuration complète formatée
+pgboundary config info
+
+# Créer la configuration de manière interactive
+pgboundary config init
+pgboundary config init --force    # Écraser le fichier existant
+
+# Modifier la configuration existante
+pgboundary config update
+
+# Configurer la connexion à la base de données
+pgboundary config db
+
+# Gestion des produits à importer
+pgboundary config data add                          # Mode interactif
+pgboundary config data remove                       # Mode interactif
+pgboundary config data remove admin-express-cog     # Suppression directe
+pgboundary config data remove prod1 prod2 prod3     # Suppression multiple
+
+# Synchroniser le statut d'injection avec la base de données
+pgboundary config sync-product                      # Tous les produits
+pgboundary config sync-product admin-express-cog    # Produit spécifique
+```
+
+### Inspection des tables géographiques (`pgboundary inspect`)
+
+```bash
+pgboundary inspect                    # Résumé (défaut)
+pgboundary inspect --summary          # Résumé : lignes, type géométrie, SRID
+pgboundary inspect --detailed         # Détaillé : + colonnes, index, taille
+pgboundary inspect --full             # Complet : + statistiques, extent
+pgboundary inspect --table commune    # Table spécifique
+```
+
+### Vérification de la connexion
+
+```bash
+# Vérifier la connexion et PostGIS
+pgboundary check
+pgboundary check --database-url "postgresql://user:pass@localhost:5432/db"
+```
+
+### Initialisation de la base de données (`pgboundary init`)
+
+```bash
+pgboundary init                           # Utilise la configuration existante
+pgboundary init --interactive             # Mode interactif
+pgboundary init --database-url "..."      # Spécifier l'URL de connexion
+pgboundary init --config /path/to/config.yml
+pgboundary init --verbose                 # Mode verbeux
+```
+
+### Téléchargement des données (`pgboundary download`)
+
+```bash
+pgboundary download                                      # France métropolitaine 2024
+pgboundary download --territory france_entiere          # France entière (avec DOM-TOM)
+pgboundary download --year 2023                          # Année spécifique
+pgboundary download --force                              # Forcer le re-téléchargement
+pgboundary download --verbose                            # Mode verbeux
+```
+
+### Chargement des données (`pgboundary load`)
+
+```bash
+pgboundary load                      # Affiche la config et demande validation
+pgboundary load --all                # Importe tous les produits activés
+pgboundary load --product admin-express-cog   # Importe un seul produit
+pgboundary load --config /path/to/config.yml
+pgboundary load --verbose
+```
+
+### Catalogue des produits IGN
+
+```bash
+# Lister tous les produits disponibles
+pgboundary products
+pgboundary products --verbose        # Avec plus de détails
+
+# Filtrer par catégorie
+pgboundary products --category admin      # Limites administratives
+pgboundary products --category stats      # Données statistiques (IRIS, etc.)
+pgboundary products --category land       # Occupation du sol
+pgboundary products --category address    # Adresses
+pgboundary products --category carto      # Données cartographiques
+
+# Détails d'un produit spécifique
+pgboundary product-info admin-express-cog
+pgboundary product-info contours-iris
+```
+
+### Chargement d'un produit (`pgboundary load-product`)
+
+```bash
+pgboundary load-product admin-express-cog               # Charger Admin Express
+pgboundary load-product contours-iris --territory FXX   # Métropole uniquement
+pgboundary load-product admin-express-cog --format gpkg # Format GeoPackage
+pgboundary load-product admin-express-cog --year 2023
+pgboundary load-product admin-express-cog --layers "REGION,DEPARTEMENT"
+pgboundary load-product admin-express-cog --replace     # Remplacer les tables
+pgboundary load-product admin-express-cog --database-url "..."
+pgboundary load-product admin-express-cog --verbose
+```
+
+### Options globales
+
+| Option | Description |
+|--------|-------------|
+| `--version`, `-v` | Affiche la version de pgboundary |
+| `--verbose`, `-V` | Active le mode verbeux (logging DEBUG) |
+| `--config`, `-c` | Chemin du fichier de configuration |
+| `--database-url`, `-d` | URL de connexion PostgreSQL |
 
 ## API Python
 

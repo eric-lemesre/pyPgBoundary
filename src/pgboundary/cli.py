@@ -1,10 +1,16 @@
 """Interface en ligne de commande pour pyPgBoundary."""
 
+from __future__ import annotations
+
 import logging
 from pathlib import Path
-from typing import Annotated, Literal, cast
+from typing import TYPE_CHECKING, Annotated, Any, Literal, cast
 
 import typer
+
+if TYPE_CHECKING:
+    from sqlalchemy import Row
+    from sqlalchemy.orm import Session
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.panel import Panel
@@ -32,7 +38,6 @@ from pgboundary.schema_config import (
     StorageConfig,
     StorageMode,
     create_default_config,
-    load_config,
     save_config,
 )
 from pgboundary.sources.ign import IGNDataSource
@@ -67,6 +72,35 @@ def version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
+def _mask_password(url: str) -> str:
+    """Masque le mot de passe dans une URL de base de données."""
+    import re
+
+    return re.sub(r"://([^:]+):([^@]+)@", r"://\\1:****@", url)
+
+
+def _display_db_status() -> None:
+    """Affiche le statut de connexion à la base de données."""
+    if has_database_url_configured():
+        try:
+            import re
+
+            settings = Settings()
+            db_url = str(settings.database_url)
+            # Extraire le nom de la base de données pour un affichage plus court
+            match = re.search(r"/([^/?]+)(?:\?|$)", db_url)
+            db_name = match.group(1) if match else "?"
+            host_match = re.search(r"@([^:/]+)", db_url)
+            host = host_match.group(1) if host_match else "?"
+            console.print(f"[dim]📦 DB:[/dim] [cyan]{db_name}[/cyan]@[dim]{host}[/dim]")
+        except Exception:
+            console.print("[dim]📦 DB:[/dim] [yellow]configuration invalide[/yellow]")
+    else:
+        console.print(
+            "[dim]📦 DB:[/dim] [yellow]non configurée[/yellow] [dim](pgboundary config db)[/dim]"
+        )
+
+
 @app.callback()
 def main(
     _version: Annotated[
@@ -79,51 +113,18 @@ def main(
             help="Affiche la version.",
         ),
     ] = None,
+    quiet: Annotated[
+        bool,
+        typer.Option(
+            "--quiet",
+            "-q",
+            help="Désactive l'affichage du statut de la base de données.",
+        ),
+    ] = False,
 ) -> None:
     """pyPgBoundary - Limites administratives françaises pour PostgreSQL."""
-    pass
-
-
-@app.command()
-def config(
-    config_file: Annotated[
-        Path | None,
-        typer.Option("--config", "-c", help="Chemin du fichier de configuration."),
-    ] = None,
-    interactive: Annotated[
-        bool,
-        typer.Option("--interactive", "-i", help="Mode interactif pour créer la configuration."),
-    ] = False,
-    show: Annotated[
-        bool,
-        typer.Option("--show", "-s", help="Affiche la configuration actuelle."),
-    ] = False,
-) -> None:
-    """Gère le fichier de configuration YAML."""
-    config_path = config_file or Path.cwd() / DEFAULT_CONFIG_FILENAME
-
-    if show:
-        if not config_path.exists():
-            console.print(f"[yellow]Fichier de configuration inexistant: {config_path}[/yellow]")
-            raise typer.Exit(1)
-
-        cfg = load_config(config_path)
-        _display_config(cfg, config_path)
-        return
-
-    if interactive:
-        cfg = _interactive_config()
-        save_config(cfg, config_path)
-        console.print(f"[green]Configuration sauvegardée: {config_path}[/green]")
-        _display_config(cfg, config_path)
-    else:
-        if config_path.exists():
-            console.print(f"[yellow]Le fichier existe déjà: {config_path}[/yellow]")
-            if not Confirm.ask("Voulez-vous le recréer avec les valeurs par défaut ?"):
-                raise typer.Exit()
-
-        create_default_config(config_path)
-        console.print(f"[green]Fichier de configuration créé: {config_path}[/green]")
+    if not quiet:
+        _display_db_status()
 
 
 def _interactive_database_config() -> str:
@@ -195,7 +196,7 @@ def _ensure_database_configured(
 
     console.print(
         "[dim]Vous pouvez configurer la base de données plus tard avec:[/dim]\n"
-        "  [cyan]pgboundary setup-db[/cyan]"
+        "  [cyan]pgboundary config db[/cyan]"
     )
     return None
 
@@ -277,25 +278,6 @@ def _display_config(cfg: SchemaConfig, config_path: Path) -> None:
             console.print(f"  • {schema}.{full_name}")
         else:
             console.print(f"  • {full_name}")
-
-
-@app.command(name="setup-db")
-def setup_db(
-    verbose: Annotated[
-        bool,
-        typer.Option("--verbose", "-V", help="Mode verbeux."),
-    ] = False,
-) -> None:
-    """Configure la connexion à la base de données de manière interactive."""
-    setup_logging(verbose)
-
-    if has_database_url_configured():
-        settings = Settings()
-        console.print(f"[yellow]Configuration existante:[/yellow] {settings.database_url}")
-        if not Confirm.ask("Voulez-vous la modifier ?"):
-            raise typer.Exit()
-
-    _interactive_database_config()
 
 
 @app.command()
@@ -570,11 +552,185 @@ def check(
 
 
 @app.command()
+def inspect(
+    database_url: Annotated[
+        str | None,
+        typer.Option("--database-url", "-d", help="URL de connexion PostgreSQL."),
+    ] = None,
+    config_file: Annotated[
+        Path | None,
+        typer.Option("--config", "-c", help="Chemin du fichier de configuration."),
+    ] = None,
+    _summary: Annotated[
+        bool,
+        typer.Option("--summary", "-s", help="Affichage résumé (par défaut)."),
+    ] = False,
+    detailed: Annotated[
+        bool,
+        typer.Option("--detailed", "-D", help="Affichage détaillé (colonnes, index, taille)."),
+    ] = False,
+    full: Annotated[
+        bool,
+        typer.Option("--full", "-F", help="Affichage complet (statistiques, extent, échantillon)."),
+    ] = False,
+    table_name: Annotated[
+        str | None,
+        typer.Option("--table", "-t", help="Inspecter une table spécifique."),
+    ] = None,
+) -> None:
+    """Inspecte les tables géographiques de la base de données."""
+    from sqlalchemy import text
+
+    config_path = config_file or Path.cwd() / DEFAULT_CONFIG_FILENAME
+    settings = Settings(config_file=config_path)
+    if database_url:
+        settings.database_url = database_url
+
+    # Déterminer le niveau de détail
+    if full:
+        detail_level = "full"
+    elif detailed:
+        detail_level = "detailed"
+    else:
+        detail_level = "summary"
+
+    try:
+        db = DatabaseManager(settings)
+        schema_name = settings.schema_config.get_schema_name() or "public"
+
+        with db.session() as session:
+            # Récupérer les tables géographiques
+            geo_tables_query = text("""
+                SELECT
+                    f_table_schema as schema,
+                    f_table_name as table_name,
+                    f_geometry_column as geom_column,
+                    type as geom_type,
+                    srid
+                FROM geometry_columns
+                WHERE f_table_schema = :schema
+                ORDER BY f_table_name
+            """)
+            result = session.execute(geo_tables_query, {"schema": schema_name})
+            geo_tables = result.fetchall()
+
+            if not geo_tables:
+                console.print(
+                    f"[yellow]Aucune table géographique trouvée dans le schéma '{schema_name}'[/yellow]"
+                )
+                return
+
+            # Si une table spécifique est demandée
+            if table_name:
+                geo_tables = [t for t in geo_tables if t.table_name == table_name]
+                if not geo_tables:
+                    console.print(f"[red]Table '{table_name}' non trouvée[/red]")
+                    return
+
+            # Afficher les informations
+            for geo_table in geo_tables:
+                _display_table_info(session, geo_table, detail_level, console)
+
+    except Exception as e:
+        console.print(f"[bold red]Erreur: {e}[/bold red]")
+        raise typer.Exit(1) from e
+
+
+def _display_table_info(
+    session: Session, geo_table: Row[Any], detail_level: str, console: Console
+) -> None:
+    """Affiche les informations d'une table géographique."""
+    from sqlalchemy import text
+
+    schema = geo_table.schema
+    table_name = geo_table.table_name
+    full_name = f"{schema}.{table_name}"
+
+    # Compter les lignes
+    count_query = text(f"SELECT COUNT(*) FROM {full_name}")
+    count = session.execute(count_query).scalar()
+
+    # Affichage résumé (toujours affiché)
+    table = Table(title=f"[bold]{full_name}[/bold]", show_header=True)
+    table.add_column("Propriété", style="cyan")
+    table.add_column("Valeur", style="green")
+
+    table.add_row("Lignes", f"{count:,}")
+    table.add_row("Type géométrie", geo_table.geom_type)
+    table.add_row("SRID", str(geo_table.srid))
+    table.add_row("Colonne géométrie", geo_table.geom_column)
+
+    if detail_level in ("detailed", "full"):
+        # Récupérer les colonnes
+        columns_query = text("""
+            SELECT column_name, data_type, is_nullable
+            FROM information_schema.columns
+            WHERE table_schema = :schema AND table_name = :table
+            ORDER BY ordinal_position
+        """)
+        columns = session.execute(columns_query, {"schema": schema, "table": table_name}).fetchall()
+
+        cols_str = ", ".join([f"{c.column_name} ({c.data_type})" for c in columns[:5]])
+        if len(columns) > 5:
+            cols_str += f" ... (+{len(columns) - 5})"
+        table.add_row("Colonnes", cols_str)
+
+        # Taille sur disque
+        size_query = text("""
+            SELECT pg_size_pretty(pg_total_relation_size(:full_name))
+        """)
+        size = session.execute(size_query, {"full_name": full_name}).scalar()
+        table.add_row("Taille", size)
+
+        # Index
+        index_query = text("""
+            SELECT indexname FROM pg_indexes
+            WHERE schemaname = :schema AND tablename = :table
+        """)
+        indexes = session.execute(index_query, {"schema": schema, "table": table_name}).fetchall()
+        table.add_row("Index", str(len(indexes)))
+
+    if detail_level == "full":
+        # Extent (bounding box)
+        extent_query = text(f"""
+            SELECT
+                ST_XMin(extent) as xmin, ST_YMin(extent) as ymin,
+                ST_XMax(extent) as xmax, ST_YMax(extent) as ymax
+            FROM (SELECT ST_Extent({geo_table.geom_column}) as extent FROM {full_name}) sub
+        """)
+        extent = session.execute(extent_query).fetchone()
+        if extent and extent.xmin is not None:
+            extent_str = (
+                f"[{extent.xmin:.4f}, {extent.ymin:.4f}] → [{extent.xmax:.4f}, {extent.ymax:.4f}]"
+            )
+            table.add_row("Extent", extent_str)
+
+        # Statistiques
+        stats_query = text(f"""
+            SELECT
+                COUNT(*) as total,
+                COUNT(CASE WHEN ST_IsValid({geo_table.geom_column}) THEN 1 END) as valid,
+                COUNT(CASE WHEN ST_IsEmpty({geo_table.geom_column}) THEN 1 END) as empty
+            FROM {full_name}
+        """)
+        stats = session.execute(stats_query).fetchone()
+        if stats:
+            valid_pct = (stats.valid / stats.total * 100) if stats.total > 0 else 0
+            table.add_row("Géométries valides", f"{stats.valid:,} ({valid_pct:.1f}%)")
+            table.add_row("Géométries vides", str(stats.empty))
+
+    console.print(table)
+    console.print()
+
+
+@app.command()
 def products(
     category: Annotated[
         str | None,
         typer.Option(
-            "--category", "-c", help="Filtrer par catégorie (admin, stats, land, address, carto)."
+            "--category",
+            "-c",
+            help="Filtrer par catégorie (admin, stats, electoral, land, address, carto).",
         ),
     ] = None,
     verbose: Annotated[
@@ -592,6 +748,8 @@ def products(
             "administrative": ProductCategory.ADMIN,
             "stats": ProductCategory.STATS,
             "statistics": ProductCategory.STATS,
+            "electoral": ProductCategory.ELECTORAL,
+            "election": ProductCategory.ELECTORAL,
             "land": ProductCategory.LAND,
             "landcover": ProductCategory.LAND,
             "address": ProductCategory.ADDRESS,
@@ -616,6 +774,7 @@ def products(
     table.add_column("ID", style="cyan")
     table.add_column("Nom", style="bold")
     table.add_column("Catégorie", style="green")
+    table.add_column("Taille", justify="right")
     table.add_column("Formats")
 
     if verbose:
@@ -624,6 +783,7 @@ def products(
 
     for product in products_list:
         formats_str = ", ".join(f.value for f in product.formats)
+        size_str = product.get_size_formatted()
 
         if verbose:
             territories_str = ", ".join(t.value for t in product.territories)
@@ -634,6 +794,7 @@ def products(
                 product.id,
                 product.name,
                 product.category.value,
+                size_str,
                 formats_str,
                 territories_str,
                 desc,
@@ -643,6 +804,7 @@ def products(
                 product.id,
                 product.name,
                 product.category.value,
+                size_str,
                 formats_str,
             )
 
@@ -674,6 +836,7 @@ def product_info(
 
     info_table.add_row("ID", product.id)
     info_table.add_row("Catégorie", product.category.value)
+    info_table.add_row("Taille approx.", product.get_size_formatted())
     info_table.add_row("Formats", ", ".join(f.value for f in product.formats))
     info_table.add_row("Territoires", ", ".join(t.value for t in product.territories))
     info_table.add_row("Version", product.version_pattern)

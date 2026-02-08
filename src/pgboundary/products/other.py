@@ -72,6 +72,7 @@ CONTOURS_IRIS = IGNProduct(
         "CONTOURS-IRIS_3-0__{format}_{crs}_{territory}_{date}.7z"
     ),
     version_pattern="3-0",
+    size_mb=150,
 )
 
 
@@ -109,6 +110,7 @@ BD_FORET = IGNProduct(
         "BD-FORET_{version}__{format}_{crs}_{territory}_{date}.7z"
     ),
     version_pattern="2-0",
+    size_mb=2500,
 )
 
 
@@ -146,6 +148,7 @@ MASQUE_FORET = IGNProduct(
         "MASQUE-FORET_{version}__{format}_{crs}_{territory}_{date}.7z"
     ),
     version_pattern="2-0",
+    size_mb=300,
 )
 
 
@@ -238,6 +241,7 @@ BD_CARTO = IGNProduct(
         "BD-CARTO_{version}__{format}_{crs}_{territory}_{date}.7z"
     ),
     version_pattern="4-0",
+    size_mb=1200,
 )
 
 
@@ -275,6 +279,7 @@ ADRESSE_PREMIUM = IGNProduct(
         "ADRESSE-PREMIUM_{version}__{format}_{crs}_{territory}_{date}.7z"
     ),
     version_pattern="3-0",
+    size_mb=4000,
 )
 
 
@@ -312,6 +317,7 @@ BAN_PLUS = IGNProduct(
         "BAN-PLUS_{version}__{format}_{crs}_{territory}_{date}.7z"
     ),
     version_pattern="1-0",
+    size_mb=3000,
 )
 
 
@@ -365,6 +371,50 @@ BCAE = IGNProduct(
         "BCAE_{version}__{format}_{crs}_{territory}_{date}.7z"
     ),
     version_pattern="1-0",
+    size_mb=800,
+)
+
+
+# =============================================================================
+# CIRCONSCRIPTIONS LÉGISLATIVES
+# =============================================================================
+CIRCONSCRIPTION_LEGISLATIVE_LAYERS = [
+    LayerConfig(
+        name="CIRCONSCRIPTION_LEGISLATIVE",
+        table_key="circonscription_legislative",
+        geometry_type=GeometryType.MULTIPOLYGON,
+        description_fr="Circonscriptions législatives (577 en France)",
+        description_en="Legislative constituencies (577 in France)",
+    ),
+]
+
+CIRCONSCRIPTIONS_LEGISLATIVES = IGNProduct(
+    id="circonscriptions-legislatives",
+    name="Circonscriptions Législatives",
+    description_fr=(
+        "Contours des 577 circonscriptions législatives de France. "
+        "Découpage électoral pour l'élection des députés à l'Assemblée nationale. "
+        "Inclut la métropole (539), les DROM (19), les COM (8) et l'étranger (11). "
+        "Découpage inchangé depuis la réforme de 2012."
+    ),
+    description_en=(
+        "Boundaries of France's 577 legislative constituencies. "
+        "Electoral districts for National Assembly deputy elections. "
+        "Includes mainland (539), overseas departments (19), overseas collectivities (8), "
+        "and abroad (11). Boundaries unchanged since 2012 reform."
+    ),
+    category=ProductCategory.ELECTORAL,
+    formats=[FileFormat.SHP, FileFormat.GPKG],
+    territories=[TerritoryCode.FRA],
+    layers=CIRCONSCRIPTION_LEGISLATIVE_LAYERS,
+    # Source: data.gouv.fr (agrégation des bureaux de vote)
+    url_template=(
+        "https://www.data.gouv.fr/fr/datasets/r/"
+        "eb27b498-a498-4d24-bb5e-ea3e49694f6a"  # circonscriptions-legislatives-shp.zip
+    ),
+    version_pattern="2024",
+    archive_extension="zip",
+    size_mb=10,
 )
 
 
@@ -377,4 +427,5 @@ OTHER_PRODUCTS: list[IGNProduct] = [
     ADRESSE_PREMIUM,
     BAN_PLUS,
     BCAE,
+    CIRCONSCRIPTIONS_LEGISLATIVES,
 ]

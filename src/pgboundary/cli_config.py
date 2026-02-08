@@ -5,7 +5,9 @@ Ce module fournit les sous-commandes de configuration :
 - config info : affichage complet formaté
 - config init : création interactive
 - config update : modification interactive
-- config add-data : ajout de produits à importer
+- config db : configuration de la connexion à la base de données
+- config data add : ajout de produits à importer
+- config data remove : suppression de produits
 """
 
 from __future__ import annotations
@@ -21,6 +23,12 @@ from rich.syntax import Syntax
 from rich.table import Table
 from rich.tree import Tree
 
+from pgboundary.config import (
+    Settings,
+    build_database_url,
+    has_database_url_configured,
+    save_database_url_to_env,
+)
 from pgboundary.products import get_default_catalog
 from pgboundary.schema_config import (
     DEFAULT_CONFIG_FILENAME,
@@ -36,6 +44,8 @@ if TYPE_CHECKING:
 
 console = Console()
 config_app = typer.Typer(help="Gestion de la configuration pgBoundary")
+data_app = typer.Typer(help="Gestion des produits à importer")
+config_app.add_typer(data_app, name="data")
 
 
 def _get_config_path() -> Path:
@@ -113,6 +123,43 @@ def config_info() -> None:
 
     syntax = Syntax(content, "yaml", theme="monokai", line_numbers=True)
     console.print(syntax)
+
+
+@config_app.command(name="db")
+def config_db() -> None:
+    """Configure la connexion à la base de données de manière interactive."""
+    if has_database_url_configured():
+        settings = Settings()
+        display_url = _mask_password(str(settings.database_url))
+        console.print(f"[yellow]Configuration existante:[/yellow] {display_url}")
+        if not Confirm.ask("Voulez-vous la modifier ?"):
+            raise typer.Exit()
+
+    console.print(Panel("[bold]Configuration de la connexion PostgreSQL[/bold]"))
+
+    host = Prompt.ask("Hôte PostgreSQL", default="localhost")
+    port = int(Prompt.ask("Port", default="5432"))
+    database = Prompt.ask("Nom de la base de données", default="boundaries")
+    user = Prompt.ask("Utilisateur", default="postgres")
+    password = Prompt.ask("Mot de passe", password=True, default="")
+
+    database_url = build_database_url(
+        host=host,
+        port=port,
+        database=database,
+        user=user,
+        password=password,
+    )
+
+    # Afficher l'URL (sans le mot de passe)
+    display_url = database_url
+    if password:
+        display_url = database_url.replace(f":{password}@", ":****@")
+    console.print(f"\n[cyan]URL de connexion:[/cyan] {display_url}")
+
+    if Confirm.ask("\nSauvegarder dans le fichier .env ?", default=True):
+        save_database_url_to_env(database_url)
+        console.print("[green]✓ Configuration sauvegardée dans .env[/green]")
 
 
 @config_app.command(name="init")
@@ -402,8 +449,8 @@ def _modify_product_config(config: SchemaConfig, product_id: str) -> None:
         prod_config["historization"] = {"enabled": False}
 
 
-@config_app.command(name="add-data")
-def config_add_data() -> None:
+@data_app.command(name="add")
+def data_add() -> None:
     """Ajoute des produits à importer via navigation arborescente."""
     config_path = _get_config_path()
 
@@ -418,6 +465,221 @@ def config_add_data() -> None:
 
     save_config(config, config_path)
     console.print(f"[green]Configuration sauvegardée: {config_path}[/green]")
+
+
+@data_app.command(name="remove")
+def data_remove(
+    product_ids: Annotated[
+        list[str] | None,
+        typer.Argument(help="IDs des produits à supprimer (ex: admin-express-cog contours-iris)."),
+    ] = None,
+) -> None:
+    """Supprime des produits de la configuration.
+
+    Sans argument: mode interactif pour sélectionner les produits à supprimer.
+    Avec arguments: supprime les produits spécifiés directement.
+    """
+    config_path = _get_config_path()
+
+    if not config_path.exists():
+        console.print(f"[red]Fichier de configuration non trouvé: {config_path}[/red]")
+        raise typer.Exit(1)
+
+    config = load_config(config_path)
+
+    if not config.imports:
+        console.print("[yellow]Aucun produit configuré.[/yellow]")
+        raise typer.Exit(0)
+
+    if product_ids:
+        # Mode direct : supprimer les produits spécifiés
+        removed = []
+        not_found = []
+        for product_id in product_ids:
+            if product_id in config.imports:
+                del config.imports[product_id]
+                removed.append(product_id)
+            else:
+                not_found.append(product_id)
+
+        if removed:
+            save_config(config, config_path)
+            console.print(f"[green]Produits supprimés: {', '.join(removed)}[/green]")
+        if not_found:
+            console.print(f"[yellow]Produits non trouvés: {', '.join(not_found)}[/yellow]")
+    else:
+        # Mode interactif
+        _remove_products_interactive(config)
+        save_config(config, config_path)
+        console.print(f"[green]Configuration sauvegardée: {config_path}[/green]")
+
+
+@config_app.command(name="sync-product")
+def config_sync_product(
+    product_id: Annotated[
+        str | None,
+        typer.Argument(help="ID du produit à synchroniser (tous si non spécifié)."),
+    ] = None,
+) -> None:
+    """Synchronise le statut d'injection des produits avec la base de données.
+
+    Vérifie quelles tables existent dans la base de données et met à jour
+    le statut d'injection dans la configuration.
+    """
+    from sqlalchemy import text
+
+    from pgboundary.db.connection import DatabaseManager
+
+    config_path = _get_config_path()
+
+    if not config_path.exists():
+        console.print(f"[red]Fichier de configuration non trouvé: {config_path}[/red]")
+        raise typer.Exit(1)
+
+    config = load_config(config_path)
+
+    if not config.imports:
+        console.print("[yellow]Aucun produit configuré.[/yellow]")
+        raise typer.Exit(0)
+
+    # Filtrer par produit si spécifié
+    products_to_check = (
+        {product_id: config.imports[product_id]}
+        if product_id and product_id in config.imports
+        else config.imports
+    )
+
+    if product_id and product_id not in config.imports:
+        console.print(f"[red]Produit non trouvé: {product_id}[/red]")
+        raise typer.Exit(1)
+
+    try:
+        settings = Settings()
+        db = DatabaseManager(settings)
+        schema_name = config.get_schema_name() or "public"
+
+        with db.session() as session:
+            # Récupérer les tables existantes avec leur nombre de lignes
+            tables_query = text("""
+                SELECT
+                    t.table_name,
+                    (SELECT COUNT(*) FROM information_schema.columns c
+                     WHERE c.table_schema = t.table_schema
+                     AND c.table_name = t.table_name) as col_count
+                FROM information_schema.tables t
+                WHERE t.table_schema = :schema
+                AND t.table_type = 'BASE TABLE'
+            """)
+            result = session.execute(tables_query, {"schema": schema_name})
+            existing_tables = {row.table_name: row.col_count for row in result}
+
+            # Table pour l'affichage
+            table = Table(title="Synchronisation des produits")
+            table.add_column("Produit", style="cyan")
+            table.add_column("Tables trouvées")
+            table.add_column("Entités")
+            table.add_column("Statut")
+
+            catalog = get_default_catalog()
+
+            for pid, prod_config in products_to_check.items():
+                product = catalog.get(pid)
+                if not product:
+                    table.add_row(pid, "-", "-", "[yellow]Produit inconnu[/yellow]")
+                    continue
+
+                # Vérifier les tables du produit
+                found_tables = []
+                total_count = 0
+
+                for layer in product.layers:
+                    table_key = layer.table_key
+                    table_name = config.get_full_table_name(table_key)
+
+                    if table_name in existing_tables:
+                        found_tables.append(table_name)
+                        # Compter les lignes
+                        full_name = f"{schema_name}.{table_name}"
+                        count_query = text(f"SELECT COUNT(*) FROM {full_name}")
+                        count = session.execute(count_query).scalar()
+                        total_count += count or 0
+
+                if found_tables:
+                    # Produit injecté
+                    config.update_injection_status(
+                        pid,
+                        injected=True,
+                        count=total_count,
+                        year=prod_config.get("years", [""])[0]
+                        if prod_config.get("years")
+                        else None,
+                        layers=list(found_tables),
+                    )
+                    status = "[green]✓ Injecté[/green]"
+                else:
+                    # Produit non injecté
+                    config.update_injection_status(pid, injected=False)
+                    status = "[dim]Non injecté[/dim]"
+
+                table.add_row(
+                    pid,
+                    str(len(found_tables)),
+                    f"{total_count:,}" if total_count > 0 else "-",
+                    status,
+                )
+
+            console.print(table)
+
+        # Sauvegarder la configuration mise à jour
+        save_config(config, config_path)
+        console.print(f"\n[green]Configuration synchronisée: {config_path}[/green]")
+
+    except Exception as e:
+        console.print(f"[bold red]Erreur: {e}[/bold red]")
+        raise typer.Exit(1) from e
+
+
+def _remove_products_interactive(config: SchemaConfig) -> None:
+    """Supprime des produits de manière interactive."""
+    while True:
+        if not config.imports:
+            console.print("[yellow]Aucun produit configuré.[/yellow]")
+            return
+
+        # Afficher les produits existants
+        console.print()
+        table = Table(title="Produits configurés")
+        table.add_column("#", style="dim")
+        table.add_column("Produit", style="cyan")
+        table.add_column("Activé")
+        table.add_column("Années")
+
+        products_list = list(config.imports.items())
+        for i, (product_id, prod_config) in enumerate(products_list, 1):
+            enabled = "[green]oui[/green]" if prod_config.get("enabled", True) else "[red]non[/red]"
+            years = ", ".join(prod_config.get("years", []))
+            table.add_row(str(i), product_id, enabled, years)
+
+        console.print(table)
+        console.print()
+
+        console.print("Entrez le numéro du produit à supprimer (ou 'q' pour quitter) :")
+        choice = Prompt.ask("Choix", default="q")
+
+        if choice.lower() == "q":
+            break
+
+        try:
+            idx = int(choice) - 1
+            if 0 <= idx < len(products_list):
+                product_id = products_list[idx][0]
+                if Confirm.ask(f"Supprimer le produit [cyan]{product_id}[/cyan] ?"):
+                    del config.imports[product_id]
+                    console.print(f"[green]Produit {product_id} supprimé[/green]")
+            else:
+                console.print("[red]Numéro invalide[/red]")
+        except ValueError:
+            console.print("[red]Veuillez entrer un numéro valide[/red]")
 
 
 def _add_products_interactive(config: SchemaConfig) -> None:

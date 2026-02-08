@@ -1,6 +1,7 @@
 """Configuration du schéma de base de données via fichier YAML."""
 
 import logging
+from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Literal
@@ -139,6 +140,12 @@ class TableNames(BaseModel):
         description="Table de correspondance codes postaux - INSEE",
     )
 
+    # Circonscriptions électorales
+    circonscription_legislative: str = Field(
+        default="circonscription_legislative",
+        description="Table des circonscriptions législatives",
+    )
+
 
 class StorageConfig(BaseModel):
     """Configuration du mode de stockage."""
@@ -236,6 +243,65 @@ class SchemaConfig(BaseModel):
         enabled = sum(1 for v in self.imports.values() if v.get("enabled", True))
         return enabled, total
 
+    def update_injection_status(
+        self,
+        product_id: str,
+        *,
+        injected: bool,
+        count: int | None = None,
+        year: str | None = None,
+        layers: list[str] | None = None,
+    ) -> None:
+        """Met à jour le statut d'injection d'un produit.
+
+        Args:
+            product_id: Identifiant du produit.
+            injected: True si le produit a été injecté.
+            count: Nombre d'entités injectées.
+            year: Millésime injecté.
+            layers: Couches injectées.
+        """
+        if product_id not in self.imports:
+            return
+
+        injection_info: dict[str, Any] = {
+            "injected": injected,
+            "injected_at": datetime.now().isoformat() if injected else None,
+        }
+
+        if injected:
+            if count is not None:
+                injection_info["entity_count"] = count
+            if year is not None:
+                injection_info["injected_year"] = year
+            if layers is not None:
+                injection_info["injected_layers"] = layers
+
+        self.imports[product_id]["injection"] = injection_info
+
+    def get_injection_status(self, product_id: str) -> dict[str, Any] | None:
+        """Retourne le statut d'injection d'un produit.
+
+        Args:
+            product_id: Identifiant du produit.
+
+        Returns:
+            Dictionnaire avec les informations d'injection ou None.
+        """
+        if product_id not in self.imports:
+            return None
+        return self.imports[product_id].get("injection")
+
+    def get_injected_products(self) -> dict[str, dict[str, Any]]:
+        """Retourne les produits qui ont été injectés.
+
+        Returns:
+            Dictionnaire des produits injectés avec leurs informations.
+        """
+        return {
+            k: v for k, v in self.imports.items() if v.get("injection", {}).get("injected", False)
+        }
+
 
 def get_default_config() -> SchemaConfig:
     """Retourne la configuration par défaut.
@@ -289,7 +355,7 @@ table_names:
 srid: 4326
 
 # Configuration des imports de produits
-# Utilisez 'pgboundary config add-data' pour ajouter des produits
+# Utilisez 'pgboundary config data add' pour ajouter des produits
 imports:
   # Exemple de configuration Admin Express COG
   # admin-express-cog:
@@ -303,6 +369,12 @@ imports:
   #     method: jaccard    # md5 | jaccard | hausdorff
   #     threshold: 0.95    # ratio pour jaccard, mètres pour hausdorff
   #     key_field: cd_insee
+  #   injection:           # Statut d'injection (géré automatiquement)
+  #     injected: true
+  #     injected_at: "2024-01-15T10:30:00"
+  #     entity_count: 34500
+  #     injected_year: "2024"
+  #     injected_layers: [REGION, DEPARTEMENT, COMMUNE]
 """
 
 
