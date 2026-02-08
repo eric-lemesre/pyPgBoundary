@@ -409,7 +409,12 @@ def _update_imports(config: SchemaConfig) -> None:
 
 def _modify_product_config(config: SchemaConfig, product_id: str) -> None:
     """Modifie la configuration d'un produit."""
-    from pgboundary.cli_widgets import select_layers, select_years
+    from pgboundary.cli_widgets import (
+        select_format,
+        select_layers,
+        select_territory,
+        select_years,
+    )
 
     prod_config = config.imports[product_id]
     catalog = get_default_catalog()
@@ -445,18 +450,26 @@ def _modify_product_config(config: SchemaConfig, product_id: str) -> None:
         return
     prod_config["years"] = years_result.selected_values
 
-    # Territoire
-    prod_config["territory"] = Prompt.ask(
-        "Territoire",
-        default=prod_config.get("territory", "FRA"),
-    )
+    # Territoire (sélection interactive)
+    if product:
+        territories = [t.value for t in product.territories]
+    else:
+        territories = ["FRA", "FXX", "GLP", "MTQ", "GUF", "REU", "MYT"]
+    current_territory = prod_config.get("territory", "FRA")
+    territory_result = select_territory(territories, default=current_territory)
+    if territory_result.cancelled:
+        console.print("[yellow]Modification annulée[/yellow]")
+        return
+    prod_config["territory"] = territory_result.value or current_territory
 
-    # Format
-    prod_config["format"] = Prompt.ask(
-        "Format",
-        choices=["shp", "gpkg"],
-        default=prod_config.get("format", "shp"),
-    )
+    # Format (sélection interactive)
+    formats = [f.value for f in product.formats] if product else ["shp", "gpkg"]
+    current_format = prod_config.get("format", "shp")
+    format_result = select_format(formats, default=current_format)
+    if format_result.cancelled:
+        console.print("[yellow]Modification annulée[/yellow]")
+        return
+    prod_config["format"] = format_result.value or current_format
 
     # Historisation
     if Confirm.ask(
@@ -978,7 +991,12 @@ def _select_product_from_category(
 
 def _configure_product(config: SchemaConfig, product: IGNProduct) -> None:
     """Configure un produit pour l'import."""
-    from pgboundary.cli_widgets import select_layers, select_years
+    from pgboundary.cli_widgets import (
+        select_format,
+        select_layers,
+        select_territory,
+        select_years,
+    )
 
     console.print()
     console.print(Panel.fit(f"[bold blue]{product.name}[/bold blue]"))
@@ -1007,20 +1025,23 @@ def _configure_product(config: SchemaConfig, product: IGNProduct) -> None:
 
     years = years_result.selected_values
 
-    # Territoire
+    # Territoire (sélection interactive)
     territories = [t.value for t in product.territories]
-    territory = Prompt.ask(
-        "Territoire",
-        default=territories[0] if territories else "FRA",
-    )
+    default_territory = territories[0] if territories else "FRA"
+    territory_result = select_territory(territories, default=default_territory)
+    if territory_result.cancelled:
+        console.print("[yellow]Configuration annulée[/yellow]")
+        return
+    territory = territory_result.value or default_territory
 
-    # Format
+    # Format (sélection interactive)
     formats = [f.value for f in product.formats]
-    file_format = Prompt.ask(
-        "Format",
-        choices=formats,
-        default=formats[0] if formats else "shp",
-    )
+    default_format = formats[0] if formats else "shp"
+    format_result = select_format(formats, default=default_format)
+    if format_result.cancelled:
+        console.print("[yellow]Configuration annulée[/yellow]")
+        return
+    file_format = format_result.value or default_format
 
     # Historisation
     hist_config: dict[str, Any] = {"enabled": False}
