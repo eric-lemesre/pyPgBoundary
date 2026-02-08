@@ -205,14 +205,20 @@ def _ensure_database_configured(
 
 def _interactive_config() -> SchemaConfig:
     """Crée une configuration en mode interactif."""
+    from pgboundary.cli_widgets import SelectItem, select_single
+
     console.print(Panel("[bold]Configuration du schéma de base de données[/bold]"))
 
-    mode_choice = Prompt.ask(
-        "Mode de stockage",
-        choices=["schema", "prefix"],
-        default="schema",
-    )
-    mode = StorageMode(mode_choice)
+    mode_items = [
+        SelectItem(label="Schema", value="schema", description="Tables dans un schéma dédié"),
+        SelectItem(label="Prefix", value="prefix", description="Tables avec préfixe dans public"),
+    ]
+    mode_result = select_single(mode_items, title="Mode de stockage")
+
+    if mode_result.cancelled:
+        mode = StorageMode.SCHEMA
+    else:
+        mode = StorageMode(mode_result.value or "schema")
 
     if mode == StorageMode.SCHEMA:
         schema_name = Prompt.ask("Nom du schéma PostgreSQL", default="geo")

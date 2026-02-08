@@ -23,14 +23,21 @@ console = Console()
 T = TypeVar("T")
 
 
-def _is_escape_key(key: str) -> bool:
-    """Vérifie si la touche est Échap (compatible multi-plateforme).
+def _is_cancel_key(key: str) -> bool:
+    """Vérifie si la touche est une touche d'annulation (r ou Échap).
 
-    La touche Échap génère le caractère ASCII 0x1B (27).
-    Note: readchar.key.ESCAPE n'existe pas dans toutes les versions.
+    Utilise 'r' comme touche principale car Échap ne fonctionne pas
+    correctement dans certains terminaux d'IDE.
+
+    Args:
+        key: Touche pressée.
+
+    Returns:
+        True si c'est une touche d'annulation.
     """
-    # ESC est le caractère ASCII 27 (0x1B)
-    return key == "\x1b"
+    # 'r' pour retour (fonctionne partout)
+    # ESC (0x1B) comme alternative (ne fonctionne pas dans tous les IDE)
+    return key == "r" or key == "\x1b"
 
 
 @dataclass
@@ -88,7 +95,7 @@ def checkbox_select(
         a : Tout sélectionner
         n : Tout désélectionner
         Entrée : Valider
-        Échap : Annuler et retour
+        r : Annuler et retour
     """
     cursor_pos = 0
     cancelled = False
@@ -118,7 +125,7 @@ def checkbox_select(
         if show_help:
             help_text = (
                 "\n\n[dim]↑↓ naviguer │ espace cocher │ "
-                "a tout │ n rien │ entrée valider │ échap retour[/dim]"
+                "a tout │ n rien │ entrée valider │ r retour[/dim]"
             )
             content += help_text
 
@@ -157,7 +164,7 @@ def checkbox_select(
                 console.print(
                     f"[yellow]Veuillez sélectionner au moins {min_selected} élément(s)[/yellow]"
                 )
-            elif _is_escape_key(key):
+            elif _is_cancel_key(key):
                 cancelled = True
                 break
 
@@ -217,7 +224,7 @@ def select_single(
     Controls:
         ↑/↓ ou k/j : Naviguer
         Entrée : Valider
-        Échap : Annuler et retour
+        r : Annuler et retour
     """
     if not items:
         return SelectResult(cancelled=True)
@@ -251,7 +258,7 @@ def select_single(
         content = "\n".join(lines)
 
         if show_help:
-            help_text = "\n\n[dim]↑↓ naviguer │ entrée valider │ échap retour[/dim]"
+            help_text = "\n\n[dim]↑↓ naviguer │ entrée valider │ r retour[/dim]"
             content += help_text
 
         return Panel(
@@ -270,7 +277,7 @@ def select_single(
                 cursor_pos = (cursor_pos + 1) % len(items)
             elif key == readchar.key.ENTER or key == "\r" or key == "\n":
                 break
-            elif _is_escape_key(key):
+            elif _is_cancel_key(key):
                 cancelled = True
                 break
 
@@ -422,3 +429,286 @@ def select_years(
     ]
 
     return checkbox_select(items, title="Millésimes à importer", min_selected=1)
+
+
+# =============================================================================
+# Nouveaux widgets pour les menus et actions
+# =============================================================================
+
+
+@dataclass
+class MenuOption:
+    """Une option de menu."""
+
+    key: str  # Touche pour sélectionner (1, 2, a, s, q, etc.)
+    label: str  # Texte affiché
+    description: str | None = None  # Description optionnelle
+
+
+class MenuResult:
+    """Résultat d'une sélection de menu."""
+
+    def __init__(self, key: str | None = None, cancelled: bool = False) -> None:
+        self.key = key
+        self.cancelled = cancelled
+
+    def __bool__(self) -> bool:
+        """True si une option est sélectionnée et non annulé."""
+        return not self.cancelled and self.key is not None
+
+
+def select_menu(
+    options: list[MenuOption],
+    title: str = "Menu",
+    cancel_key: str = "q",
+    cancel_label: str = "Retour",
+    show_help: bool = True,
+) -> MenuResult:
+    """Affiche un menu interactif avec navigation au clavier.
+
+    Args:
+        options: Liste des options du menu.
+        title: Titre du panneau.
+        cancel_key: Touche pour annuler/retour.
+        cancel_label: Label pour l'option d'annulation.
+        show_help: Afficher l'aide en bas.
+
+    Returns:
+        MenuResult avec la touche sélectionnée.
+
+    Controls:
+        ↑/↓ ou k/j : Naviguer
+        Entrée : Valider l'option courante
+        Touche directe : Sélectionner directement
+        r : Annuler et retour
+    """
+    # Ajouter l'option d'annulation
+    all_options = [*options, MenuOption(key=cancel_key, label=cancel_label)]
+    valid_keys = {opt.key.lower() for opt in all_options}
+
+    cursor_pos = 0
+    cancelled = False
+    selected_key: str | None = None
+
+    def render() -> Panel:
+        """Génère le rendu du composant."""
+        lines = []
+
+        for i, opt in enumerate(all_options):
+            # Curseur
+            cursor = ">" if i == cursor_pos else " "
+
+            # Formater la touche
+            key_display = f"[cyan]{opt.key}[/cyan]"
+
+            # Label avec highlight si curseur
+            label = f"[bold]{opt.label}[/bold]" if i == cursor_pos else opt.label
+
+            line = f" {cursor} {key_display} : {label}"
+
+            # Description si présente
+            if opt.description:
+                line += f" [dim]- {opt.description}[/dim]"
+
+            lines.append(line)
+
+        content = "\n".join(lines)
+
+        if show_help:
+            help_text = "\n\n[dim]↑↓ naviguer │ entrée valider │ touche directe │ r retour[/dim]"
+            content += help_text
+
+        return Panel(
+            Text.from_markup(content),
+            title=f"[bold]{title}[/bold]",
+            border_style="blue",
+        )
+
+    with Live(render(), console=console, refresh_per_second=10, transient=True) as live:
+        while True:
+            key = readchar.readkey()
+
+            if key == readchar.key.UP or key == "k":
+                cursor_pos = (cursor_pos - 1) % len(all_options)
+            elif key == readchar.key.DOWN or key == "j":
+                cursor_pos = (cursor_pos + 1) % len(all_options)
+            elif key == readchar.key.ENTER or key == "\r" or key == "\n":
+                selected_key = all_options[cursor_pos].key
+                if selected_key == cancel_key:
+                    cancelled = True
+                break
+            elif _is_cancel_key(key):
+                cancelled = True
+                break
+            elif key.lower() in valid_keys:
+                # Sélection directe par touche
+                selected_key = key.lower()
+                if selected_key == cancel_key:
+                    cancelled = True
+                break
+
+            live.update(render())
+
+    if cancelled:
+        return MenuResult(cancelled=True)
+    return MenuResult(key=selected_key)
+
+
+@dataclass
+class ToggleItem:
+    """Un élément avec état on/off."""
+
+    label: str
+    value: str
+    enabled: bool = True
+    description: str | None = None
+
+
+class ToggleListResult:
+    """Résultat d'une liste toggle."""
+
+    def __init__(
+        self,
+        items: list[ToggleItem],
+        cancelled: bool = False,
+        action: str | None = None,
+    ) -> None:
+        self.items = items
+        self.cancelled = cancelled
+        self.action = action  # 't' pour tout, 'n' pour rien, None sinon
+
+    @property
+    def enabled_values(self) -> list[str]:
+        """Retourne les valeurs activées."""
+        return [item.value for item in self.items if item.enabled]
+
+    def __bool__(self) -> bool:
+        """True si non annulé."""
+        return not self.cancelled
+
+
+def select_toggle_list(
+    items: list[ToggleItem],
+    title: str = "Activation",
+    show_help: bool = True,
+) -> ToggleListResult:
+    """Affiche une liste avec toggle on/off interactif.
+
+    Args:
+        items: Liste des éléments à afficher.
+        title: Titre du panneau.
+        show_help: Afficher l'aide en bas.
+
+    Returns:
+        ToggleListResult avec les éléments modifiés.
+
+    Controls:
+        ↑/↓ ou k/j : Naviguer
+        Espace ou Entrée : Basculer l'état
+        t : Tout activer
+        n : Tout désactiver
+        1-9 : Basculer par numéro
+        q ou r : Terminer/retour
+    """
+    cursor_pos = 0
+    cancelled = False
+    action: str | None = None
+
+    def render() -> Panel:
+        """Génère le rendu du composant."""
+        lines = []
+
+        for i, item in enumerate(items):
+            # Numéro et curseur
+            num = str(i + 1) if i < 9 else " "
+            cursor = ">" if i == cursor_pos else " "
+
+            # État on/off
+            status = "[green]✓ ON [/green]" if item.enabled else "[red]✗ OFF[/red]"
+
+            # Label avec highlight si curseur
+            label = f"[bold cyan]{item.label}[/bold cyan]" if i == cursor_pos else item.label
+
+            line = f" {cursor} [dim]{num}[/dim] {status} {label}"
+
+            # Description si présente
+            if item.description:
+                line += f" [dim]- {item.description}[/dim]"
+
+            lines.append(line)
+
+        content = "\n".join(lines)
+
+        if show_help:
+            help_text = (
+                "\n\n[dim]↑↓ naviguer │ espace basculer │ "
+                "t tout │ n rien │ 1-9 direct │ q terminer[/dim]"
+            )
+            content += help_text
+
+        # Compteur
+        enabled_count = sum(1 for item in items if item.enabled)
+        subtitle = f"{enabled_count}/{len(items)} activé(s)"
+
+        return Panel(
+            Text.from_markup(content),
+            title=f"[bold]{title}[/bold]",
+            subtitle=subtitle,
+            border_style="blue",
+        )
+
+    with Live(render(), console=console, refresh_per_second=10, transient=True) as live:
+        while True:
+            key = readchar.readkey()
+
+            if key == readchar.key.UP or key == "k":
+                cursor_pos = (cursor_pos - 1) % len(items)
+            elif key == readchar.key.DOWN or key == "j":
+                cursor_pos = (cursor_pos + 1) % len(items)
+            elif key == " " or key == readchar.key.ENTER or key == "\r" or key == "\n":
+                items[cursor_pos].enabled = not items[cursor_pos].enabled
+            elif key == "t":
+                for item in items:
+                    item.enabled = True
+                action = "t"
+            elif key == "n":
+                for item in items:
+                    item.enabled = False
+                action = "n"
+            elif key == "q" or _is_cancel_key(key):
+                break
+            elif key.isdigit() and 1 <= int(key) <= len(items):
+                idx = int(key) - 1
+                items[idx].enabled = not items[idx].enabled
+                cursor_pos = idx
+
+            live.update(render())
+
+    return ToggleListResult(items, cancelled=cancelled, action=action)
+
+
+def select_option(
+    options: list[str],
+    title: str = "Sélection",
+    default: str | None = None,
+) -> SelectResult:
+    """Sélection rapide parmi une liste d'options simples.
+
+    Args:
+        options: Liste des options (valeurs = labels).
+        title: Titre du panneau.
+        default: Option par défaut.
+
+    Returns:
+        SelectResult avec l'option sélectionnée.
+    """
+    items = [SelectItem(label=opt, value=opt) for opt in options]
+
+    default_index = 0
+    if default:
+        for i, opt in enumerate(options):
+            if opt == default:
+                default_index = i
+                break
+
+    return select_single(items, title=title, default_index=default_index)

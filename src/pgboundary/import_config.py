@@ -173,36 +173,135 @@ class HistorizationConfig(BaseModel):
             return f"Distance <= {t.hausdorff_max:.0f}m"
 
 
-class ProductImportConfig(BaseModel):
-    """Configuration d'import pour un produit spécifique.
+class LayerImportConfig(BaseModel):
+    """Configuration d'import pour une couche spécifique.
+
+    Chaque couche peut surcharger les valeurs par défaut du produit.
+    Les champs None héritent de la configuration du produit parent.
 
     Attributes:
-        enabled: Si True, le produit sera importé.
-        layers: Liste des couches à importer (toutes si vide).
-        territory: Code territoire (FRA, FXX, GLP, etc.).
-        format: Format de fichier (shp, gpkg).
-        years: Liste des années/millésimes à importer.
+        enabled: Si True, la couche sera importée.
+        table_name: Nom de la table cible (optionnel, utilise le défaut si None).
+        territory: Code territoire (hérite du produit si None).
+        format: Format de fichier (hérite du produit si None).
+        years: Années à importer (hérite du produit si None).
+        historization: Configuration de l'historisation (hérite du produit si None).
+    """
+
+    enabled: bool = Field(default=True, description="Active l'import de cette couche")
+    table_name: str | None = Field(
+        default=None,
+        description="Nom de la table cible (optionnel)",
+    )
+    territory: str | None = Field(
+        default=None,
+        description="Code territoire (hérite du produit si None)",
+    )
+    format: str | None = Field(
+        default=None,
+        description="Format de fichier (hérite du produit si None)",
+    )
+    years: list[str] | None = Field(
+        default=None,
+        description="Années à importer (hérite du produit si None)",
+    )
+    historization: HistorizationConfig | None = Field(
+        default=None,
+        description="Configuration de l'historisation (hérite du produit si None)",
+    )
+
+
+@dataclass
+class EffectiveLayerConfig:
+    """Configuration effective d'une couche après résolution de l'héritage.
+
+    Cette classe représente la configuration finale d'une couche avec toutes
+    les valeurs résolues (pas de None).
+
+    Attributes:
+        layer_name: Nom de la couche.
+        enabled: Si True, la couche sera importée.
+        table_name: Nom de la table cible.
+        territory: Code territoire.
+        format: Format de fichier.
+        years: Années à importer.
         historization: Configuration de l'historisation.
     """
 
-    enabled: bool = Field(default=True, description="Active l'import de ce produit")
-    layers: list[str] = Field(
-        default_factory=list,
-        description="Couches à importer (toutes si vide)",
-    )
-    territory: str = Field(default="FRA", description="Code territoire")
-    format: str = Field(default="shp", description="Format de fichier")
+    layer_name: str
+    enabled: bool
+    table_name: str | None
+    territory: str
+    format: str
+    years: list[str]
+    historization: HistorizationConfig
+
+
+class ProductImportConfig(BaseModel):
+    """Configuration d'import pour un produit spécifique.
+
+    Les paramètres au niveau produit servent de valeurs par défaut
+    pour toutes les couches. Chaque couche peut surcharger ces valeurs.
+
+    Attributes:
+        territory: Code territoire par défaut (FRA, FXX, GLP, etc.).
+        format: Format de fichier par défaut (shp, gpkg).
+        years: Années/millésimes par défaut à importer.
+        historization: Configuration de l'historisation par défaut.
+        layers: Configuration par couche.
+    """
+
+    territory: str = Field(default="FRA", description="Code territoire par défaut")
+    format: str = Field(default="shp", description="Format de fichier par défaut")
     years: list[str] = Field(
         default_factory=lambda: ["2024"],
-        description="Années/millésimes à importer",
+        description="Années/millésimes par défaut",
     )
     historization: HistorizationConfig = Field(
         default_factory=HistorizationConfig,
-        description="Configuration de l'historisation",
+        description="Configuration de l'historisation par défaut",
+    )
+    layers: dict[str, LayerImportConfig] = Field(
+        default_factory=dict,
+        description="Configuration par couche",
     )
 
+    def get_effective_layer_config(self, layer_name: str) -> EffectiveLayerConfig:
+        """Retourne la configuration effective d'une couche.
+
+        Résout l'héritage en combinant la configuration de la couche
+        avec les valeurs par défaut du produit.
+
+        Args:
+            layer_name: Nom de la couche.
+
+        Returns:
+            Configuration effective avec toutes les valeurs résolues.
+        """
+        layer_config = self.layers.get(layer_name, LayerImportConfig())
+
+        return EffectiveLayerConfig(
+            layer_name=layer_name,
+            enabled=layer_config.enabled,
+            table_name=layer_config.table_name,
+            territory=layer_config.territory if layer_config.territory else self.territory,
+            format=layer_config.format if layer_config.format else self.format,
+            years=layer_config.years if layer_config.years else self.years,
+            historization=(
+                layer_config.historization if layer_config.historization else self.historization
+            ),
+        )
+
+    def get_enabled_layers(self) -> list[str]:
+        """Retourne la liste des couches activées.
+
+        Returns:
+            Liste des noms de couches avec enabled=True.
+        """
+        return [name for name, cfg in self.layers.items() if cfg.enabled]
+
     def get_latest_year(self) -> str | None:
-        """Retourne la dernière année configurée.
+        """Retourne la dernière année configurée (au niveau produit).
 
         Returns:
             Dernière année ou None si aucune.
@@ -212,14 +311,31 @@ class ProductImportConfig(BaseModel):
         return sorted(self.years)[-1]
 
     def get_layers_display(self) -> str:
-        """Retourne un affichage des couches.
+        """Retourne un affichage des couches activées.
 
         Returns:
-            Liste des couches ou "toutes".
+            Liste des couches ou "aucune".
         """
-        if not self.layers:
-            return "toutes"
-        return ", ".join(self.layers)
+        enabled = self.get_enabled_layers()
+        if not enabled:
+            return "aucune"
+        return ", ".join(enabled)
+
+    def count_enabled_layers(self) -> int:
+        """Compte le nombre de couches activées.
+
+        Returns:
+            Nombre de couches avec enabled=True.
+        """
+        return sum(1 for cfg in self.layers.values() if cfg.enabled)
+
+    def has_enabled_layers(self) -> bool:
+        """Vérifie si au moins une couche est activée.
+
+        Returns:
+            True si au moins une couche est activée.
+        """
+        return any(cfg.enabled for cfg in self.layers.values())
 
 
 class ImportsConfig(BaseModel):
@@ -235,12 +351,12 @@ class ImportsConfig(BaseModel):
     )
 
     def get_enabled_products(self) -> dict[str, ProductImportConfig]:
-        """Retourne les produits activés.
+        """Retourne les produits qui ont au moins une couche activée.
 
         Returns:
-            Dictionnaire des produits avec enabled=True.
+            Dictionnaire des produits avec au moins une couche enabled=True.
         """
-        return {k: v for k, v in self.products.items() if v.enabled}
+        return {k: v for k, v in self.products.items() if v.has_enabled_layers()}
 
     def get_product(self, product_id: str) -> ProductImportConfig | None:
         """Retourne la configuration d'un produit.
@@ -283,12 +399,12 @@ class ImportsConfig(BaseModel):
         return False
 
     def count_enabled(self) -> int:
-        """Compte les produits activés.
+        """Compte les produits avec au moins une couche activée.
 
         Returns:
-            Nombre de produits activés.
+            Nombre de produits avec au moins une couche activée.
         """
-        return sum(1 for p in self.products.values() if p.enabled)
+        return sum(1 for p in self.products.values() if p.has_enabled_layers())
 
     def count_total(self) -> int:
         """Compte le total de produits.
@@ -302,8 +418,6 @@ class ImportsConfig(BaseModel):
 # Configurations par défaut pour les produits courants
 DEFAULT_PRODUCT_CONFIGS: dict[str, ProductImportConfig] = {
     "admin-express-cog": ProductImportConfig(
-        enabled=True,
-        layers=["REGION", "DEPARTEMENT", "EPCI", "COMMUNE"],
         territory="FRA",
         format="shp",
         years=["2024"],
@@ -318,10 +432,14 @@ DEFAULT_PRODUCT_CONFIGS: dict[str, ProductImportConfig] = {
             ),
             key_field="cd_insee",
         ),
+        layers={
+            "REGION": LayerImportConfig(enabled=True, table_name="region"),
+            "DEPARTEMENT": LayerImportConfig(enabled=True, table_name="departement"),
+            "EPCI": LayerImportConfig(enabled=True, table_name="epci"),
+            "COMMUNE": LayerImportConfig(enabled=True, table_name="commune"),
+        },
     ),
     "contours-iris": ProductImportConfig(
-        enabled=False,
-        layers=["IRIS_GE"],
         territory="FRA",
         format="shp",
         years=["2024"],
@@ -336,14 +454,16 @@ DEFAULT_PRODUCT_CONFIGS: dict[str, ProductImportConfig] = {
             ),
             key_field="code_iris",
         ),
+        layers={
+            "IRIS_GE": LayerImportConfig(enabled=False, table_name="iris"),
+        },
     ),
     "codes-postaux-ban": ProductImportConfig(
-        enabled=False,
-        layers=[],
         territory="FRA",
         format="geojson",
         years=["2021"],
         historization=HistorizationConfig(enabled=False),
+        layers={},
     ),
 }
 

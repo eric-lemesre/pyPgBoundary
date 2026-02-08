@@ -12,6 +12,7 @@ from pgboundary.import_config import (
     DEFAULT_PRODUCT_CONFIGS,
     HistorizationConfig,
     ImportsConfig,
+    LayerImportConfig,
     ProductImportConfig,
     SimilarityLevel,
     SimilarityMethod,
@@ -238,33 +239,64 @@ class TestHistorizationConfig:
         assert "Distance" in desc
 
 
+class TestLayerImportConfig:
+    """Tests pour le modèle LayerImportConfig."""
+
+    def test_default_values(self) -> None:
+        """Test des valeurs par défaut."""
+        config = LayerImportConfig()
+        assert config.enabled is True
+        assert config.table_name is None
+        assert config.territory is None
+        assert config.format is None
+        assert config.years is None
+        assert config.historization is None
+
+    def test_custom_values(self) -> None:
+        """Test avec valeurs personnalisées."""
+        config = LayerImportConfig(
+            enabled=False,
+            table_name="ma_table",
+            territory="FXX",
+            format="gpkg",
+            years=["2023", "2024"],
+        )
+        assert config.enabled is False
+        assert config.table_name == "ma_table"
+        assert config.territory == "FXX"
+        assert config.format == "gpkg"
+        assert config.years == ["2023", "2024"]
+
+
 class TestProductImportConfig:
     """Tests pour le modèle ProductImportConfig."""
 
     def test_default_values(self) -> None:
         """Test des valeurs par défaut."""
         config = ProductImportConfig()
-        assert config.enabled is True
-        assert config.layers == []
         assert config.territory == "FRA"
         assert config.format == "shp"
         assert config.years == ["2024"]
         assert config.historization.enabled is False
+        assert config.layers == {}
 
     def test_custom_values(self) -> None:
         """Test avec valeurs personnalisées."""
         config = ProductImportConfig(
-            enabled=False,
-            layers=["REGION", "COMMUNE"],
             territory="FXX",
             format="gpkg",
             years=["2023", "2024"],
+            layers={
+                "REGION": LayerImportConfig(enabled=True, table_name="region"),
+                "COMMUNE": LayerImportConfig(enabled=False, table_name="commune"),
+            },
         )
-        assert config.enabled is False
-        assert config.layers == ["REGION", "COMMUNE"]
         assert config.territory == "FXX"
         assert config.format == "gpkg"
         assert config.years == ["2023", "2024"]
+        assert len(config.layers) == 2
+        assert config.layers["REGION"].enabled is True
+        assert config.layers["COMMUNE"].enabled is False
 
     def test_get_latest_year(self) -> None:
         """Test get_latest_year."""
@@ -276,15 +308,124 @@ class TestProductImportConfig:
         config = ProductImportConfig(years=[])
         assert config.get_latest_year() is None
 
-    def test_get_layers_display_all(self) -> None:
-        """Test get_layers_display sans couches spécifiques."""
-        config = ProductImportConfig(layers=[])
-        assert config.get_layers_display() == "toutes"
+    def test_get_layers_display_none(self) -> None:
+        """Test get_layers_display sans couches."""
+        config = ProductImportConfig(layers={})
+        assert config.get_layers_display() == "aucune"
 
-    def test_get_layers_display_specific(self) -> None:
-        """Test get_layers_display avec couches spécifiques."""
-        config = ProductImportConfig(layers=["REGION", "COMMUNE"])
-        assert config.get_layers_display() == "REGION, COMMUNE"
+    def test_get_layers_display_enabled(self) -> None:
+        """Test get_layers_display avec couches activées."""
+        config = ProductImportConfig(
+            layers={
+                "REGION": LayerImportConfig(enabled=True),
+                "COMMUNE": LayerImportConfig(enabled=True),
+                "EPCI": LayerImportConfig(enabled=False),
+            }
+        )
+        display = config.get_layers_display()
+        assert "REGION" in display
+        assert "COMMUNE" in display
+        assert "EPCI" not in display
+
+    def test_get_enabled_layers(self) -> None:
+        """Test get_enabled_layers."""
+        config = ProductImportConfig(
+            layers={
+                "REGION": LayerImportConfig(enabled=True),
+                "COMMUNE": LayerImportConfig(enabled=True),
+                "EPCI": LayerImportConfig(enabled=False),
+            }
+        )
+        enabled = config.get_enabled_layers()
+        assert len(enabled) == 2
+        assert "REGION" in enabled
+        assert "COMMUNE" in enabled
+        assert "EPCI" not in enabled
+
+    def test_count_enabled_layers(self) -> None:
+        """Test count_enabled_layers."""
+        config = ProductImportConfig(
+            layers={
+                "REGION": LayerImportConfig(enabled=True),
+                "COMMUNE": LayerImportConfig(enabled=True),
+                "EPCI": LayerImportConfig(enabled=False),
+            }
+        )
+        assert config.count_enabled_layers() == 2
+
+    def test_has_enabled_layers_true(self) -> None:
+        """Test has_enabled_layers quand il y a des couches activées."""
+        config = ProductImportConfig(
+            layers={
+                "REGION": LayerImportConfig(enabled=True),
+                "EPCI": LayerImportConfig(enabled=False),
+            }
+        )
+        assert config.has_enabled_layers() is True
+
+    def test_has_enabled_layers_false(self) -> None:
+        """Test has_enabled_layers quand aucune couche n'est activée."""
+        config = ProductImportConfig(
+            layers={
+                "REGION": LayerImportConfig(enabled=False),
+                "EPCI": LayerImportConfig(enabled=False),
+            }
+        )
+        assert config.has_enabled_layers() is False
+
+    def test_get_effective_layer_config_existing(self) -> None:
+        """Test get_effective_layer_config pour une couche existante."""
+        config = ProductImportConfig(
+            territory="FRA",
+            format="shp",
+            years=["2024"],
+            historization=HistorizationConfig(enabled=True),
+            layers={
+                "REGION": LayerImportConfig(
+                    enabled=True,
+                    table_name="region",
+                    years=["2023", "2024"],  # Surcharge
+                ),
+            },
+        )
+        effective = config.get_effective_layer_config("REGION")
+        assert effective.layer_name == "REGION"
+        assert effective.enabled is True
+        assert effective.table_name == "region"
+        assert effective.territory == "FRA"  # Hérité
+        assert effective.format == "shp"  # Hérité
+        assert effective.years == ["2023", "2024"]  # Surchargé
+        assert effective.historization.enabled is True  # Hérité
+
+    def test_get_effective_layer_config_missing(self) -> None:
+        """Test get_effective_layer_config pour une couche non configurée."""
+        config = ProductImportConfig(
+            territory="FXX",
+            format="gpkg",
+            years=["2023"],
+        )
+        effective = config.get_effective_layer_config("UNKNOWN")
+        assert effective.layer_name == "UNKNOWN"
+        assert effective.enabled is True  # Défaut
+        assert effective.table_name is None  # Défaut
+        assert effective.territory == "FXX"  # Hérité
+        assert effective.format == "gpkg"  # Hérité
+        assert effective.years == ["2023"]  # Hérité
+
+    def test_get_effective_layer_config_with_override_historization(self) -> None:
+        """Test get_effective_layer_config avec surcharge de l'historisation."""
+        layer_hist = HistorizationConfig(enabled=False)
+        config = ProductImportConfig(
+            historization=HistorizationConfig(enabled=True),
+            layers={
+                "COMMUNE": LayerImportConfig(
+                    enabled=True,
+                    historization=layer_hist,
+                ),
+            },
+        )
+        effective = config.get_effective_layer_config("COMMUNE")
+        assert effective.historization.enabled is False  # Surchargé
 
 
 class TestImportsConfig:
@@ -307,10 +448,13 @@ class TestImportsConfig:
     def test_add_product_with_config(self) -> None:
         """Test ajout d'un produit avec configuration."""
         config = ImportsConfig()
-        prod_config = ProductImportConfig(enabled=False, territory="FXX")
+        prod_config = ProductImportConfig(
+            territory="FXX",
+            layers={"REGION": LayerImportConfig(enabled=False)},
+        )
         config.add_product("test-product", prod_config)
-        assert config.products["test-product"].enabled is False
         assert config.products["test-product"].territory == "FXX"
+        assert config.products["test-product"].layers["REGION"].enabled is False
 
     def test_remove_product(self) -> None:
         """Test suppression d'un produit."""
@@ -330,7 +474,6 @@ class TestImportsConfig:
         config.add_product("test-product")
         prod = config.get_product("test-product")
         assert prod is not None
-        assert prod.enabled is True
 
     def test_get_product_not_found(self) -> None:
         """Test récupération d'un produit inexistant."""
@@ -338,24 +481,45 @@ class TestImportsConfig:
         assert config.get_product("inexistant") is None
 
     def test_get_enabled_products(self) -> None:
-        """Test récupération des produits activés."""
+        """Test récupération des produits avec couches activées."""
         config = ImportsConfig()
-        config.add_product("enabled-1", ProductImportConfig(enabled=True))
-        config.add_product("disabled-1", ProductImportConfig(enabled=False))
-        config.add_product("enabled-2", ProductImportConfig(enabled=True))
+        # Produit avec couches activées
+        config.add_product(
+            "has-enabled",
+            ProductImportConfig(layers={"REGION": LayerImportConfig(enabled=True)}),
+        )
+        # Produit sans couches activées
+        config.add_product(
+            "no-enabled",
+            ProductImportConfig(layers={"REGION": LayerImportConfig(enabled=False)}),
+        )
+        # Produit avec couches vides (aucune activée par défaut)
+        config.add_product(
+            "empty-layers",
+            ProductImportConfig(layers={}),
+        )
 
         enabled = config.get_enabled_products()
-        assert len(enabled) == 2
-        assert "enabled-1" in enabled
-        assert "enabled-2" in enabled
-        assert "disabled-1" not in enabled
+        assert len(enabled) == 1
+        assert "has-enabled" in enabled
+        assert "no-enabled" not in enabled
+        assert "empty-layers" not in enabled
 
     def test_count_enabled(self) -> None:
-        """Test comptage des produits activés."""
+        """Test comptage des produits avec couches activées."""
         config = ImportsConfig()
-        config.add_product("enabled-1", ProductImportConfig(enabled=True))
-        config.add_product("disabled-1", ProductImportConfig(enabled=False))
-        config.add_product("enabled-2", ProductImportConfig(enabled=True))
+        config.add_product(
+            "enabled-1",
+            ProductImportConfig(layers={"REGION": LayerImportConfig(enabled=True)}),
+        )
+        config.add_product(
+            "disabled-1",
+            ProductImportConfig(layers={"REGION": LayerImportConfig(enabled=False)}),
+        )
+        config.add_product(
+            "enabled-2",
+            ProductImportConfig(layers={"COMMUNE": LayerImportConfig(enabled=True)}),
+        )
 
         assert config.count_enabled() == 2
         assert config.count_total() == 3
@@ -371,25 +535,38 @@ class TestDefaultProductConfigs:
     def test_admin_express_cog_config(self) -> None:
         """Test de la configuration admin-express-cog."""
         config = DEFAULT_PRODUCT_CONFIGS["admin-express-cog"]
-        assert config.enabled is True
+        # Vérifie les couches
         assert "REGION" in config.layers
         assert "COMMUNE" in config.layers
+        assert config.layers["REGION"].enabled is True
+        assert config.layers["COMMUNE"].enabled is True
+        # Vérifie les valeurs par défaut
         assert config.territory == "FRA"
         assert config.historization.enabled is True
         assert config.historization.method == SimilarityMethod.COMBINED
+        # Vérifie les noms de tables
+        assert config.layers["REGION"].table_name == "region"
+        assert config.layers["COMMUNE"].table_name == "commune"
 
     def test_contours_iris_exists(self) -> None:
         """Test que contours-iris existe."""
         assert "contours-iris" in DEFAULT_PRODUCT_CONFIGS
 
-    def test_contours_iris_disabled(self) -> None:
-        """Test que contours-iris est désactivé par défaut."""
+    def test_contours_iris_disabled_layer(self) -> None:
+        """Test que la couche contours-iris est désactivée par défaut."""
         config = DEFAULT_PRODUCT_CONFIGS["contours-iris"]
-        assert config.enabled is False
+        assert "IRIS_GE" in config.layers
+        assert config.layers["IRIS_GE"].enabled is False
 
     def test_codes_postaux_ban_exists(self) -> None:
         """Test que codes-postaux-ban existe."""
         assert "codes-postaux-ban" in DEFAULT_PRODUCT_CONFIGS
+
+    def test_codes_postaux_ban_empty_layers(self) -> None:
+        """Test que codes-postaux-ban n'a pas de couches configurées."""
+        config = DEFAULT_PRODUCT_CONFIGS["codes-postaux-ban"]
+        assert config.layers == {}
+        assert config.has_enabled_layers() is False
 
 
 class TestGetDefaultKeyField:

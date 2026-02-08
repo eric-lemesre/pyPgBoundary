@@ -20,7 +20,7 @@ from pgboundary.cli_widgets import (
     CheckboxResult,
     SelectItem,
     SelectResult,
-    _is_escape_key,
+    _is_cancel_key,
     checkbox_select,
     select_format,
     select_layers,
@@ -30,30 +30,34 @@ from pgboundary.cli_widgets import (
 )
 
 
-class TestIsEscapeKey:
-    """Tests pour _is_escape_key."""
+class TestIsCancelKey:
+    """Tests pour _is_cancel_key."""
 
     def test_escape_char(self) -> None:
         """Test avec le caractère ESC (0x1B)."""
-        assert _is_escape_key("\x1b") is True
+        assert _is_cancel_key("\x1b") is True
+
+    def test_r_key(self) -> None:
+        """Test avec la touche 'r' (nouvelle touche de retour)."""
+        assert _is_cancel_key("r") is True
 
     def test_other_keys(self) -> None:
         """Test avec d'autres touches."""
-        assert _is_escape_key("a") is False
-        assert _is_escape_key("q") is False
-        assert _is_escape_key(" ") is False
-        assert _is_escape_key("\n") is False
-        assert _is_escape_key("\r") is False
+        assert _is_cancel_key("a") is False
+        assert _is_cancel_key("q") is False
+        assert _is_cancel_key(" ") is False
+        assert _is_cancel_key("\n") is False
+        assert _is_cancel_key("\r") is False
 
     def test_empty_string(self) -> None:
         """Test avec chaîne vide."""
-        assert _is_escape_key("") is False
+        assert _is_cancel_key("") is False
 
     def test_control_chars(self) -> None:
         """Test avec d'autres caractères de contrôle."""
-        assert _is_escape_key("\x00") is False  # NULL
-        assert _is_escape_key("\x03") is False  # Ctrl+C
-        assert _is_escape_key("\x04") is False  # Ctrl+D
+        assert _is_cancel_key("\x00") is False  # NULL
+        assert _is_cancel_key("\x03") is False  # Ctrl+C
+        assert _is_cancel_key("\x04") is False  # Ctrl+D
 
 
 class TestCheckboxItem:

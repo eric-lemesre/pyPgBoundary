@@ -266,32 +266,32 @@ def config_update() -> None:
 
     config = load_config(config_path)
 
-    console.print(Panel.fit("[bold blue]Modification de la configuration[/bold blue]"))
-    console.print()
+    from pgboundary.cli_widgets import MenuOption, select_menu
 
     while True:
-        console.print("[bold]Que voulez-vous modifier ?[/bold]")
-        console.print("  [cyan]1[/cyan] : Mode de stockage")
-        console.print("  [cyan]2[/cyan] : SRID")
-        console.print("  [cyan]3[/cyan] : Produits à importer")
-        console.print("  [cyan]4[/cyan] : Préfixes des colonnes")
-        console.print("  [cyan]q[/cyan] : Quitter et sauvegarder")
-        console.print()
+        options = [
+            MenuOption("1", "Mode de stockage", "schema ou préfixe"),
+            MenuOption("2", "SRID", "système de projection"),
+            MenuOption("3", "Produits à importer", "IGN Admin Express, etc."),
+            MenuOption("4", "Préfixes des colonnes", "cd_, lb_, dt_"),
+        ]
+        result = select_menu(
+            options,
+            title="Modification de la configuration",
+            cancel_key="q",
+            cancel_label="Quitter et sauvegarder",
+        )
 
-        choice = Prompt.ask("Choix", choices=["1", "2", "3", "4", "q"], default="q")
-
-        if choice == "q":
+        if result.cancelled:
             break
-        elif choice == "1":
+        elif result.key == "1":
             _update_storage(config)
-        elif choice == "2":
+        elif result.key == "2":
             _update_srid(config)
-        elif choice == "3":
+        elif result.key == "3":
             _update_imports(config)
-        elif choice == "4":
+        elif result.key == "4":
             _update_prefixes(config)
-
-        console.print()
 
     save_config(config, config_path)
     console.print(f"[green]Configuration sauvegardée: {config_path}[/green]")
@@ -343,8 +343,28 @@ def _update_prefixes(config: SchemaConfig) -> None:
     )
 
 
+def _get_enabled_layers_count(prod_config: dict[str, Any]) -> tuple[int, int]:
+    """Compte les couches activées dans une configuration de produit.
+
+    Args:
+        prod_config: Configuration du produit.
+
+    Returns:
+        Tuple (nombre activées, nombre total).
+    """
+    layers = prod_config.get("layers", {})
+    if isinstance(layers, dict):
+        total = len(layers)
+        enabled = sum(1 for layer in layers.values() if layer.get("enabled", True))
+        return enabled, total
+    # Ancienne structure (liste)
+    return len(layers), len(layers) if layers else 0
+
+
 def _update_imports(config: SchemaConfig) -> None:
     """Met à jour la configuration des imports."""
+    from pgboundary.cli_widgets import MenuOption, SelectItem, select_menu, select_single
+
     console.print()
 
     if not config.imports:
@@ -357,92 +377,113 @@ def _update_imports(config: SchemaConfig) -> None:
     table = Table(title="Produits configurés")
     table.add_column("#", style="dim")
     table.add_column("Produit", style="cyan")
-    table.add_column("Activé")
     table.add_column("Couches")
     table.add_column("Années")
+    table.add_column("Territoire")
 
     products_list = list(config.imports.items())
     for i, (product_id, prod_config) in enumerate(products_list, 1):
-        enabled = "[green]oui[/green]" if prod_config.get("enabled", True) else "[red]non[/red]"
-        layers = ", ".join(prod_config.get("layers", [])) or "toutes"
+        enabled_count, total_count = _get_enabled_layers_count(prod_config)
+        if total_count > 0:
+            layers_str = f"{enabled_count}/{total_count} activées"
+            if enabled_count == 0:
+                layers_str = f"[red]{layers_str}[/red]"
+            elif enabled_count == total_count:
+                layers_str = f"[green]{layers_str}[/green]"
+        else:
+            layers_str = "[dim]aucune[/dim]"
+
         years = ", ".join(prod_config.get("years", []))
-        table.add_row(str(i), product_id, enabled, layers, years)
+        territory = prod_config.get("territory", "FRA")
+        table.add_row(str(i), product_id, layers_str, years, territory)
 
     console.print(table)
     console.print()
 
-    console.print("[bold]Actions :[/bold]")
-    console.print("  [cyan]a[/cyan] : Ajouter un produit")
-    console.print("  [cyan]s[/cyan] : Supprimer un produit")
-    console.print("  [cyan]t[/cyan] : Activer/désactiver un produit")
-    console.print("  [cyan]m[/cyan] : Modifier un produit")
-    console.print("  [cyan]q[/cyan] : Retour")
-    console.print()
+    # Menu d'actions
+    options = [
+        MenuOption("a", "Ajouter un produit"),
+        MenuOption("s", "Supprimer un produit"),
+        MenuOption("m", "Modifier un produit"),
+    ]
+    result = select_menu(options, title="Actions", cancel_key="q", cancel_label="Retour")
 
-    action = Prompt.ask("Action", choices=["a", "s", "t", "m", "q"], default="q")
-
-    if action == "a":
+    if result.cancelled:
+        return
+    elif result.key == "a":
         _add_products_interactive(config)
-    elif action == "s" and products_list:
-        num = Prompt.ask("Numéro du produit à supprimer", default="1")
-        idx = int(num) - 1
-        if 0 <= idx < len(products_list):
-            product_id = products_list[idx][0]
-            del config.imports[product_id]
-            console.print(f"[green]Produit {product_id} supprimé[/green]")
-    elif action == "t" and products_list:
-        num = Prompt.ask("Numéro du produit à basculer", default="1")
-        idx = int(num) - 1
-        if 0 <= idx < len(products_list):
-            product_id = products_list[idx][0]
-            current = config.imports[product_id].get("enabled", True)
-            config.imports[product_id]["enabled"] = not current
-            status = "activé" if not current else "désactivé"
-            console.print(f"[green]Produit {product_id} {status}[/green]")
-    elif action == "m" and products_list:
-        num = Prompt.ask("Numéro du produit à modifier", default="1")
-        idx = int(num) - 1
-        if 0 <= idx < len(products_list):
-            product_id = products_list[idx][0]
-            _modify_product_config(config, product_id)
+    elif result.key == "s" and products_list:
+        # Sélection du produit à supprimer
+        product_items = [
+            SelectItem(label=pid, value=pid, description=f"{len(cfg.get('layers', {}))} couches")
+            for pid, cfg in products_list
+        ]
+        sel_result = select_single(product_items, title="Produit à supprimer")
+        if sel_result and sel_result.value:
+            del config.imports[sel_result.value]
+            console.print(f"[green]Produit {sel_result.value} supprimé[/green]")
+    elif result.key == "m" and products_list:
+        # Sélection du produit à modifier
+        product_items = [
+            SelectItem(label=pid, value=pid, description=f"{len(cfg.get('layers', {}))} couches")
+            for pid, cfg in products_list
+        ]
+        sel_result = select_single(product_items, title="Produit à modifier")
+        if sel_result and sel_result.value:
+            _modify_product_config(config, sel_result.value)
 
 
 def _modify_product_config(config: SchemaConfig, product_id: str) -> None:
-    """Modifie la configuration d'un produit."""
-    from pgboundary.cli_widgets import (
-        select_format,
-        select_layers,
-        select_territory,
-        select_years,
-    )
+    """Modifie la configuration d'un produit (nouvelle structure par couches)."""
+    from pgboundary.cli_widgets import MenuOption, select_menu
 
     prod_config = config.imports[product_id]
     catalog = get_default_catalog()
     product = catalog.get(product_id)
 
-    console.print(f"\n[bold]Modification de {product_id}[/bold]")
+    while True:
+        options = [
+            MenuOption("1", "Paramètres par défaut", "territoire, format, années"),
+            MenuOption("2", "Historisation"),
+            MenuOption("3", "Activer/désactiver des couches"),
+            MenuOption("4", "Configurer une couche spécifique"),
+        ]
 
-    # Couches (si le produit est connu)
-    if product:
-        current_layers = prod_config.get("layers", [])
-        # Si liste vide = toutes les couches
-        if not current_layers:
-            current_layers = [layer.name for layer in product.layers]
+        result = select_menu(
+            options,
+            title=f"Modification de {product_id}",
+            cancel_key="q",
+            cancel_label="Terminer",
+        )
 
-        layers_data = [(layer.name, layer.description_fr or layer.name) for layer in product.layers]
+        if result.cancelled:
+            break
+        elif result.key == "1":
+            _modify_product_defaults(prod_config, product)
+        elif result.key == "2":
+            _modify_product_historization(prod_config)
+        elif result.key == "3":
+            _toggle_product_layers(prod_config, product)
+        elif result.key == "4":
+            _modify_layer_config(prod_config, product)
 
-        layers_result = select_layers(layers_data, preselected=current_layers)
-        if layers_result.cancelled:
-            console.print("[yellow]Modification annulée[/yellow]")
-            return
+    console.print(f"[green]Configuration de {product_id} mise à jour[/green]")
 
-        # Si toutes les couches sont sélectionnées, stocker une liste vide
-        if len(layers_result.selected_values) == len(product.layers):
-            prod_config["layers"] = []
-        else:
-            prod_config["layers"] = layers_result.selected_values
 
-    # Années (checkbox interactif)
+def _modify_product_defaults(
+    prod_config: dict[str, Any],
+    product: IGNProduct | None,
+) -> None:
+    """Modifie les paramètres par défaut d'un produit."""
+    from pgboundary.cli_widgets import (
+        select_format,
+        select_territory,
+        select_years,
+    )
+
+    console.print("\n[bold]Modification des valeurs par défaut[/bold]")
+
+    # Années
     current_years = prod_config.get("years", ["2024"])
     years_result = select_years(preselected=current_years)
     if years_result.cancelled:
@@ -450,7 +491,7 @@ def _modify_product_config(config: SchemaConfig, product_id: str) -> None:
         return
     prod_config["years"] = years_result.selected_values
 
-    # Territoire (sélection interactive)
+    # Territoire
     if product:
         territories = [t.value for t in product.territories]
     else:
@@ -462,7 +503,7 @@ def _modify_product_config(config: SchemaConfig, product_id: str) -> None:
         return
     prod_config["territory"] = territory_result.value or current_territory
 
-    # Format (sélection interactive)
+    # Format
     formats = [f.value for f in product.formats] if product else ["shp", "gpkg"]
     current_format = prod_config.get("format", "shp")
     format_result = select_format(formats, default=current_format)
@@ -471,7 +512,13 @@ def _modify_product_config(config: SchemaConfig, product_id: str) -> None:
         return
     prod_config["format"] = format_result.value or current_format
 
-    # Historisation
+    console.print("[green]Paramètres par défaut mis à jour[/green]")
+
+
+def _modify_product_historization(prod_config: dict[str, Any]) -> None:
+    """Modifie la configuration de l'historisation d'un produit."""
+    console.print("\n[bold]Configuration de l'historisation[/bold]")
+
     if Confirm.ask(
         "Activer l'historisation ?",
         default=prod_config.get("historization", {}).get("enabled", False),
@@ -480,15 +527,23 @@ def _modify_product_config(config: SchemaConfig, product_id: str) -> None:
         hist["enabled"] = True
         hist["method"] = Prompt.ask(
             "Méthode de comparaison",
-            choices=["md5", "jaccard", "hausdorff"],
-            default=hist.get("method", "jaccard"),
+            choices=["md5", "jaccard", "hausdorff", "combined"],
+            default=hist.get("method", "combined"),
         )
         if hist["method"] != "md5":
-            threshold = Prompt.ask(
-                "Seuil",
-                default=str(hist.get("threshold", 0.95)),
+            thresholds = hist.setdefault("thresholds", {})
+            thresholds["identical_min"] = float(
+                Prompt.ask(
+                    "Seuil identique (IoU min)",
+                    default=str(thresholds.get("identical_min", 0.95)),
+                )
             )
-            hist["threshold"] = float(threshold)
+            thresholds["likely_match_min"] = float(
+                Prompt.ask(
+                    "Seuil correspondance probable (IoU min)",
+                    default=str(thresholds.get("likely_match_min", 0.80)),
+                )
+            )
         hist["key_field"] = Prompt.ask(
             "Champ clé",
             default=hist.get("key_field", "cd_insee"),
@@ -496,7 +551,135 @@ def _modify_product_config(config: SchemaConfig, product_id: str) -> None:
     else:
         prod_config["historization"] = {"enabled": False}
 
-    console.print(f"[green]Configuration de {product_id} mise à jour[/green]")
+    console.print("[green]Historisation mise à jour[/green]")
+
+
+def _toggle_product_layers(
+    prod_config: dict[str, Any],
+    product: IGNProduct | None,
+) -> None:
+    """Active/désactive des couches d'un produit."""
+    from pgboundary.cli_widgets import ToggleItem, select_toggle_list
+
+    layers = prod_config.setdefault("layers", {})
+
+    # Lister toutes les couches disponibles
+    all_layers = [layer.name for layer in product.layers] if product else list(layers.keys())
+
+    if not all_layers:
+        console.print("[yellow]Aucune couche disponible[/yellow]")
+        return
+
+    # Construire les items pour le widget
+    toggle_items = []
+    for layer_name in all_layers:
+        layer_cfg = layers.get(layer_name, {})
+        enabled = layer_cfg.get("enabled", True)
+        table_name = layer_cfg.get("table_name")
+        description = f"→ {table_name}" if table_name else None
+        toggle_items.append(
+            ToggleItem(
+                label=layer_name,
+                value=layer_name,
+                enabled=enabled,
+                description=description,
+            )
+        )
+
+    # Afficher le widget interactif
+    result = select_toggle_list(toggle_items, title="Activation des couches")
+
+    if result.cancelled:
+        return
+
+    # Appliquer les changements
+    for item in result.items:
+        if item.value not in layers:
+            layers[item.value] = {}
+        layers[item.value]["enabled"] = item.enabled
+
+    enabled_count = sum(1 for item in result.items if item.enabled)
+    console.print(f"[green]{enabled_count}/{len(all_layers)} couches activées[/green]")
+
+
+def _modify_layer_config(
+    prod_config: dict[str, Any],
+    product: IGNProduct | None,
+) -> None:
+    """Modifie la configuration d'une couche spécifique."""
+    from pgboundary.cli_widgets import (
+        SelectItem,
+        select_single,
+        select_territory,
+        select_years,
+    )
+
+    layers = prod_config.setdefault("layers", {})
+
+    all_layers = [layer.name for layer in product.layers] if product else list(layers.keys())
+
+    if not all_layers:
+        console.print("[yellow]Aucune couche disponible[/yellow]")
+        return
+
+    # Sélectionner la couche avec le widget
+    layer_items = []
+    for layer_name in all_layers:
+        layer_cfg = layers.get(layer_name, {})
+        table_name = layer_cfg.get("table_name")
+        description = f"→ {table_name}" if table_name else None
+        layer_items.append(SelectItem(label=layer_name, value=layer_name, description=description))
+
+    result = select_single(layer_items, title="Sélectionner une couche")
+    if result.cancelled or not result.value:
+        return
+
+    layer_name = result.value
+    layer_cfg = layers.setdefault(layer_name, {})
+
+    console.print(f"\n[bold]Configuration de la couche {layer_name}[/bold]")
+    console.print("[dim]Laissez vide pour hériter des valeurs par défaut du produit[/dim]")
+    console.print()
+
+    # Table name
+    current_table = layer_cfg.get("table_name")
+    new_table = Prompt.ask(
+        "Nom de la table",
+        default=current_table or "",
+    )
+    if new_table:
+        layer_cfg["table_name"] = new_table
+    elif "table_name" in layer_cfg:
+        del layer_cfg["table_name"]
+
+    # Surcharger les années ?
+    if Confirm.ask(
+        "Surcharger les années pour cette couche ?", default=bool(layer_cfg.get("years"))
+    ):
+        current_years = layer_cfg.get("years") or prod_config.get("years", ["2024"])
+        years_result = select_years(preselected=current_years)
+        if not years_result.cancelled:
+            layer_cfg["years"] = years_result.selected_values
+    elif "years" in layer_cfg:
+        del layer_cfg["years"]
+
+    # Surcharger le territoire ?
+    if Confirm.ask(
+        "Surcharger le territoire pour cette couche ?",
+        default=bool(layer_cfg.get("territory")),
+    ):
+        if product:
+            territories = [t.value for t in product.territories]
+        else:
+            territories = ["FRA", "FXX", "GLP", "MTQ", "GUF", "REU", "MYT"]
+        current = layer_cfg.get("territory") or prod_config.get("territory", "FRA")
+        territory_result = select_territory(territories, default=current)
+        if not territory_result.cancelled and territory_result.value:
+            layer_cfg["territory"] = territory_result.value
+    elif "territory" in layer_cfg:
+        del layer_cfg["territory"]
+
+    console.print(f"[green]Couche {layer_name} configurée[/green]")
 
 
 @data_app.command(name="add")
@@ -636,9 +819,12 @@ def _display_products_tree(config: SchemaConfig, catalog: Any) -> None:
             prod_config = config.imports.get(product.id)
 
             if prod_config:
-                # Produit configuré
-                enabled = prod_config.get("enabled", True)
-                status = "[green]✓ activé[/green]" if enabled else "[yellow]○ désactivé[/yellow]"
+                # Produit configuré - afficher le nombre de couches activées
+                enabled_count, total_count = _get_enabled_layers_count(prod_config)
+                if enabled_count > 0:
+                    status = f"[green]✓ {enabled_count}/{total_count} couches[/green]"
+                else:
+                    status = f"[yellow]○ {enabled_count}/{total_count} couches[/yellow]"
 
                 # Infos supplémentaires
                 years = prod_config.get("years", [])
@@ -706,45 +892,49 @@ def _select_product_by_number(config: SchemaConfig, catalog: Any, num: int) -> N
 
     if prod_config:
         # Produit configuré - afficher le statut et les actions
-        enabled = prod_config.get("enabled", True)
-        status = "[green]activé[/green]" if enabled else "[yellow]désactivé[/yellow]"
-        console.print(f"Statut: {status}")
+        enabled_count, total_count = _get_enabled_layers_count(prod_config)
+        status = f"{enabled_count}/{total_count} couches activées"
+        if enabled_count == 0:
+            status = f"[yellow]{status}[/yellow]"
+        elif enabled_count == total_count:
+            status = f"[green]{status}[/green]"
+        console.print(f"Couches: {status}")
+
+        # Afficher les couches
+        layers = prod_config.get("layers", {})
+        if isinstance(layers, dict):
+            for layer_name, layer_cfg in layers.items():
+                layer_enabled = layer_cfg.get("enabled", True)
+                marker = "[green]✓[/green]" if layer_enabled else "[red]✗[/red]"
+                table_name = layer_cfg.get("table_name", "[dim]défaut[/dim]")
+                console.print(f"  {marker} {layer_name} → {table_name}")
 
         years = prod_config.get("years", [])
         if years:
-            console.print(f"Années: {', '.join(years)}")
+            console.print(f"\nAnnées par défaut: {', '.join(years)}")
 
         territory = prod_config.get("territory", "FRA")
-        console.print(f"Territoire: {territory}")
-
-        layers = prod_config.get("layers", [])
-        if layers:
-            console.print(f"Couches: {', '.join(layers)}")
-        else:
-            console.print("Couches: toutes")
+        console.print(f"Territoire par défaut: {territory}")
 
         console.print()
-        console.print("[bold]Actions :[/bold]")
-        toggle_action = "d" if enabled else "e"
-        toggle_label = "Désactiver" if enabled else "Activer"
-        console.print(f"  [cyan]{toggle_action}[/cyan] : {toggle_label}")
-        console.print("  [cyan]m[/cyan] : Modifier la configuration")
-        console.print("  [cyan]s[/cyan] : Supprimer de la configuration")
-        console.print("  [cyan]q[/cyan] : Retour")
-        console.print()
 
-        action = Prompt.ask("Action", choices=[toggle_action, "m", "s", "q"], default="q")
+        from pgboundary.cli_widgets import MenuOption, select_menu
 
-        if action == toggle_action:
-            config.imports[target_product.id]["enabled"] = not enabled
-            new_status = "activé" if not enabled else "désactivé"
-            console.print(f"[green]Produit {new_status}[/green]")
-        elif action == "m":
+        options = [
+            MenuOption("m", "Modifier la configuration"),
+            MenuOption("s", "Supprimer de la configuration"),
+        ]
+        result = select_menu(options, title="Actions", cancel_key="q", cancel_label="Retour")
+
+        if result.cancelled:
+            pass
+        elif result.key == "m":
             _modify_product_config(config, target_product.id)
-        elif action == "s":
-            if Confirm.ask(f"Supprimer [cyan]{target_product.id}[/cyan] de la configuration ?"):
-                del config.imports[target_product.id]
-                console.print("[green]Produit supprimé[/green]")
+        elif result.key == "s" and Confirm.ask(
+            f"Supprimer [cyan]{target_product.id}[/cyan] de la configuration ?"
+        ):
+            del config.imports[target_product.id]
+            console.print("[green]Produit supprimé[/green]")
     else:
         # Produit non configuré - proposer d'ajouter
         size_str = _format_size(target_product.size_mb)
@@ -884,79 +1074,63 @@ def config_sync_product(
 
 def _remove_products_interactive(config: SchemaConfig) -> None:
     """Supprime des produits de manière interactive."""
+    from pgboundary.cli_widgets import SelectItem, select_single
+
     while True:
         if not config.imports:
             console.print("[yellow]Aucun produit configuré.[/yellow]")
             return
 
-        # Afficher les produits existants
-        console.print()
-        table = Table(title="Produits configurés")
-        table.add_column("#", style="dim")
-        table.add_column("Produit", style="cyan")
-        table.add_column("Activé")
-        table.add_column("Années")
-
+        # Construire les items de sélection
         products_list = list(config.imports.items())
-        for i, (product_id, prod_config) in enumerate(products_list, 1):
-            enabled = "[green]oui[/green]" if prod_config.get("enabled", True) else "[red]non[/red]"
-            years = ", ".join(prod_config.get("years", []))
-            table.add_row(str(i), product_id, enabled, years)
+        product_items = [
+            SelectItem(
+                label=product_id,
+                value=product_id,
+                description=", ".join(prod_config.get("years", [])),
+            )
+            for product_id, prod_config in products_list
+        ]
 
-        console.print(table)
-        console.print()
+        result = select_single(product_items, title="Produit à supprimer")
 
-        console.print("Entrez le numéro du produit à supprimer (ou 'q' pour quitter) :")
-        choice = Prompt.ask("Choix", default="q")
-
-        if choice.lower() == "q":
+        if result.cancelled or not result.value:
             break
 
-        try:
-            idx = int(choice) - 1
-            if 0 <= idx < len(products_list):
-                product_id = products_list[idx][0]
-                if Confirm.ask(f"Supprimer le produit [cyan]{product_id}[/cyan] ?"):
-                    del config.imports[product_id]
-                    console.print(f"[green]Produit {product_id} supprimé[/green]")
-            else:
-                console.print("[red]Numéro invalide[/red]")
-        except ValueError:
-            console.print("[red]Veuillez entrer un numéro valide[/red]")
+        if Confirm.ask(f"Supprimer le produit [cyan]{result.value}[/cyan] ?"):
+            del config.imports[result.value]
+            console.print(f"[green]Produit {result.value} supprimé[/green]")
 
 
 def _add_products_interactive(config: SchemaConfig) -> None:
     """Ajoute des produits via navigation interactive."""
+    from pgboundary.cli_widgets import SelectItem, select_single
+
     catalog = get_default_catalog()
 
     while True:
-        console.print()
-        console.print("[bold]Catégories de produits :[/bold]")
-
         # Grouper par catégorie
         categories: dict[str, list[IGNProduct]] = {}
         for product in catalog:
             cat = product.category.value
             categories.setdefault(cat, []).append(product)
 
-        cat_list = list(categories.keys())
-        for i, cat in enumerate(cat_list, 1):
-            count = len(categories[cat])
-            console.print(f"  [cyan]{i}[/cyan] : {cat} ({count} produits)")
-        console.print("  [cyan]q[/cyan] : Terminer")
-        console.print()
+        # Construire les items de sélection
+        cat_items = [
+            SelectItem(
+                label=cat,
+                value=cat,
+                description=f"{len(categories[cat])} produits",
+            )
+            for cat in sorted(categories.keys())
+        ]
 
-        choice = Prompt.ask("Catégorie", default="q")
-        if choice == "q":
+        result = select_single(cat_items, title="Catégories de produits")
+
+        if result.cancelled or not result.value:
             break
 
-        try:
-            cat_idx = int(choice) - 1
-            if 0 <= cat_idx < len(cat_list):
-                category = cat_list[cat_idx]
-                _select_product_from_category(config, categories[category])
-        except ValueError:
-            continue
+        _select_product_from_category(config, categories[result.value])
 
 
 def _select_product_from_category(
@@ -964,33 +1138,33 @@ def _select_product_from_category(
     products: list[IGNProduct],
 ) -> None:
     """Sélectionne un produit dans une catégorie."""
-    console.print()
-    console.print("[bold]Produits disponibles :[/bold]")
+    from pgboundary.cli_widgets import SelectItem, select_single
 
-    for i, product in enumerate(products, 1):
-        # Marquer si déjà configuré
-        marker = "[green]✓[/green] " if product.id in config.imports else "  "
-        console.print(f"  {marker}[cyan]{i}[/cyan] : {product.name}")
-        console.print(f"       [dim]{product.description_fr}[/dim]")
+    # Construire les items de sélection
+    product_items = [
+        SelectItem(
+            label=f"{'✓ ' if product.id in config.imports else ''}{product.name}",
+            value=product.id,
+            description=product.description_fr[:50] + "..."
+            if len(product.description_fr) > 50
+            else product.description_fr,
+        )
+        for product in products
+    ]
 
-    console.print("  [cyan]q[/cyan] : Retour")
-    console.print()
+    result = select_single(product_items, title="Produits disponibles")
 
-    choice = Prompt.ask("Produit", default="q")
-    if choice == "q":
+    if result.cancelled or not result.value:
         return
 
-    try:
-        prod_idx = int(choice) - 1
-        if 0 <= prod_idx < len(products):
-            product = products[prod_idx]
-            _configure_product(config, product)
-    except ValueError:
-        pass
+    # Trouver le produit correspondant
+    selected_product = next((p for p in products if p.id == result.value), None)
+    if selected_product:
+        _configure_product(config, selected_product)
 
 
 def _configure_product(config: SchemaConfig, product: IGNProduct) -> None:
-    """Configure un produit pour l'import."""
+    """Configure un produit pour l'import (nouvelle structure par couches)."""
     from pgboundary.cli_widgets import (
         select_format,
         select_layers,
@@ -1003,7 +1177,7 @@ def _configure_product(config: SchemaConfig, product: IGNProduct) -> None:
     console.print(f"[dim]{product.description_fr}[/dim]")
     console.print()
 
-    # Sélectionner les couches (checkbox interactif)
+    # Sélectionner les couches à activer (checkbox interactif)
     layers_data = [(layer.name, layer.description_fr or layer.name) for layer in product.layers]
 
     layers_result = select_layers(layers_data)
@@ -1011,13 +1185,9 @@ def _configure_product(config: SchemaConfig, product: IGNProduct) -> None:
         console.print("[yellow]Configuration annulée[/yellow]")
         return
 
-    # Si toutes les couches sont sélectionnées, stocker une liste vide (= toutes)
-    if len(layers_result.selected_values) == len(product.layers):
-        selected_layers: list[str] = []
-    else:
-        selected_layers = layers_result.selected_values
+    selected_layer_names = layers_result.selected_values
 
-    # Sélectionner les millésimes (checkbox interactif)
+    # Sélectionner les millésimes par défaut (checkbox interactif)
     years_result = select_years()
     if years_result.cancelled:
         console.print("[yellow]Configuration annulée[/yellow]")
@@ -1025,7 +1195,7 @@ def _configure_product(config: SchemaConfig, product: IGNProduct) -> None:
 
     years = years_result.selected_values
 
-    # Territoire (sélection interactive)
+    # Territoire par défaut (sélection interactive)
     territories = [t.value for t in product.territories]
     default_territory = territories[0] if territories else "FRA"
     territory_result = select_territory(territories, default=default_territory)
@@ -1034,7 +1204,7 @@ def _configure_product(config: SchemaConfig, product: IGNProduct) -> None:
         return
     territory = territory_result.value or default_territory
 
-    # Format (sélection interactive)
+    # Format par défaut (sélection interactive)
     formats = [f.value for f in product.formats]
     default_format = formats[0] if formats else "shp"
     format_result = select_format(formats, default=default_format)
@@ -1043,31 +1213,44 @@ def _configure_product(config: SchemaConfig, product: IGNProduct) -> None:
         return
     file_format = format_result.value or default_format
 
-    # Historisation
+    # Historisation par défaut
     hist_config: dict[str, Any] = {"enabled": False}
     if Confirm.ask("Activer l'historisation ?", default=False):
         hist_config["enabled"] = True
         hist_config["method"] = Prompt.ask(
             "Méthode de comparaison",
-            choices=["md5", "jaccard", "hausdorff"],
-            default="jaccard",
+            choices=["md5", "jaccard", "hausdorff", "combined"],
+            default="combined",
         )
         if hist_config["method"] != "md5":
-            threshold = Prompt.ask("Seuil", default="0.95")
-            hist_config["threshold"] = float(threshold)
+            hist_config["thresholds"] = {
+                "identical_min": float(Prompt.ask("Seuil identique (IoU min)", default="0.95")),
+                "likely_match_min": float(
+                    Prompt.ask("Seuil correspondance probable (IoU min)", default="0.80")
+                ),
+            }
         hist_config["key_field"] = Prompt.ask(
             "Champ clé d'identification",
             default="cd_insee",
         )
 
-    # Enregistrer
+    # Construire la configuration des couches
+    layers_config: dict[str, dict[str, Any]] = {}
+
+    for layer in product.layers:
+        is_enabled = layer.name in selected_layer_names
+        layers_config[layer.name] = {
+            "enabled": is_enabled,
+            "table_name": layer.table_key,  # Nom de table par défaut
+        }
+
+    # Enregistrer avec la nouvelle structure
     config.imports[product.id] = {
-        "enabled": True,
-        "layers": selected_layers,
         "territory": territory,
         "format": file_format,
         "years": years,
         "historization": hist_config,
+        "layers": layers_config,
     }
 
     console.print(f"[green]Produit {product.id} ajouté à la configuration[/green]")
