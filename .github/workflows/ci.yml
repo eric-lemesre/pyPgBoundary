@@ -19,6 +19,10 @@ on:
       - "tests/**"
       - "pyproject.toml"
 
+# FR: Permissions pour auto-fix sur master
+permissions:
+  contents: write
+
 # FR: Annule les exécutions précédentes sur la même branche
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -27,13 +31,16 @@ concurrency:
 jobs:
   # ===========================================================================
   # Linting & Formatting
-  # FR: Vérifie le style de code avec ruff (sans auto-fix)
+  # FR: Vérifie le style de code avec ruff, auto-fix sur master uniquement
   # ===========================================================================
   lint:
     name: Lint & Format
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          # FR: Nécessaire pour pouvoir pousser les corrections
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -43,11 +50,34 @@ jobs:
       - name: Install ruff
         run: pip install ruff
 
-      - name: Run ruff linter
-        run: ruff check src/ tests/ --output-format=full
+      # FR: Sur les PRs, vérifier uniquement (pas de push possible)
+      - name: Check formatting (PR)
+        if: github.event_name == 'pull_request'
+        run: |
+          ruff check src/ tests/ --output-format=full
+          ruff format --check --diff src/ tests/
 
-      - name: Check ruff formatting
-        run: ruff format --check --diff src/ tests/
+      # FR: Sur master, corriger et pousser si nécessaire
+      - name: Auto-fix formatting (master)
+        if: github.event_name == 'push'
+        run: |
+          ruff check src/ tests/ --fix --show-fixes || true
+          ruff format src/ tests/
+
+      - name: Check for changes and push (master)
+        if: github.event_name == 'push'
+        run: |
+          if git diff --quiet; then
+            echo "✅ Aucune modification nécessaire"
+          else
+            echo "📝 Corrections appliquées:"
+            git diff --stat
+            git config --local user.email "github-actions[bot]@users.noreply.github.com"
+            git config --local user.name "github-actions[bot]"
+            git add -A
+            git commit -m "style: auto-fix code formatting (ruff)"
+            git push
+          fi
 
   # ===========================================================================
   # Type Checking
