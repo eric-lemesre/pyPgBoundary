@@ -28,6 +28,8 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - Workflow CI : tests sur Python 3.11-3.13, linting, vérification des types
   - Workflow Release : publication automatique sur PyPI lors des tags
   - Dependabot : mises à jour automatiques des dépendances
+  - Workflow Auto-fix : déclenchement manuel pour formater le code (`workflow_dispatch`)
+  - Ruff formatter affiche maintenant les différences en cas d'échec CI (`--diff`)
 
 - **Template de Pull Request**
   - Template bilingue (EN/FR)

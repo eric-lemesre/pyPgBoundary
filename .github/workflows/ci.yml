@@ -38,8 +38,8 @@ jobs:
       - name: Run ruff linter
         run: ruff check src/ tests/ --output-format=github
 
-      - name: Run ruff formatter
-        run: ruff format --check src/ tests/
+      - name: Check ruff formatting
+        run: ruff format --check --diff src/ tests/
 
   # ===========================================================================
   # Type Checking
