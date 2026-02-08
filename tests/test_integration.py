@@ -4,16 +4,20 @@ Ces tests nécessitent une base PostgreSQL/PostGIS disponible.
 Ils sont marqués avec @pytest.mark.integration et peuvent être exécutés avec :
     pytest -m integration
 
-Pour les exécuter, définir la variable d'environnement :
-    PGBOUNDARY_TEST_DATABASE_URL=postgresql://user:pass@localhost:5432/test_db
+Pour les exécuter :
+1. Avec testcontainers (recommandé) :
+    pip install -e ".[dev,integration]"
+    pytest -m integration
 
-Ou utiliser testcontainers (si installé) pour créer automatiquement un container.
+2. Avec une base existante :
+    export PGBOUNDARY_TEST_DATABASE_URL=postgresql://user:pass@localhost:5432/test_db
+    pytest -m integration
 """
 
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import geopandas as gpd
 import pytest
@@ -33,35 +37,13 @@ if TYPE_CHECKING:
 # Fixtures pour les tests d'intégration
 # =============================================================================
 
+# Variable globale pour stocker le container (évite le garbage collection)
+_container: Any = None
+
 
 def _get_test_database_url() -> str | None:
     """Récupère l'URL de la base de données de test."""
     return os.environ.get("PGBOUNDARY_TEST_DATABASE_URL")
-
-
-def _try_testcontainers() -> str | None:
-    """Essaie de créer un container PostgreSQL avec testcontainers."""
-    try:
-        from testcontainers.postgres import PostgresContainer
-
-        # Créer un container PostgreSQL avec PostGIS
-        container = PostgresContainer(
-            image="postgis/postgis:15-3.3",
-            user="test",
-            password="test",
-            dbname="test_boundaries",
-        )
-        container.start()
-
-        # Construire l'URL de connexion
-        url = container.get_connection_url()
-        # Remplacer psycopg2 par psycopg si nécessaire
-        url = url.replace("psycopg2", "psycopg")
-        return url
-    except ImportError:
-        return None
-    except Exception:
-        return None
 
 
 @pytest.fixture(scope="module")
@@ -70,21 +52,54 @@ def integration_db_url() -> Generator[str | None, None, None]:
 
     Essaie dans l'ordre :
     1. Variable d'environnement PGBOUNDARY_TEST_DATABASE_URL
-    2. Testcontainers (si disponible)
+    2. Testcontainers (si disponible et Docker est en marche)
     """
+    global _container
+
+    # Option 1: Variable d'environnement
     url = _get_test_database_url()
     if url:
+        print(f"\n📦 Utilisation de la base de données: {url}")
         yield url
         return
 
-    # Essayer testcontainers
-    url = _try_testcontainers()
-    if url:
+    # Option 2: Testcontainers
+    try:
+        from testcontainers.postgres import PostgresContainer
+
+        print("\n🐳 Démarrage du container PostgreSQL/PostGIS...")
+        _container = PostgresContainer(
+            image="postgis/postgis:15-3.3",
+            username="test",
+            password="test",
+            dbname="test_boundaries",
+        )
+        _container.start()
+
+        # Construire l'URL de connexion
+        url = _container.get_connection_url()
+        # Remplacer psycopg2 par psycopg
+        url = url.replace("psycopg2", "psycopg")
+        print(f"✅ Container démarré: {url}")
+
         yield url
-        # Le container sera automatiquement nettoyé
+
+        # Cleanup
+        print("\n🧹 Arrêt du container...")
+        _container.stop()
+        _container = None
         return
 
-    yield None
+    except ImportError:
+        print("\n⚠️  testcontainers non installé. Installez avec: pip install -e '.[integration]'")
+        yield None
+        return
+
+    except Exception as e:
+        print(f"\n❌ Erreur testcontainers: {e}")
+        print("   Vérifiez que Docker est en cours d'exécution.")
+        yield None
+        return
 
 
 @pytest.fixture
