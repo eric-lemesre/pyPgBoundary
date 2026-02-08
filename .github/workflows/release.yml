@@ -1,0 +1,63 @@
+# =============================================================================
+# Release Workflow - Publish to PyPI
+# FR: Publication automatique sur PyPI lors de la création d'un tag
+# =============================================================================
+
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+# FR: Permissions nécessaires pour créer une release GitHub
+permissions:
+  contents: write
+
+jobs:
+  # ===========================================================================
+  # Build & Publish
+  # FR: Construit et publie le package sur PyPI
+  # ===========================================================================
+  release:
+    name: Build & Publish
+    runs-on: ubuntu-latest
+
+    # FR: Environnement PyPI pour la publication sécurisée
+    environment:
+      name: pypi
+      url: https://pypi.org/project/pgboundary/
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: pip install build twine
+
+      - name: Build package
+        run: python -m build
+
+      - name: Check package
+        run: twine check dist/*
+
+      # FR: Publication sur PyPI via Trusted Publisher (OIDC)
+      # Nécessite la configuration sur pypi.org
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # FR: Décommentez pour tester sur TestPyPI d'abord
+          # repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+
+      # FR: Crée une release GitHub avec les notes du changelog
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true
+          draft: false

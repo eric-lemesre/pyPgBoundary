@@ -84,11 +84,64 @@ mypy src/
 
 ### Hooks pre-commit
 
-Les hooks pre-commit s'exécutent automatiquement à chaque commit :
+Les hooks pre-commit s'exécutent automatiquement à chaque commit pour garantir la qualité du code.
+
+#### Installation
 
 ```bash
-# Exécuter manuellement sur tous les fichiers
+# Installer les hooks (à exécuter une fois après le clonage)
+pre-commit install
+```
+
+#### Hooks disponibles
+
+| Hook | Description | Auto-fix |
+|------|-------------|----------|
+| `trailing-whitespace` | Supprime les espaces en fin de ligne | ✅ Oui |
+| `end-of-file-fixer` | Assure que les fichiers finissent par un saut de ligne | ✅ Oui |
+| `check-yaml` | Valide la syntaxe YAML | ❌ Non |
+| `check-toml` | Valide la syntaxe TOML | ❌ Non |
+| `check-added-large-files` | Empêche les commits de gros fichiers | ❌ Non |
+| `ruff` | Linting + auto-correction | ✅ Oui |
+| `ruff-format` | Formatage du code | ✅ Oui |
+| `mypy` | Vérification des types | ❌ Non |
+
+#### Utilisation
+
+```bash
+# Exécuter sur tous les fichiers (recommandé avant une PR)
 pre-commit run --all-files
+
+# Exécuter un hook spécifique
+pre-commit run ruff --all-files
+
+# Mettre à jour les hooks vers les dernières versions
+pre-commit autoupdate
+```
+
+#### Quand les hooks modifient des fichiers
+
+Si un hook modifie des fichiers (auto-fix), le commit est **annulé**. C'est le comportement attendu :
+
+```bash
+# 1. Tentative de commit → hooks exécutés → fichiers modifiés → commit annulé
+git commit -m "mes modifications"
+
+# 2. Vérifier les changements effectués par les hooks
+git diff
+
+# 3. Stager et commiter à nouveau
+git add -u && git commit -m "mes modifications"
+```
+
+#### Ignorer les hooks (déconseillé)
+
+```bash
+# Ignorer tous les hooks (urgence uniquement)
+git commit --no-verify -m "message"
+
+# Ignorer un hook spécifique
+SKIP=mypy git commit -m "message"
 ```
 
 ## Tests

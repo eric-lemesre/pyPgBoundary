@@ -17,6 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Auto-detection of current shell
   - Global options `--install-completion` / `--show-completion`
 
+- **CI/CD with GitHub Actions**
+  - CI workflow: tests on Python 3.11-3.13, linting, type checking
+  - Release workflow: automatic PyPI publication on tags
+  - Dependabot: automatic dependency updates
+
+- **Pull Request template**
+  - Bilingual template (EN/FR)
+  - Checklist for code quality, tests, documentation
+
+- **Enhanced pre-commit configuration**
+  - Detailed error messages with `--output-format=full`
+  - Display of applied fixes with `--show-fixes`
+
 ## [0.4.0] - 2026-02-08
 
 ### Added

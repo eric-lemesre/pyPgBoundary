@@ -84,11 +84,64 @@ mypy src/
 
 ### Pre-commit Hooks
 
-Pre-commit hooks run automatically on each commit:
+Pre-commit hooks run automatically on each commit to ensure code quality.
+
+#### Installation
 
 ```bash
-# Run manually on all files
+# Install hooks (run once after cloning)
+pre-commit install
+```
+
+#### Available Hooks
+
+| Hook | Description | Auto-fix |
+|------|-------------|----------|
+| `trailing-whitespace` | Remove trailing whitespace | ✅ Yes |
+| `end-of-file-fixer` | Ensure files end with newline | ✅ Yes |
+| `check-yaml` | Validate YAML syntax | ❌ No |
+| `check-toml` | Validate TOML syntax | ❌ No |
+| `check-added-large-files` | Prevent large file commits | ❌ No |
+| `ruff` | Linting + auto-fix | ✅ Yes |
+| `ruff-format` | Code formatting | ✅ Yes |
+| `mypy` | Type checking | ❌ No |
+
+#### Usage
+
+```bash
+# Run on all files (recommended before PR)
 pre-commit run --all-files
+
+# Run specific hook
+pre-commit run ruff --all-files
+
+# Update hooks to latest versions
+pre-commit autoupdate
+```
+
+#### When Hooks Modify Files
+
+If a hook modifies files (auto-fix), the commit is **aborted**. This is expected behavior:
+
+```bash
+# 1. Commit attempt → hooks run → files modified → commit aborted
+git commit -m "my changes"
+
+# 2. Review changes made by hooks
+git diff
+
+# 3. Stage and commit again
+git add -u && git commit -m "my changes"
+```
+
+#### Skipping Hooks (Not Recommended)
+
+```bash
+# Skip all hooks (emergency only)
+git commit --no-verify -m "message"
+
+# Skip specific hook
+SKIP=mypy git commit -m "message"
 ```
 
 ## Testing
