@@ -1,5 +1,7 @@
 # pyPgBoundary
 
+[![CI](https://github.com/eric-lemesre/pyPgBoundary/actions/workflows/ci.yml/badge.svg)](https://github.com/eric-lemesre/pyPgBoundary/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/eric-lemesre/pyPgBoundary/graph/badge.svg)](https://codecov.io/gh/eric-lemesre/pyPgBoundary)
 [![Licence : GPL v3](https://img.shields.io/badge/Licence-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-PostGIS-336791.svg)](https://postgis.net/)
