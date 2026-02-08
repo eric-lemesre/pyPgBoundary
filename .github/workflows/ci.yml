@@ -36,6 +36,8 @@ jobs:
   lint:
     name: Lint & Format
     runs-on: ubuntu-latest
+    # FR: Ignorer si le commit vient du bot (évite les boucles infinies)
+    if: github.actor != 'github-actions[bot]'
     steps:
       - uses: actions/checkout@v6
         with:
@@ -86,6 +88,7 @@ jobs:
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
     steps:
       - uses: actions/checkout@v6
 
@@ -108,6 +111,7 @@ jobs:
   test:
     name: Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
     strategy:
       fail-fast: false
       matrix:
@@ -146,6 +150,7 @@ jobs:
   build:
     name: Build Package
     runs-on: ubuntu-latest
+    if: github.actor != 'github-actions[bot]'
     steps:
       - uses: actions/checkout@v6
 
