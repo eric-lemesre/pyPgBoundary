@@ -273,9 +273,9 @@ class TestAdminExpressProducts:
 
         for product in ADMIN_EXPRESS_PRODUCTS:
             layer_names = set(product.get_layer_names())
-            assert base_layers.issubset(layer_names), (
-                f"{product.id} manque des couches de base: {base_layers - layer_names}"
-            )
+            assert base_layers.issubset(
+                layer_names
+            ), f"{product.id} manque des couches de base: {base_layers - layer_names}"
 
     def test_carto_has_chef_lieu(self):
         """Test que les versions CARTO ont les chefs-lieux."""
