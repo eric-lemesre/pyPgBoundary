@@ -192,7 +192,7 @@ def compute_combined_similarity(
                 combined_score=combined,
                 needs_validation=True,
                 reason=(
-                    f"IoU moyen ({iou:.1%}) mais contours proches " f"(Hausdorff: {hausdorff:.2f}m)"
+                    f"IoU moyen ({iou:.1%}) mais contours proches (Hausdorff: {hausdorff:.2f}m)"
                 ),
             )
         else:
