@@ -174,9 +174,29 @@ class DatabaseManager:
                 # Créer la base de données
                 conn.execute(text(f'CREATE DATABASE "{db_name}"'))
                 logger.info("Base de données '%s' créée", db_name)
+
             admin_engine.dispose()
         except Exception as e:
             raise SchemaError(f"Impossible de créer la base de données '{db_name}': {e}") from e
+
+    def ensure_extensions(self) -> None:
+        """Crée les extensions PostgreSQL nécessaires si elles n'existent pas.
+
+        Crée les extensions PostGIS et pgcrypto.
+
+        Raises:
+            SchemaError: Si la création des extensions échoue.
+        """
+        extensions = ["postgis", "pgcrypto"]
+
+        try:
+            with self.engine.connect() as conn:
+                for ext in extensions:
+                    conn.execute(text(f"CREATE EXTENSION IF NOT EXISTS {ext}"))
+                    logger.info("Extension '%s' disponible", ext)
+                conn.commit()
+        except Exception as e:
+            raise SchemaError(f"Impossible de créer les extensions: {e}") from e
 
     def check_postgis(self) -> bool:
         """Vérifie que l'extension PostGIS est disponible.
@@ -244,9 +264,10 @@ class DatabaseManager:
     def init_database(self) -> None:
         """Initialise complètement la base de données.
 
-        Vérifie la connexion, PostGIS, crée le schéma et les tables.
+        Vérifie la connexion, crée les extensions, le schéma et les tables.
         """
         self.check_connection()
+        self.ensure_extensions()
         self.check_postgis()
         self.create_schema()
         self.create_tables()

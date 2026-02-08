@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 logger = logging.getLogger(__name__)
 
@@ -276,6 +276,14 @@ class SchemaConfig(BaseModel):
         default_factory=dict,
         description="Configuration des imports par produit",
     )
+
+    @field_validator("imports", mode="before")
+    @classmethod
+    def validate_imports(cls, v: Any) -> dict[str, dict[str, Any]]:
+        """Valide le champ imports, convertit None en dict vide."""
+        if v is None:
+            return {}
+        return dict(v)
 
     def get_full_table_name(
         self,

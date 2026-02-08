@@ -384,6 +384,44 @@ class TestDatabaseManagerDropTables:
             assert "Erreur lors de la suppression" in str(exc_info.value)
 
 
+class TestDatabaseManagerEnsureExtensions:
+    """Tests pour ensure_extensions."""
+
+    def test_ensure_extensions_success(self, settings: Settings) -> None:
+        """Test création des extensions PostGIS et pgcrypto."""
+        manager = DatabaseManager(settings=settings)
+
+        with patch("pgboundary.db.connection.create_engine") as mock_create:
+            mock_engine = MagicMock()
+            mock_conn = MagicMock()
+            mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
+            mock_create.return_value = mock_engine
+
+            manager.ensure_extensions()
+
+            # Vérifie que les deux extensions sont créées
+            assert mock_conn.execute.call_count == 2
+            mock_conn.commit.assert_called_once()
+
+    def test_ensure_extensions_failure(self, settings: Settings) -> None:
+        """Test échec de création des extensions."""
+        manager = DatabaseManager(settings=settings)
+
+        with patch("pgboundary.db.connection.create_engine") as mock_create:
+            mock_engine = MagicMock()
+            mock_conn = MagicMock()
+            mock_conn.execute.side_effect = Exception("Extension error")
+            mock_engine.connect.return_value.__enter__ = MagicMock(return_value=mock_conn)
+            mock_engine.connect.return_value.__exit__ = MagicMock(return_value=False)
+            mock_create.return_value = mock_engine
+
+            with pytest.raises(SchemaError) as exc_info:
+                manager.ensure_extensions()
+
+            assert "Impossible de créer les extensions" in str(exc_info.value)
+
+
 class TestDatabaseManagerInitDatabase:
     """Tests pour init_database."""
 
@@ -393,6 +431,7 @@ class TestDatabaseManagerInitDatabase:
 
         with (
             patch.object(manager, "check_connection") as mock_check_conn,
+            patch.object(manager, "ensure_extensions") as mock_ensure_ext,
             patch.object(manager, "check_postgis") as mock_check_postgis,
             patch.object(manager, "create_schema") as mock_create_schema,
             patch.object(manager, "create_tables") as mock_create_tables,
@@ -400,6 +439,7 @@ class TestDatabaseManagerInitDatabase:
             manager.init_database()
 
             mock_check_conn.assert_called_once()
+            mock_ensure_ext.assert_called_once()
             mock_check_postgis.assert_called_once()
             mock_create_schema.assert_called_once()
             mock_create_tables.assert_called_once()
