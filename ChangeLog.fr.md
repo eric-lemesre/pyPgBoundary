@@ -37,6 +37,10 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - Messages d'erreur détaillés avec `--output-format=full`
   - Affichage des corrections appliquées avec `--show-fixes`
 
+- **Aide CLI organisée par workflow**
+  - Commandes groupées en panels : Configuration, Produits & Données, Utilitaires
+  - Ordre chronologique correspondant au workflow typique d'utilisation
+
 ## [0.4.0] - 2026-02-08
 
 ### Ajouté

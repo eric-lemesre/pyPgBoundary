@@ -52,8 +52,8 @@ app = typer.Typer(
 from pgboundary.cli_completion import completion_app  # noqa: E402
 from pgboundary.cli_config import config_app  # noqa: E402
 
-app.add_typer(config_app, name="config")
-app.add_typer(completion_app, name="completion")
+app.add_typer(config_app, name="config", rich_help_panel="Configuration")
+app.add_typer(completion_app, name="completion", rich_help_panel="Utilitaires")
 console = Console()
 
 
@@ -282,7 +282,7 @@ def _display_config(cfg: SchemaConfig, config_path: Path) -> None:
             console.print(f"  • {full_name}")
 
 
-@app.command()
+@app.command(rich_help_panel="Configuration")
 def init(
     database_url: Annotated[
         str | None,
@@ -337,7 +337,7 @@ def init(
         raise typer.Exit(1) from e
 
 
-@app.command()
+@app.command(rich_help_panel="Produits & Données")
 def download(
     territory: Annotated[
         str,
@@ -392,7 +392,7 @@ def download(
         source.close()
 
 
-@app.command(name="load")
+@app.command(name="load", rich_help_panel="Produits & Données")
 def load_cmd(
     all_products: Annotated[
         bool,
@@ -489,7 +489,7 @@ def load_legacy(
         raise typer.Exit(1) from e
 
 
-@app.command()
+@app.command(rich_help_panel="Utilitaires")
 def info(
     config_file: Annotated[
         Path | None,
@@ -518,7 +518,7 @@ def info(
         _display_config(settings.schema_config, config_path)
 
 
-@app.command()
+@app.command(rich_help_panel="Configuration")
 def check(
     database_url: Annotated[
         str | None,
@@ -553,7 +553,7 @@ def check(
         raise typer.Exit(1) from e
 
 
-@app.command()
+@app.command(rich_help_panel="Utilitaires")
 def inspect(
     database_url: Annotated[
         str | None,
@@ -725,7 +725,7 @@ def _display_table_info(
     console.print()
 
 
-@app.command()
+@app.command(rich_help_panel="Produits & Données")
 def products(
     category: Annotated[
         str | None,
@@ -813,7 +813,7 @@ def products(
     console.print(table)
 
 
-@app.command(name="product-info")
+@app.command(name="product-info", rich_help_panel="Produits & Données")
 def product_info(
     product_id: Annotated[
         str,
@@ -869,7 +869,7 @@ def product_info(
     console.print(layers_table)
 
 
-@app.command(name="load-product")
+@app.command(name="load-product", rich_help_panel="Produits & Données")
 def load_product(
     product_id: Annotated[
         str,

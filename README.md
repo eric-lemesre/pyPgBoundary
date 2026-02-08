@@ -174,18 +174,29 @@ srid: 4326
 
 ### Overview
 
+Commands are organized by workflow:
+
+**Configuration**
 | Command | Description |
 |---------|-------------|
 | `pgboundary config` | Manage configuration (schema, DB, products) |
-| `pgboundary init` | Initialize schema and tables |
 | `pgboundary check` | Verify database connection |
-| `pgboundary inspect` | Inspect geographic tables |
-| `pgboundary info` | Display current configuration |
-| `pgboundary download` | Download Admin Express data |
-| `pgboundary load` | Load data according to configuration |
+| `pgboundary init` | Initialize schema and tables |
+
+**Products & Data**
+| Command | Description |
+|---------|-------------|
 | `pgboundary products` | List available IGN products |
 | `pgboundary product-info` | Show product details |
+| `pgboundary download` | Download Admin Express data |
+| `pgboundary load` | Load data according to configuration |
 | `pgboundary load-product` | Load a specific product |
+
+**Utilities**
+| Command | Description |
+|---------|-------------|
+| `pgboundary info` | Display current configuration |
+| `pgboundary inspect` | Inspect geographic tables |
 | `pgboundary completion` | Manage shell completion |
 
 **Note**: A database indicator is displayed at the top of each command. Use `-q` to disable it.

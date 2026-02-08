@@ -176,18 +176,29 @@ srid: 4326
 
 ### Vue d'ensemble
 
+Les commandes sont organisées par workflow :
+
+**Configuration**
 | Commande | Description |
 |----------|-------------|
 | `pgboundary config` | Gérer la configuration (schéma, DB, produits) |
-| `pgboundary init` | Initialiser le schéma et les tables |
 | `pgboundary check` | Vérifier la connexion à la base |
-| `pgboundary inspect` | Inspecter les tables géographiques |
-| `pgboundary info` | Afficher la configuration actuelle |
-| `pgboundary download` | Télécharger les données Admin Express |
-| `pgboundary load` | Charger les données selon la configuration |
+| `pgboundary init` | Initialiser le schéma et les tables |
+
+**Produits & Données**
+| Commande | Description |
+|----------|-------------|
 | `pgboundary products` | Lister les produits IGN disponibles |
 | `pgboundary product-info` | Afficher les détails d'un produit |
+| `pgboundary download` | Télécharger les données Admin Express |
+| `pgboundary load` | Charger les données selon la configuration |
 | `pgboundary load-product` | Charger un produit spécifique |
+
+**Utilitaires**
+| Commande | Description |
+|----------|-------------|
+| `pgboundary info` | Afficher la configuration actuelle |
+| `pgboundary inspect` | Inspecter les tables géographiques |
 | `pgboundary completion` | Gérer la complétion shell |
 
 **Note** : Une indication de la base de données active s'affiche en haut de chaque commande. Utilisez `-q` pour la désactiver.

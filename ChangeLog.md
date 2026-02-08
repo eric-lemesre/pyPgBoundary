@@ -37,6 +37,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Detailed error messages with `--output-format=full`
   - Display of applied fixes with `--show-fixes`
 
+- **CLI help organized by workflow**
+  - Commands grouped into panels: Configuration, Products & Data, Utilities
+  - Chronological order matching typical usage workflow
+
 ## [0.4.0] - 2026-02-08
 
 ### Added
