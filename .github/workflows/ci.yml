@@ -8,8 +8,16 @@ name: CI
 on:
   push:
     branches: [master, main]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "pyproject.toml"
   pull_request:
     branches: [master, main]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "pyproject.toml"
 
 # FR: Annule les exécutions précédentes sur la même branche
 concurrency:
