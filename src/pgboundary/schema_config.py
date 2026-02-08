@@ -374,21 +374,31 @@ class SchemaConfig(BaseModel):
         return self.imports.get(product_id)
 
     def get_enabled_imports(self) -> dict[str, dict[str, Any]]:
-        """Retourne les imports activés.
+        """Retourne les imports avec au moins une couche activée.
 
         Returns:
-            Dictionnaire des imports avec enabled=True.
+            Dictionnaire des imports avec au moins une couche enabled=True.
         """
-        return {k: v for k, v in self.imports.items() if v.get("enabled", True)}
+        result = {}
+        for k, v in self.imports.items():
+            layers = v.get("layers", {})
+            # Si layers est un dict, vérifier si au moins une couche est activée
+            if isinstance(layers, dict):
+                if any(layer.get("enabled", True) for layer in layers.values()):
+                    result[k] = v
+            # Si layers est une liste (ancienne structure), considérer comme activé
+            elif isinstance(layers, list):
+                result[k] = v
+        return result
 
     def count_imports(self) -> tuple[int, int]:
-        """Compte les imports (activés, total).
+        """Compte les imports (avec couches activées, total).
 
         Returns:
-            Tuple (nombre activés, nombre total).
+            Tuple (nombre avec couches activées, nombre total).
         """
         total = len(self.imports)
-        enabled = sum(1 for v in self.imports.values() if v.get("enabled", True))
+        enabled = len(self.get_enabled_imports())
         return enabled, total
 
     def update_injection_status(
@@ -532,16 +542,36 @@ srid: 4326
 imports:
   # Exemple de configuration Admin Express COG
   # admin-express-cog:
-  #   enabled: true
-  #   layers: [REGION, DEPARTEMENT, EPCI, COMMUNE]
+  #   # Valeurs par défaut pour toutes les couches
   #   territory: FRA
   #   format: shp
   #   years: ["2024"]
   #   historization:
   #     enabled: true
-  #     method: jaccard    # md5 | jaccard | hausdorff
-  #     threshold: 0.95    # ratio pour jaccard, mètres pour hausdorff
+  #     method: combined   # md5 | jaccard | hausdorff | combined
+  #     thresholds:
+  #       identical_min: 0.95
+  #       likely_match_min: 0.80
+  #       suspect_min: 0.50
+  #       hausdorff_max: 10.0
   #     key_field: cd_insee
+  #
+  #   # Configuration par couche (enabled au niveau couche uniquement)
+  #   layers:
+  #     REGION:
+  #       enabled: true
+  #       table_name: region
+  #     DEPARTEMENT:
+  #       enabled: true
+  #       table_name: departement
+  #     COMMUNE:
+  #       enabled: true
+  #       table_name: commune
+  #       years: ["2023", "2024"]  # Surcharge locale
+  #     EPCI:
+  #       enabled: false
+  #       table_name: epci
+  #
   #   injection:           # Statut d'injection (géré automatiquement)
   #     injected: true
   #     injected_at: "2024-01-15T10:30:00"

@@ -13,6 +13,10 @@ class ConnectionError(DatabaseError):
     """Erreur de connexion à la base de données."""
 
 
+class DatabaseNotFoundError(ConnectionError):
+    """La base de données spécifiée n'existe pas."""
+
+
 class SchemaError(DatabaseError):
     """Erreur liée au schéma de la base de données."""
 

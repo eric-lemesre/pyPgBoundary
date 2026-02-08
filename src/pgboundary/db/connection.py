@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from pgboundary.config import Settings
 from pgboundary.db.models import TableFactory
-from pgboundary.exceptions import ConnectionError, SchemaError
+from pgboundary.exceptions import ConnectionError, DatabaseNotFoundError, SchemaError
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import Engine
@@ -86,7 +86,8 @@ class DatabaseManager:
             True si la connexion est établie.
 
         Raises:
-            ConnectionError: Si la connexion échoue.
+            DatabaseNotFoundError: Si la base de données n'existe pas.
+            ConnectionError: Si la connexion échoue pour une autre raison.
         """
         try:
             with self.engine.connect() as conn:
@@ -94,7 +95,88 @@ class DatabaseManager:
             logger.info("Connexion à la base de données établie")
             return True
         except Exception as e:
+            error_msg = str(e).lower()
+            # Détection des erreurs "database does not exist"
+            if "does not exist" in error_msg or "n'existe pas" in error_msg:
+                db_name = self._get_database_name()
+                raise DatabaseNotFoundError(f"La base de données '{db_name}' n'existe pas") from e
             raise ConnectionError(f"Impossible de se connecter à la base de données: {e}") from e
+
+    def _get_database_name(self) -> str:
+        """Extrait le nom de la base de données depuis l'URL.
+
+        Returns:
+            Nom de la base de données.
+        """
+        from urllib.parse import urlparse
+
+        parsed = urlparse(str(self.settings.database_url))
+        return parsed.path.lstrip("/") or "unknown"
+
+    def _get_admin_url(self) -> str:
+        """Retourne l'URL de connexion à la base postgres (admin).
+
+        Returns:
+            URL de connexion à la base postgres.
+        """
+        from urllib.parse import urlparse, urlunparse
+
+        parsed = urlparse(str(self.settings.database_url))
+        # Remplacer le nom de la base par 'postgres'
+        admin_parsed = parsed._replace(path="/postgres")
+        return urlunparse(admin_parsed)
+
+    def database_exists(self) -> bool:
+        """Vérifie si la base de données existe.
+
+        Returns:
+            True si la base existe, False sinon.
+        """
+        db_name = self._get_database_name()
+        admin_url = self._get_admin_url()
+
+        try:
+            admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
+            with admin_engine.connect() as conn:
+                result = conn.execute(
+                    text("SELECT 1 FROM pg_database WHERE datname = :dbname"),
+                    {"dbname": db_name},
+                )
+                exists = result.scalar() is not None
+            admin_engine.dispose()
+            return exists
+        except Exception as e:
+            logger.warning("Impossible de vérifier l'existence de la base: %s", e)
+            return False
+
+    def create_database(self) -> None:
+        """Crée la base de données.
+
+        Raises:
+            SchemaError: Si la création échoue.
+        """
+        db_name = self._get_database_name()
+        admin_url = self._get_admin_url()
+
+        try:
+            admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
+            with admin_engine.connect() as conn:
+                # Vérifier que la base n'existe pas déjà
+                result = conn.execute(
+                    text("SELECT 1 FROM pg_database WHERE datname = :dbname"),
+                    {"dbname": db_name},
+                )
+                if result.scalar() is not None:
+                    logger.info("La base de données '%s' existe déjà", db_name)
+                    admin_engine.dispose()
+                    return
+
+                # Créer la base de données
+                conn.execute(text(f'CREATE DATABASE "{db_name}"'))
+                logger.info("Base de données '%s' créée", db_name)
+            admin_engine.dispose()
+        except Exception as e:
+            raise SchemaError(f"Impossible de créer la base de données '{db_name}': {e}") from e
 
     def check_postgis(self) -> bool:
         """Vérifie que l'extension PostGIS est disponible.

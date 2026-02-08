@@ -65,12 +65,20 @@ dependencies = [
 voronoi = [
     "scipy>=1.11.0",
 ]
-dev = [
-    "mypy>=1.10.0",
-    "pre-commit>=3.7.0",
+test = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=5.0.0",
+    "pytest-mock>=3.12.0",
+    "responses>=0.25.0",
+]
+integration = [
+    "testcontainers[postgres]>=4.0.0",
+]
+dev = [
+    "mypy>=1.10.0",
+    "pre-commit>=3.7.0",
+    "pgboundary[test]",
     "ruff>=0.5.0",
     "scipy>=1.11.0",
     "types-PyYAML>=6.0.0",
@@ -137,8 +145,10 @@ module = [
     "geopandas.*",
     "geoalchemy2.*",
     "readchar.*",
+    "responses.*",
     "scipy.*",
     "shapely.*",
+    "testcontainers.*",
 ]
 ignore_missing_imports = true
 
@@ -149,6 +159,9 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-v --cov=pgboundary --cov-report=term-missing"
+markers = [
+    "integration: tests d'intégration nécessitant PostgreSQL/PostGIS (désélectionner avec '-m \"not integration\"')",
+]
 
 # =============================================================================
 # Coverage

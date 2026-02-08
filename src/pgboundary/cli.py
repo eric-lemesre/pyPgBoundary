@@ -25,6 +25,7 @@ from pgboundary.config import (
     save_database_url_to_env,
 )
 from pgboundary.db.connection import DatabaseManager
+from pgboundary.exceptions import DatabaseNotFoundError
 from pgboundary.loaders.admin_express import AdminExpressLoader
 from pgboundary.loaders.product_loader import ProductLoader
 from pgboundary.products import (
@@ -205,14 +206,20 @@ def _ensure_database_configured(
 
 def _interactive_config() -> SchemaConfig:
     """Crée une configuration en mode interactif."""
+    from pgboundary.cli_widgets import SelectItem, select_single
+
     console.print(Panel("[bold]Configuration du schéma de base de données[/bold]"))
 
-    mode_choice = Prompt.ask(
-        "Mode de stockage",
-        choices=["schema", "prefix"],
-        default="schema",
-    )
-    mode = StorageMode(mode_choice)
+    mode_items = [
+        SelectItem(label="Schema", value="schema", description="Tables dans un schéma dédié"),
+        SelectItem(label="Prefix", value="prefix", description="Tables avec préfixe dans public"),
+    ]
+    mode_result = select_single(mode_items, title="Mode de stockage")
+
+    if mode_result.cancelled:
+        mode = StorageMode.SCHEMA
+    else:
+        mode = StorageMode(mode_result.value or "schema")
 
     if mode == StorageMode.SCHEMA:
         schema_name = Prompt.ask("Nom du schéma PostgreSQL", default="geo")
@@ -328,10 +335,32 @@ def init(
     console.print("[bold blue]Initialisation de la base de données...[/bold blue]")
     _display_config(settings.schema_config, config_path)
 
+    db = DatabaseManager(settings)
+
     try:
-        db = DatabaseManager(settings)
         db.init_database()
         console.print("[bold green]Base de données initialisée avec succès ![/bold green]")
+    except DatabaseNotFoundError as e:
+        db_name = db._get_database_name()
+        console.print(f"[yellow]{e}[/yellow]")
+        console.print()
+
+        if Confirm.ask(f"Voulez-vous créer la base de données [cyan]{db_name}[/cyan] ?"):
+            try:
+                db.create_database()
+                console.print(f"[green]Base de données '{db_name}' créée[/green]")
+
+                # Réinitialiser l'engine pour la nouvelle base
+                db.close()
+                db = DatabaseManager(settings)
+                db.init_database()
+                console.print("[bold green]Base de données initialisée avec succès ![/bold green]")
+            except Exception as create_error:
+                console.print(f"[bold red]Erreur lors de la création: {create_error}[/bold red]")
+                raise typer.Exit(1) from create_error
+        else:
+            console.print("[dim]Création annulée[/dim]")
+            raise typer.Exit(1) from e
     except Exception as e:
         console.print(f"[bold red]Erreur: {e}[/bold red]")
         raise typer.Exit(1) from e

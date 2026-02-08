@@ -14,13 +14,47 @@ from typing import Annotated, Any
 import typer
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Confirm
 from rich.table import Table
 
 from pgboundary.config import Settings
 from pgboundary.schema_config import load_config
 
 console = Console()
+
+
+def _get_enabled_layers_count(prod_config: dict[str, Any]) -> tuple[int, int]:
+    """Compte les couches activées dans une configuration de produit.
+
+    Args:
+        prod_config: Configuration du produit.
+
+    Returns:
+        Tuple (nombre activées, nombre total).
+    """
+    layers = prod_config.get("layers", {})
+    if isinstance(layers, dict):
+        total = len(layers)
+        enabled = sum(1 for layer in layers.values() if layer.get("enabled", True))
+        return enabled, total
+    # Ancienne structure (liste)
+    return len(layers), len(layers) if layers else 0
+
+
+def _get_enabled_layer_names(prod_config: dict[str, Any]) -> list[str]:
+    """Retourne les noms des couches activées.
+
+    Args:
+        prod_config: Configuration du produit.
+
+    Returns:
+        Liste des noms de couches activées.
+    """
+    layers = prod_config.get("layers", {})
+    if isinstance(layers, dict):
+        return [name for name, cfg in layers.items() if cfg.get("enabled", True)]
+    # Ancienne structure (liste)
+    return list(layers) if layers else []
 
 
 def show_import_selection(
@@ -34,75 +68,71 @@ def show_import_selection(
     Returns:
         Liste des product_ids sélectionnés.
     """
+    from pgboundary.cli_widgets import ToggleItem, select_toggle_list
+
     if not imports:
         console.print("[yellow]Aucun produit configuré pour l'import.[/yellow]")
         console.print("Utilisez [bold]pgboundary config add-data[/bold] pour ajouter des produits.")
         return []
 
-    # État de sélection (initialisé avec enabled)
-    selection: dict[str, bool] = {}
+    # Construire les items pour le widget
     products_list = list(imports.items())
+    toggle_items = []
 
     for product_id, config in products_list:
-        selection[product_id] = config.get("enabled", True)
+        enabled_count, total_count = _get_enabled_layers_count(config)
+        initial_selected = enabled_count > 0
 
-    while True:
-        console.print()
-        console.print(Panel.fit("[bold blue]Produits à importer[/bold blue]"))
-        console.print()
+        # Construire la description
+        years = ", ".join(config.get("years", []))
+        hist = config.get("historization", {})
+        hist_str = hist.get("method", "combined") if hist.get("enabled", False) else "non"
+        layers_info = f"{enabled_count}/{total_count}" if total_count > 0 else "aucune"
 
-        table = Table(show_header=True, header_style="bold")
-        table.add_column("#", style="dim", width=3)
-        table.add_column("", width=3)  # Checkbox
-        table.add_column("Produit", style="cyan")
-        table.add_column("Couches")
-        table.add_column("Années")
-        table.add_column("Historisation")
+        description = f"{layers_info} couches, {years}, hist: {hist_str}"
 
-        for i, (product_id, config) in enumerate(products_list, 1):
-            checkbox = "[green]✓[/green]" if selection[product_id] else "[ ]"
-            layers = ", ".join(config.get("layers", [])) or "toutes"
-            years = ", ".join(config.get("years", []))
-            hist = config.get("historization", {})
-            hist_str = (
-                f"{hist.get('method', 'jaccard')}"
-                if hist.get("enabled", False)
-                else "[dim]non[/dim]"
+        toggle_items.append(
+            ToggleItem(
+                label=product_id,
+                value=product_id,
+                enabled=initial_selected,
+                description=description,
             )
-            table.add_row(str(i), checkbox, product_id, layers, years, hist_str)
+        )
 
-        console.print(table)
-        console.print()
+    # Afficher le widget interactif
+    result = select_toggle_list(toggle_items, title="Produits à importer")
 
-        # Instructions
-        console.print("[bold]Actions :[/bold]")
-        console.print("  [cyan]1-N[/cyan]  : Basculer la sélection d'un produit")
-        console.print("  [cyan]t[/cyan]    : Tout sélectionner")
-        console.print("  [cyan]n[/cyan]    : Tout désélectionner")
-        console.print("  [cyan]v[/cyan]    : Valider et lancer l'import")
-        console.print("  [cyan]a[/cyan]    : Annuler")
-        console.print()
+    if result.cancelled:
+        return []
 
-        choice = Prompt.ask("Choix", default="v")
+    return result.enabled_values
 
-        if choice.lower() == "a":
-            return []
-        elif choice.lower() == "v":
-            return [pid for pid, selected in selection.items() if selected]
-        elif choice.lower() == "t":
-            for pid in selection:
-                selection[pid] = True
-        elif choice.lower() == "n":
-            for pid in selection:
-                selection[pid] = False
-        else:
-            try:
-                idx = int(choice) - 1
-                if 0 <= idx < len(products_list):
-                    product_id = products_list[idx][0]
-                    selection[product_id] = not selection[product_id]
-            except ValueError:
-                pass
+
+def _get_effective_layer_config(
+    prod_config: dict[str, Any],
+    layer_name: str,
+) -> dict[str, Any]:
+    """Retourne la configuration effective d'une couche (avec héritage).
+
+    Args:
+        prod_config: Configuration du produit.
+        layer_name: Nom de la couche.
+
+    Returns:
+        Configuration effective de la couche.
+    """
+    layers = prod_config.get("layers", {})
+    layer_config = layers.get(layer_name, {}) if isinstance(layers, dict) else {}
+
+    return {
+        "enabled": layer_config.get("enabled", True),
+        "table_name": layer_config.get("table_name"),
+        "territory": layer_config.get("territory") or prod_config.get("territory", "FRA"),
+        "format": layer_config.get("format") or prod_config.get("format", "shp"),
+        "years": layer_config.get("years") or prod_config.get("years", ["2024"]),
+        "historization": layer_config.get("historization") or prod_config.get("historization", {}),
+    }
 
 
 def run_import(
@@ -112,6 +142,9 @@ def run_import(
     verbose: bool = False,
 ) -> dict[str, int]:
     """Exécute l'import des produits sélectionnés.
+
+    Itère sur les couches activées de chaque produit et utilise
+    la configuration effective (avec héritage) de chaque couche.
 
     Args:
         product_ids: Liste des IDs de produits à importer.
@@ -136,7 +169,14 @@ def run_import(
             console.print(f"[yellow]Produit inconnu: {product_id}[/yellow]")
             continue
 
+        # Obtenir les couches activées
+        enabled_layers = _get_enabled_layer_names(config)
+        if not enabled_layers:
+            console.print(f"[yellow]Aucune couche activée pour {product_id}[/yellow]")
+            continue
+
         console.print(f"\n[bold blue]Import de {product.name}...[/bold blue]")
+        console.print(f"  Couches: {', '.join(enabled_layers)}")
 
         try:
             # Créer le loader
@@ -146,30 +186,38 @@ def run_import(
                 settings=settings,
             )
 
-            # Paramètres d'import
-            file_format = FileFormat(config.get("format", "shp"))
-            territory = config.get("territory", "FRA")
-            years = config.get("years", ["2024"])
-            layers = config.get("layers", None) or None
-
-            # Importer chaque année
             total = 0
-            for year in years:
-                console.print(f"  Année {year}...")
 
-                # Déterminer le mode d'import
-                hist_config = config.get("historization", {})
-                if_exists = "append" if hist_config.get("enabled", False) else "replace"
+            # Importer chaque couche activée
+            for layer_name in enabled_layers:
+                layer_config = _get_effective_layer_config(config, layer_name)
 
-                count = loader.load(
-                    file_format=file_format,
-                    territory=territory,
-                    year=year,
-                    layers=layers,
-                    if_exists=if_exists,  # type: ignore[arg-type]
-                )
-                total += count
-                console.print(f"    [green]{count} enregistrements[/green]")
+                console.print(f"\n  [cyan]{layer_name}[/cyan]")
+                table_name = layer_config.get("table_name")
+                if table_name:
+                    console.print(f"    Table: {table_name}")
+
+                file_format = FileFormat(layer_config["format"])
+                territory = layer_config["territory"]
+                years = layer_config["years"]
+
+                # Importer chaque année pour cette couche
+                for year in years:
+                    console.print(f"    Année {year}...")
+
+                    # Déterminer le mode d'import
+                    hist_config = layer_config.get("historization", {})
+                    if_exists = "append" if hist_config.get("enabled", False) else "replace"
+
+                    count = loader.load(
+                        file_format=file_format,
+                        territory=territory,
+                        year=year,
+                        layers=[layer_name],  # Une seule couche à la fois
+                        if_exists=if_exists,  # type: ignore[arg-type]
+                    )
+                    total += count
+                    console.print(f"      [green]{count} enregistrements[/green]")
 
             results[product_id] = total
             console.print(f"[green]✓ {product.name}: {total} enregistrements[/green]")
@@ -232,8 +280,10 @@ def load_command(
             raise typer.Exit(1)
         selected_products = [product]
     elif all_products:
-        # Tous les produits activés
-        selected_products = [pid for pid, cfg in imports.items() if cfg.get("enabled", True)]
+        # Tous les produits avec au moins une couche activée
+        selected_products = [
+            pid for pid, cfg in imports.items() if _get_enabled_layers_count(cfg)[0] > 0
+        ]
     else:
         # Sélection interactive
         selected_products = show_import_selection(imports)
