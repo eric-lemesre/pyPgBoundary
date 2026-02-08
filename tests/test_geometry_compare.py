@@ -429,7 +429,7 @@ class TestGeometryMatcher:
             {"cd_insee": "01002", "geometry": sample_polygon},
         ]
 
-        auto_matches, removed, added, needs_validation = matcher.find_matches(
+        auto_matches, removed, added, _needs_validation = matcher.find_matches(
             old_features,
             new_features,
         )
@@ -449,7 +449,7 @@ class TestGeometryMatcher:
         ]
         new_features = [{"cd_insee": "01001", "geometry": sample_polygon}]
 
-        auto_matches, removed, added, needs_validation = matcher.find_matches(
+        auto_matches, removed, added, _needs_validation = matcher.find_matches(
             old_features,
             new_features,
         )
@@ -466,7 +466,7 @@ class TestGeometryMatcher:
         old_features = [{"cd_insee": "01001"}]
         new_features = [{"cd_insee": "01001"}]
 
-        auto_matches, removed, added, needs_validation = matcher.find_matches(
+        auto_matches, _removed, _added, _needs_validation = matcher.find_matches(
             old_features,
             new_features,
         )
@@ -485,7 +485,7 @@ class TestGeometryMatcher:
         old_features = [{"cd_insee": "01001", "geometry": sample_polygon}]
         new_features = [{"cd_insee": "01001", "geometry": sample_polygon_different}]
 
-        auto_matches, removed, added, needs_validation = matcher.find_matches(
+        _auto_matches, removed, added, _needs_validation = matcher.find_matches(
             old_features,
             new_features,
         )
