@@ -11,6 +11,13 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Ajouté
 
+- **Noms de tables personnalisés par produit/couche**
+  - Configuration des overrides de tables dans le YAML (section `table_overrides`)
+  - Option CLI `--table-name` / `-T` pour la commande `load-product` (priorité maximale)
+  - Priorité : CLI > override couche > override produit > nom de table par défaut
+  - Colonne `type_produit` ajoutée automatiquement si plusieurs produits partagent la même table
+  - Migration automatique pour les tables existantes (ajout de la colonne si absente)
+
 - **Complétion shell** (`pgboundary completion`)
   - Support de bash, zsh, fish et PowerShell
   - Sous-commandes : `install`, `show`, `status`

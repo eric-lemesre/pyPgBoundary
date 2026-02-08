@@ -891,6 +891,14 @@ def load_product(
         str | None,
         typer.Option("--layers", "-l", help="Couches à charger (séparées par des virgules)."),
     ] = None,
+    table_name: Annotated[
+        str | None,
+        typer.Option(
+            "--table-name",
+            "-T",
+            help="Nom de table personnalisé (prioritaire sur config YAML).",
+        ),
+    ] = None,
     database_url: Annotated[
         str | None,
         typer.Option("--database-url", "-d", help="URL de connexion PostgreSQL."),
@@ -937,6 +945,8 @@ def load_product(
     console.print(f"  Territoire: {territory}")
     console.print(f"  Année: {year}")
     console.print(f"  Format: {file_format}")
+    if table_name:
+        console.print(f"  Table: {table_name}")
 
     try:
         loader = ProductLoader(
@@ -951,6 +961,7 @@ def load_product(
             year=year,
             layers=layers_list,
             if_exists=if_exists_lit,
+            cli_table_name=table_name,
         )
 
         console.print(f"[bold green]Chargement terminé: {count} entités chargées[/bold green]")

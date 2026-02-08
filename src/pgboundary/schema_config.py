@@ -147,6 +147,102 @@ class TableNames(BaseModel):
     )
 
 
+class LayerTableOverride(BaseModel):
+    """Override de nom de table pour une couche spécifique.
+
+    Attributes:
+        table_name: Nom de table personnalisé pour cette couche.
+    """
+
+    table_name: str = Field(..., description="Nom de table personnalisé")
+
+
+class ProductTableOverride(BaseModel):
+    """Override de nom de table pour un produit.
+
+    Permet de définir un nom de table par défaut pour toutes les couches
+    d'un produit, et/ou des noms spécifiques par couche.
+
+    Attributes:
+        default_table: Nom de table par défaut pour toutes les couches du produit.
+        layers: Overrides spécifiques par couche (prioritaires sur default_table).
+    """
+
+    default_table: str | None = Field(
+        default=None,
+        description="Nom de table par défaut pour toutes les couches du produit",
+    )
+    layers: dict[str, LayerTableOverride] = Field(
+        default_factory=dict,
+        description="Overrides spécifiques par nom de couche",
+    )
+
+    def get_table_name(self, layer_name: str) -> str | None:
+        """Retourne le nom de table pour une couche.
+
+        La priorité est: override de couche > default_table > None.
+
+        Args:
+            layer_name: Nom de la couche.
+
+        Returns:
+            Nom de table personnalisé ou None.
+        """
+        if layer_name in self.layers:
+            return self.layers[layer_name].table_name
+        return self.default_table
+
+
+class TableOverrides(BaseModel):
+    """Configuration des overrides de noms de tables par produit.
+
+    Permet de rediriger les données d'un produit ou d'une couche vers
+    une table spécifique.
+
+    Attributes:
+        products: Dictionnaire des overrides par ID de produit.
+    """
+
+    products: dict[str, ProductTableOverride] = Field(
+        default_factory=dict,
+        description="Overrides par ID de produit",
+    )
+
+    def get_table_name(self, product_id: str, layer_name: str) -> str | None:
+        """Retourne le nom de table pour un produit/couche.
+
+        Args:
+            product_id: Identifiant du produit.
+            layer_name: Nom de la couche.
+
+        Returns:
+            Nom de table personnalisé ou None si pas d'override.
+        """
+        if product_id not in self.products:
+            return None
+        return self.products[product_id].get_table_name(layer_name)
+
+    def get_products_for_table(self, table_name: str) -> list[str]:
+        """Retourne les produits qui utilisent une table donnée.
+
+        Utile pour déterminer si type_produit est nécessaire.
+
+        Args:
+            table_name: Nom de la table.
+
+        Returns:
+            Liste des IDs de produits utilisant cette table.
+        """
+        result = []
+        for product_id, override in self.products.items():
+            if override.default_table == table_name:
+                result.append(product_id)
+            for layer_override in override.layers.values():
+                if layer_override.table_name == table_name and product_id not in result:
+                    result.append(product_id)
+        return result
+
+
 class StorageConfig(BaseModel):
     """Configuration du mode de stockage."""
 
@@ -170,26 +266,74 @@ class SchemaConfig(BaseModel):
     storage: StorageConfig = Field(default_factory=StorageConfig)
     field_prefixes: FieldPrefixes = Field(default_factory=FieldPrefixes)
     table_names: TableNames = Field(default_factory=TableNames)
+    table_overrides: TableOverrides = Field(default_factory=TableOverrides)
     srid: int = Field(default=4326, description="SRID des géométries (WGS84 par défaut)")
     imports: dict[str, dict[str, Any]] = Field(
         default_factory=dict,
         description="Configuration des imports par produit",
     )
 
-    def get_full_table_name(self, table_key: str) -> str:
+    def get_full_table_name(
+        self,
+        table_key: str,
+        *,
+        product_id: str | None = None,
+        layer_name: str | None = None,
+        cli_table_name: str | None = None,
+    ) -> str:
         """Retourne le nom complet de la table selon le mode de stockage.
+
+        Priorité de résolution du nom de table:
+        1. Paramètre CLI (cli_table_name)
+        2. Override de couche (table_overrides.products[product_id].layers[layer_name])
+        3. Override de produit (table_overrides.products[product_id].default_table)
+        4. Nom de table par défaut (table_names)
 
         Args:
             table_key: Clé de la table (region, departement, etc.)
+            product_id: Identifiant du produit (optionnel).
+            layer_name: Nom de la couche (optionnel).
+            cli_table_name: Nom de table spécifié via CLI (prioritaire).
 
         Returns:
             Nom complet de la table.
         """
-        base_name: str = getattr(self.table_names, table_key)
+        # 1. Priorité au CLI
+        if cli_table_name:
+            base_name = cli_table_name
+        # 2 & 3. Vérifier les overrides (couche puis produit)
+        elif product_id and layer_name:
+            override = self.table_overrides.get_table_name(product_id, layer_name)
+            base_name = override if override else getattr(self.table_names, table_key)
+        # 4. Nom par défaut
+        else:
+            base_name = getattr(self.table_names, table_key)
 
         if self.storage.mode == StorageMode.PREFIX:
             return f"{self.storage.table_prefix}{base_name}"
         return base_name
+
+    def needs_type_produit(
+        self,
+        table_name: str,
+        product_id: str,
+    ) -> bool:
+        """Détermine si la colonne type_produit est nécessaire.
+
+        La colonne est ajoutée quand plusieurs produits partagent la même table.
+
+        Args:
+            table_name: Nom de la table.
+            product_id: ID du produit courant.
+
+        Returns:
+            True si type_produit est nécessaire.
+        """
+        products_using_table = self.table_overrides.get_products_for_table(table_name)
+        # Ajouter le produit courant s'il n'est pas dans les overrides
+        if product_id not in products_using_table:
+            products_using_table.append(product_id)
+        return len(products_using_table) > 1
 
     def get_schema_name(self) -> str | None:
         """Retourne le nom du schéma ou None si mode prefix.
@@ -350,6 +494,31 @@ table_names:
   epci: epci
   commune: commune
   commune_associee_deleguee: commune_associee_deleguee
+
+# Overrides de noms de tables par produit/couche
+# Permet de rediriger les données vers des tables personnalisées
+# Priorité: CLI --table-name > override couche > override produit > table_names
+table_overrides:
+  products: {}
+  # Exemple: rediriger admin-express-cog vers des tables personnalisées
+  # products:
+  #   admin-express-cog:
+  #     default_table: null  # Nom de table par défaut pour toutes les couches
+  #     layers:
+  #       COMMUNE:
+  #         table_name: commune_admin_express
+  #       REGION:
+  #         table_name: region_admin_express
+  #
+  # Exemple: plusieurs produits partageant la même table (type_produit ajouté automatiquement)
+  #   admin-express-cog:
+  #     layers:
+  #       COMMUNE:
+  #         table_name: commune_unified
+  #   admin-express-cog-carto:
+  #     layers:
+  #       COMMUNE:
+  #         table_name: commune_unified
 
 # SRID des géométries (4326 = WGS84, standard international)
 srid: 4326

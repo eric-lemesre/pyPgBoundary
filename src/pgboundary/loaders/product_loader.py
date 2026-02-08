@@ -11,6 +11,7 @@ import uuid
 from typing import TYPE_CHECKING, Any, Literal
 
 import geopandas as gpd
+from sqlalchemy import text
 
 from pgboundary.db.models import TableFactory
 from pgboundary.exceptions import LoaderError
@@ -79,6 +80,7 @@ class ProductLoader(BaseLoader):
         year: str = "2024",
         layers: list[str] | None = None,
         if_exists: Literal["replace", "append", "fail"] = "replace",
+        cli_table_name: str | None = None,
         **_kwargs: Any,
     ) -> int:
         """Charge les données du produit dans PostgreSQL.
@@ -90,6 +92,7 @@ class ProductLoader(BaseLoader):
             year: Année des données.
             layers: Liste des couches à charger (toutes par défaut).
             if_exists: Comportement si la table existe.
+            cli_table_name: Nom de table spécifié via CLI (prioritaire).
 
         Returns:
             Nombre total d'enregistrements chargés.
@@ -97,6 +100,9 @@ class ProductLoader(BaseLoader):
         Raises:
             LoaderError: En cas d'erreur de chargement.
         """
+        # Stocker le nom de table CLI pour utilisation ultérieure
+        self._cli_table_name = cli_table_name
+
         # Obtenir les fichiers de données
         if source_path is None:
             data_files = self._download_and_extract(file_format, territory, year)
@@ -193,20 +199,32 @@ class ProductLoader(BaseLoader):
         """
         logger.info("Chargement de la couche: %s", layer.name)
 
+        # Détermination du nom de table (avant préparation pour type_produit)
+        table_name = self._get_table_name(layer)
+        schema_name = self.settings.schema_config.get_schema_name()
+
+        # Vérifier si type_produit est nécessaire
+        add_type_produit = self._needs_type_produit(table_name)
+        if add_type_produit:
+            logger.info(
+                "Ajout de type_produit='%s' (table partagée: %s)",
+                self.product.id,
+                table_name,
+            )
+            # Migration automatique si la table existe déjà et if_exists="append"
+            if if_exists == "append":
+                self._migrate_type_produit(table_name, schema_name)
+
         # Lecture des données
         gdf = self._read_data(file_path, layer.name, file_format)
 
         # Préparation
-        gdf = self._prepare_geodataframe(gdf, layer)
+        gdf = self._prepare_geodataframe(gdf, layer, add_type_produit=add_type_produit)
         gdf = self.reproject(gdf)
 
         # Conversion en MultiPolygon si nécessaire
         if layer.geometry_type.value.startswith("Multi"):
             gdf = self._ensure_multi_geometry(gdf, layer.geometry_type.value)
-
-        # Détermination du nom de table
-        table_name = self._get_table_name(layer)
-        schema_name = self.settings.schema_config.get_schema_name()
 
         return self.load_geodataframe(
             gdf=gdf,
@@ -243,14 +261,17 @@ class ProductLoader(BaseLoader):
         self,
         gdf: gpd.GeoDataFrame,
         layer: LayerConfig,
+        *,
+        add_type_produit: bool = False,
     ) -> gpd.GeoDataFrame:
         """Prépare le GeoDataFrame pour le chargement.
 
-        Renomme les colonnes et ajoute les UIDs.
+        Renomme les colonnes, ajoute les UIDs et optionnellement type_produit.
 
         Args:
             gdf: GeoDataFrame source.
             layer: Configuration de la couche.
+            add_type_produit: Si True, ajoute la colonne type_produit avec l'ID du produit.
 
         Returns:
             GeoDataFrame préparé.
@@ -269,13 +290,20 @@ class ProductLoader(BaseLoader):
         # Ajouter UID
         gdf["uid"] = [uuid.uuid4() for _ in range(len(gdf))]
 
+        # Ajouter type_produit si nécessaire
+        if add_type_produit:
+            gdf["type_produit"] = self.product.id
+
         # Garder uniquement les colonnes pertinentes
-        cols_to_keep = ["uid", *list(existing_cols.values()), "geometry"]
+        cols_to_keep = ["uid", *list(existing_cols.values())]
+        if add_type_produit:
+            cols_to_keep.append("type_produit")
+        cols_to_keep.append("geometry")
         gdf = gdf[[col for col in cols_to_keep if col in gdf.columns]]
 
         # Nettoyage des valeurs
         for col in gdf.columns:
-            if gdf[col].dtype == "object" and col not in ("geometry", "uid"):
+            if gdf[col].dtype == "object" and col not in ("geometry", "uid", "type_produit"):
                 gdf[col] = gdf[col].astype(str).replace("nan", None).replace("None", None)
 
         return gdf
@@ -326,6 +354,8 @@ class ProductLoader(BaseLoader):
     def _get_table_name(self, layer: LayerConfig) -> str:
         """Retourne le nom de table pour une couche.
 
+        Utilise la priorité: CLI > override couche > override produit > défaut.
+
         Args:
             layer: Configuration de la couche.
 
@@ -333,7 +363,86 @@ class ProductLoader(BaseLoader):
             Nom de table complet.
         """
         schema_config = self.settings.schema_config
-        return schema_config.get_full_table_name(layer.table_key)
+        cli_table = getattr(self, "_cli_table_name", None)
+
+        return schema_config.get_full_table_name(
+            layer.table_key,
+            product_id=self.product.id,
+            layer_name=layer.name,
+            cli_table_name=cli_table,
+        )
+
+    def _needs_type_produit(self, table_name: str) -> bool:
+        """Détermine si la colonne type_produit est nécessaire.
+
+        Args:
+            table_name: Nom de la table.
+
+        Returns:
+            True si plusieurs produits partagent cette table.
+        """
+        schema_config = self.settings.schema_config
+        return schema_config.needs_type_produit(table_name, self.product.id)
+
+    def _migrate_type_produit(self, table_name: str, schema_name: str | None) -> None:
+        """Ajoute la colonne type_produit si elle n'existe pas.
+
+        Cette méthode effectue une migration automatique pour les tables
+        existantes qui n'ont pas encore la colonne type_produit.
+
+        Args:
+            table_name: Nom de la table.
+            schema_name: Nom du schéma.
+        """
+        full_table = f"{schema_name}.{table_name}" if schema_name else table_name
+
+        with self.db_manager.engine.connect() as conn:
+            # Vérifier si la table existe
+            check_table_sql = text("""
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = :schema
+                    AND table_name = :table
+                )
+            """)
+            result = conn.execute(
+                check_table_sql,
+                {"schema": schema_name or "public", "table": table_name},
+            )
+            table_exists = result.scalar()
+
+            if not table_exists:
+                logger.debug("Table %s n'existe pas, pas de migration nécessaire", full_table)
+                return
+
+            # Vérifier si la colonne type_produit existe
+            check_column_sql = text("""
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.columns
+                    WHERE table_schema = :schema
+                    AND table_name = :table
+                    AND column_name = 'type_produit'
+                )
+            """)
+            result = conn.execute(
+                check_column_sql,
+                {"schema": schema_name or "public", "table": table_name},
+            )
+            column_exists = result.scalar()
+
+            if column_exists:
+                logger.debug("Colonne type_produit existe déjà dans %s", full_table)
+                return
+
+            # Ajouter la colonne type_produit
+            logger.info("Migration: ajout de la colonne type_produit à %s", full_table)
+            alter_sql = text(f"ALTER TABLE {full_table} ADD COLUMN type_produit VARCHAR(100)")
+            conn.execute(alter_sql)
+            conn.commit()
+
+            logger.info("Migration terminée pour %s", full_table)
 
     def list_available_layers(self) -> list[str]:
         """Liste les couches disponibles pour ce produit.
