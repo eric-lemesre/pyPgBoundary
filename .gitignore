@@ -84,3 +84,6 @@ venv.bak/
 *.7z
 *.zip
 data/
+
+# IA working directory
+IA/

@@ -239,6 +239,7 @@ def config_init(
         storage=storage,
         field_prefixes=existing_config.field_prefixes,
         table_names=existing_config.table_names,
+        table_overrides=existing_config.table_overrides,
         srid=int(srid),
         imports=existing_config.imports,
     )
@@ -246,7 +247,7 @@ def config_init(
     # 3. Ajouter des produits ?
     console.print()
     if Confirm.ask("Voulez-vous configurer des produits à importer ?"):
-        _add_products_interactive(config)
+        _add_products_interactive(config, config_path)
 
     # Sauvegarder
     save_config(config, config_path)
@@ -622,64 +623,67 @@ def _modify_layer_config(
         console.print("[yellow]Aucune couche disponible[/yellow]")
         return
 
-    # Sélectionner la couche avec le widget
-    layer_items = []
-    for layer_name in all_layers:
-        layer_cfg = layers.get(layer_name, {})
-        table_name = layer_cfg.get("table_name")
-        description = f"→ {table_name}" if table_name else None
-        layer_items.append(SelectItem(label=layer_name, value=layer_name, description=description))
+    while True:
+        # Sélectionner la couche avec le widget
+        layer_items = []
+        for layer_name in all_layers:
+            layer_cfg = layers.get(layer_name, {})
+            table_name = layer_cfg.get("table_name")
+            description = f"→ {table_name}" if table_name else None
+            layer_items.append(
+                SelectItem(label=layer_name, value=layer_name, description=description)
+            )
 
-    result = select_single(layer_items, title="Sélectionner une couche")
-    if result.cancelled or not result.value:
-        return
+        result = select_single(layer_items, title="Sélectionner une couche")
+        if result.cancelled or not result.value:
+            return
 
-    layer_name = result.value
-    layer_cfg = layers.setdefault(layer_name, {})
+        layer_name = result.value
+        layer_cfg = layers.setdefault(layer_name, {})
 
-    console.print(f"\n[bold]Configuration de la couche {layer_name}[/bold]")
-    console.print("[dim]Laissez vide pour hériter des valeurs par défaut du produit[/dim]")
-    console.print()
+        console.print(f"\n[bold]Configuration de la couche {layer_name}[/bold]")
+        console.print("[dim]Laissez vide pour hériter des valeurs par défaut du produit[/dim]")
+        console.print()
 
-    # Table name
-    current_table = layer_cfg.get("table_name")
-    new_table = Prompt.ask(
-        "Nom de la table",
-        default=current_table or "",
-    )
-    if new_table:
-        layer_cfg["table_name"] = new_table
-    elif "table_name" in layer_cfg:
-        del layer_cfg["table_name"]
+        # Table name
+        current_table = layer_cfg.get("table_name")
+        new_table = Prompt.ask(
+            "Nom de la table",
+            default=current_table or "",
+        )
+        if new_table:
+            layer_cfg["table_name"] = new_table
+        elif "table_name" in layer_cfg:
+            del layer_cfg["table_name"]
 
-    # Surcharger les années ?
-    if Confirm.ask(
-        "Surcharger les années pour cette couche ?", default=bool(layer_cfg.get("years"))
-    ):
-        current_years = layer_cfg.get("years") or prod_config.get("years", ["2024"])
-        years_result = select_years(preselected=current_years)
-        if not years_result.cancelled:
-            layer_cfg["years"] = years_result.selected_values
-    elif "years" in layer_cfg:
-        del layer_cfg["years"]
+        # Surcharger les années ?
+        if Confirm.ask(
+            "Surcharger les années pour cette couche ?", default=bool(layer_cfg.get("years"))
+        ):
+            current_years = layer_cfg.get("years") or prod_config.get("years", ["2024"])
+            years_result = select_years(preselected=current_years)
+            if not years_result.cancelled:
+                layer_cfg["years"] = years_result.selected_values
+        elif "years" in layer_cfg:
+            del layer_cfg["years"]
 
-    # Surcharger le territoire ?
-    if Confirm.ask(
-        "Surcharger le territoire pour cette couche ?",
-        default=bool(layer_cfg.get("territory")),
-    ):
-        if product:
-            territories = [t.value for t in product.territories]
-        else:
-            territories = ["FRA", "FXX", "GLP", "MTQ", "GUF", "REU", "MYT"]
-        current = layer_cfg.get("territory") or prod_config.get("territory", "FRA")
-        territory_result = select_territory(territories, default=current)
-        if not territory_result.cancelled and territory_result.value:
-            layer_cfg["territory"] = territory_result.value
-    elif "territory" in layer_cfg:
-        del layer_cfg["territory"]
+        # Surcharger le territoire ?
+        if Confirm.ask(
+            "Surcharger le territoire pour cette couche ?",
+            default=bool(layer_cfg.get("territory")),
+        ):
+            if product:
+                territories = [t.value for t in product.territories]
+            else:
+                territories = ["FRA", "FXX", "GLP", "MTQ", "GUF", "REU", "MYT"]
+            current = layer_cfg.get("territory") or prod_config.get("territory", "FRA")
+            territory_result = select_territory(territories, default=current)
+            if not territory_result.cancelled and territory_result.value:
+                layer_cfg["territory"] = territory_result.value
+        elif "territory" in layer_cfg:
+            del layer_cfg["territory"]
 
-    console.print(f"[green]Couche {layer_name} configurée[/green]")
+        console.print(f"[green]Couche {layer_name} configurée[/green]")
 
 
 @data_app.command(name="add")
@@ -694,7 +698,7 @@ def data_add() -> None:
     else:
         config = load_config(config_path)
 
-    _add_products_interactive(config)
+    _add_products_interactive(config, config_path)
 
     save_config(config, config_path)
     console.print(f"[green]Configuration sauvegardée: {config_path}[/green]")
@@ -781,7 +785,7 @@ def data_update() -> None:
         if choice.lower() == "q":
             break
         elif choice.lower() == "a":
-            _add_products_interactive(config)
+            _add_products_interactive(config, config_path)
         else:
             try:
                 product_num = int(choice)
@@ -1102,8 +1106,13 @@ def _remove_products_interactive(config: SchemaConfig) -> None:
             console.print(f"[green]Produit {result.value} supprimé[/green]")
 
 
-def _add_products_interactive(config: SchemaConfig) -> None:
-    """Ajoute des produits via navigation interactive."""
+def _add_products_interactive(config: SchemaConfig, config_path: Path | None = None) -> None:
+    """Ajoute des produits via navigation interactive.
+
+    Args:
+        config: Configuration à modifier.
+        config_path: Chemin du fichier de configuration pour sauvegarde incrémentale.
+    """
     from pgboundary.cli_widgets import SelectItem, select_single
 
     catalog = get_default_catalog()
@@ -1130,7 +1139,12 @@ def _add_products_interactive(config: SchemaConfig) -> None:
         if result.cancelled or not result.value:
             break
 
+        imports_before = dict(config.imports)
         _select_product_from_category(config, categories[result.value])
+
+        # Sauvegarde incrémentale si un produit a été ajouté
+        if config_path and config.imports != imports_before:
+            save_config(config, config_path)
 
 
 def _select_product_from_category(
