@@ -69,11 +69,14 @@ def show_import_selection(
         Liste des product_ids sélectionnés.
     """
     from pgboundary.cli_widgets import ToggleItem, select_toggle_list
+    from pgboundary.products import get_default_catalog
 
     if not imports:
         console.print("[yellow]Aucun produit configuré pour l'import.[/yellow]")
         console.print("Utilisez [bold]pgboundary config add-data[/bold] pour ajouter des produits.")
         return []
+
+    catalog = get_default_catalog()
 
     # Construire les items pour le widget
     products_list = list(imports.items())
@@ -89,7 +92,9 @@ def show_import_selection(
         hist_str = hist.get("method", "combined") if hist.get("enabled", False) else "non"
         layers_info = f"{enabled_count}/{total_count}" if total_count > 0 else "aucune"
 
-        description = f"{layers_info} couches, {years}, hist: {hist_str}"
+        product = catalog.get(product_id)
+        size_str = product.get_size_formatted() if product else "?"
+        description = f"{layers_info} couches, {years}, ~{size_str}, hist: {hist_str}"
 
         toggle_items.append(
             ToggleItem(
