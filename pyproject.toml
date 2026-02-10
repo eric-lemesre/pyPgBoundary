@@ -10,7 +10,7 @@ build-backend = "hatchling.build"
 # =============================================================================
 [project]
 name = "pgboundary"
-version = "0.4.0"
+version = "0.5.0"
 description = "Python module for loading French administrative boundaries into PostgreSQL/PostGIS"
 readme = "README.md"
 license = { text = "GPL-3.0-or-later" }
