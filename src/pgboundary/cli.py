@@ -421,8 +421,16 @@ def download(
         source.close()
 
 
-@app.command(name="load", rich_help_panel="Produits & Données")
+load_app = typer.Typer(
+    name="load",
+    help="Chargement des données et vérification des URL.",
+    invoke_without_command=True,
+)
+
+
+@load_app.callback()
 def load_cmd(
+    ctx: typer.Context,
     all_products: Annotated[
         bool,
         typer.Option("--all", "-a", help="Importe tous les produits activés sans validation."),
@@ -446,9 +454,36 @@ def load_cmd(
     Avec --all: importe sans validation.
     Avec --product: importe un seul produit.
     """
+    if ctx.invoked_subcommand is not None:
+        return
+
     from pgboundary.cli_load import load_command
 
     load_command(all_products, product, config_file, verbose)
+
+
+@load_app.command(name="check")
+def load_check_cmd(
+    all_products: Annotated[
+        bool,
+        typer.Option("--all", "-a", help="Vérifie tous les produits du catalogue."),
+    ] = False,
+    config_file: Annotated[
+        Path | None,
+        typer.Option("--config", "-c", help="Fichier de configuration."),
+    ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-V", help="Affiche les URL complètes."),
+    ] = False,
+) -> None:
+    """Vérifie l'accessibilité des URL de téléchargement."""
+    from pgboundary.cli_load import check_urls_command
+
+    check_urls_command(all_products, config_file, verbose)
+
+
+app.add_typer(load_app, name="load", rich_help_panel="Produits & Données")
 
 
 @app.command(name="load-legacy", hidden=True)

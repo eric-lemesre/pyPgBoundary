@@ -4,13 +4,17 @@ Ce module fournit la commande load améliorée avec :
 - Affichage de la configuration et choix multiple
 - Option --all pour import sans validation
 - Option --product pour import d'un seul produit
+- Sous-commande check pour vérifier les URL de téléchargement
 """
 
 from __future__ import annotations
 
+import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any
 
+import httpx
 import typer
 from rich.console import Console
 from rich.panel import Panel
@@ -19,6 +23,8 @@ from rich.table import Table
 
 from pgboundary.config import Settings
 from pgboundary.schema_config import load_config
+
+logger = logging.getLogger(__name__)
 
 console = Console()
 
@@ -322,3 +328,153 @@ def load_command(
 
     table.add_row("[bold]Total[/bold]", f"[bold]{total}[/bold]")
     console.print(table)
+
+
+def _check_url(client: httpx.Client, url: str) -> tuple[int | None, str]:
+    """Vérifie l'accessibilité d'une URL par requête HEAD.
+
+    Args:
+        client: Client HTTP.
+        url: URL à vérifier.
+
+    Returns:
+        Tuple (code HTTP ou None, message).
+    """
+    try:
+        response = client.head(url)
+        if response.status_code < 400:
+            return response.status_code, "OK"
+        return response.status_code, "Erreur"
+    except httpx.RequestError as e:
+        logger.debug("Erreur de requête pour %s: %s", url, e)
+        return None, str(e)
+
+
+def check_urls_command(
+    all_products: Annotated[
+        bool,
+        typer.Option("--all", "-a", help="Vérifie tous les produits du catalogue."),
+    ] = False,
+    config_file: Annotated[
+        Path | None,
+        typer.Option("--config", "-c", help="Fichier de configuration."),
+    ] = None,
+    verbose: Annotated[
+        bool,
+        typer.Option("--verbose", "-V", help="Affiche les URL complètes."),
+    ] = False,
+) -> None:
+    """Vérifie l'accessibilité des URL de téléchargement.
+
+    Sans option: vérifie les URL des produits configurés.
+    Avec --all: vérifie les URL de tous les produits du catalogue.
+    """
+    from pgboundary.products import FileFormat, get_default_catalog
+    from pgboundary.sources.ign import IGNDataSource
+
+    catalog = get_default_catalog()
+    source = IGNDataSource()
+
+    # Construire la liste des (product_id, format, territory, year) à vérifier
+    urls_to_check: list[tuple[str, str]] = []
+
+    if all_products:
+        current_year = str(datetime.now().year)
+        for product in catalog.list_all():
+            if product.url_template.startswith("generated://"):
+                continue
+            file_format = product.formats[0] if product.formats else FileFormat.GPKG
+            territory = product.territories[0].value if product.territories else "FRA"
+            try:
+                url = source.build_url(product, file_format, territory, current_year)
+            except (KeyError, IndexError):
+                url = product.url_template
+            urls_to_check.append((product.id, url))
+    else:
+        config_path = config_file or (Path.cwd() / "pgboundary.yml")
+        if not config_path.exists():
+            console.print(f"[red]Configuration non trouvée: {config_path}[/red]")
+            raise typer.Exit(1)
+
+        schema_config = load_config(config_path)
+        imports = schema_config.imports
+
+        if not imports:
+            console.print("[yellow]Aucun produit configuré.[/yellow]")
+            raise typer.Exit(1)
+
+        for product_id, config in imports.items():
+            configured_product = catalog.get(product_id)
+            if configured_product is None:
+                urls_to_check.append((product_id, ""))
+                continue
+            if configured_product.url_template.startswith("generated://"):
+                continue
+
+            territory = config.get("territory", "FRA")
+            format_str = config.get("format", "gpkg")
+            file_format = FileFormat(format_str)
+            years = config.get("years", [str(datetime.now().year)])
+
+            for year in years:
+                try:
+                    url = source.build_url(configured_product, file_format, territory, year)
+                except (KeyError, IndexError):
+                    url = configured_product.url_template
+                label = f"{product_id} ({year})" if len(years) > 1 else product_id
+                urls_to_check.append((label, url))
+
+    if not urls_to_check:
+        console.print("[yellow]Aucune URL à vérifier.[/yellow]")
+        raise typer.Exit(0)
+
+    console.print(f"[bold blue]Vérification de {len(urls_to_check)} URL...[/bold blue]\n")
+
+    table = Table(title="Vérification des URL", show_lines=verbose)
+    table.add_column("Produit", style="cyan", no_wrap=True)
+    if verbose:
+        table.add_column("URL", overflow="fold")
+    table.add_column("Statut", justify="right")
+    table.add_column("Résultat")
+
+    ok_count = 0
+    ko_count = 0
+
+    with httpx.Client(timeout=httpx.Timeout(15.0, connect=10.0), follow_redirects=True) as client:
+        for product_label, url in urls_to_check:
+            if not url:
+                table.add_row(
+                    product_label,
+                    *([url] if verbose else []),
+                    "-",
+                    "[red]Produit inconnu[/red]",
+                )
+                ko_count += 1
+                continue
+
+            status_code, message = _check_url(client, url)
+
+            if status_code is not None and status_code < 400:
+                result_str = f"[green]{message}[/green]"
+                ok_count += 1
+            else:
+                result_str = f"[red]{message}[/red]"
+                ko_count += 1
+
+            status_str = str(status_code) if status_code else "-"
+
+            table.add_row(
+                product_label,
+                *([url] if verbose else []),
+                status_str,
+                result_str,
+            )
+
+    console.print(table)
+    console.print()
+
+    if ko_count == 0:
+        console.print(f"[bold green]Toutes les {ok_count} URL sont accessibles.[/bold green]")
+    else:
+        console.print(f"[green]{ok_count} OK[/green], [red]{ko_count} en erreur[/red]")
+        raise typer.Exit(1)
