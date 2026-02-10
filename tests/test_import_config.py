@@ -249,7 +249,7 @@ class TestLayerImportConfig:
         assert config.table_name is None
         assert config.territory is None
         assert config.format is None
-        assert config.years is None
+        assert config.editions is None
         assert config.historization is None
 
     def test_custom_values(self) -> None:
@@ -259,13 +259,13 @@ class TestLayerImportConfig:
             table_name="ma_table",
             territory="FXX",
             format="gpkg",
-            years=["2023", "2024"],
+            editions=["2023", "2024"],
         )
         assert config.enabled is False
         assert config.table_name == "ma_table"
         assert config.territory == "FXX"
         assert config.format == "gpkg"
-        assert config.years == ["2023", "2024"]
+        assert config.editions == ["2023", "2024"]
 
 
 class TestProductImportConfig:
@@ -276,7 +276,7 @@ class TestProductImportConfig:
         config = ProductImportConfig()
         assert config.territory == "FRA"
         assert config.format == "shp"
-        assert config.years == ["2024"]
+        assert config.editions == ["2024"]
         assert config.historization.enabled is False
         assert config.layers == {}
 
@@ -285,7 +285,7 @@ class TestProductImportConfig:
         config = ProductImportConfig(
             territory="FXX",
             format="gpkg",
-            years=["2023", "2024"],
+            editions=["2023", "2024"],
             layers={
                 "REGION": LayerImportConfig(enabled=True, table_name="region"),
                 "COMMUNE": LayerImportConfig(enabled=False, table_name="commune"),
@@ -293,20 +293,20 @@ class TestProductImportConfig:
         )
         assert config.territory == "FXX"
         assert config.format == "gpkg"
-        assert config.years == ["2023", "2024"]
+        assert config.editions == ["2023", "2024"]
         assert len(config.layers) == 2
         assert config.layers["REGION"].enabled is True
         assert config.layers["COMMUNE"].enabled is False
 
-    def test_get_latest_year(self) -> None:
-        """Test get_latest_year."""
-        config = ProductImportConfig(years=["2022", "2024", "2023"])
-        assert config.get_latest_year() == "2024"
+    def test_get_latest_edition(self) -> None:
+        """Test get_latest_edition."""
+        config = ProductImportConfig(editions=["2022", "2024", "2023"])
+        assert config.get_latest_edition() == "2024"
 
-    def test_get_latest_year_empty(self) -> None:
-        """Test get_latest_year avec liste vide."""
-        config = ProductImportConfig(years=[])
-        assert config.get_latest_year() is None
+    def test_get_latest_edition_empty(self) -> None:
+        """Test get_latest_edition avec liste vide."""
+        config = ProductImportConfig(editions=[])
+        assert config.get_latest_edition() is None
 
     def test_get_layers_display_none(self) -> None:
         """Test get_layers_display sans couches."""
@@ -378,13 +378,13 @@ class TestProductImportConfig:
         config = ProductImportConfig(
             territory="FRA",
             format="shp",
-            years=["2024"],
+            editions=["2024"],
             historization=HistorizationConfig(enabled=True),
             layers={
                 "REGION": LayerImportConfig(
                     enabled=True,
                     table_name="region",
-                    years=["2023", "2024"],  # Surcharge
+                    editions=["2023", "2024"],  # Surcharge
                 ),
             },
         )
@@ -394,7 +394,7 @@ class TestProductImportConfig:
         assert effective.table_name == "region"
         assert effective.territory == "FRA"  # Hérité
         assert effective.format == "shp"  # Hérité
-        assert effective.years == ["2023", "2024"]  # Surchargé
+        assert effective.editions == ["2023", "2024"]  # Surchargé
         assert effective.historization.enabled is True  # Hérité
 
     def test_get_effective_layer_config_missing(self) -> None:
@@ -402,7 +402,7 @@ class TestProductImportConfig:
         config = ProductImportConfig(
             territory="FXX",
             format="gpkg",
-            years=["2023"],
+            editions=["2023"],
         )
         effective = config.get_effective_layer_config("UNKNOWN")
         assert effective.layer_name == "UNKNOWN"
@@ -410,7 +410,7 @@ class TestProductImportConfig:
         assert effective.table_name is None  # Défaut
         assert effective.territory == "FXX"  # Hérité
         assert effective.format == "gpkg"  # Hérité
-        assert effective.years == ["2023"]  # Hérité
+        assert effective.editions == ["2023"]  # Hérité
 
     def test_get_effective_layer_config_with_override_historization(self) -> None:
         """Test get_effective_layer_config avec surcharge de l'historisation."""

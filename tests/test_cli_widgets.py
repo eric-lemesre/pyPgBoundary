@@ -5,7 +5,7 @@ Ce module teste les widgets CLI interactifs :
 - SelectItem et SelectResult
 - checkbox_select avec mocks
 - select_single avec mocks
-- select_territory, select_format, select_layers, select_years
+- select_territory, select_format, select_layers, select_editions
 """
 
 from __future__ import annotations
@@ -22,11 +22,11 @@ from pgboundary.cli_widgets import (
     SelectResult,
     _is_cancel_key,
     checkbox_select,
+    select_editions,
     select_format,
     select_layers,
     select_single,
     select_territory,
-    select_years,
 )
 
 
@@ -572,8 +572,8 @@ class TestSelectLayers:
         assert result.selected_values == ["COMMUNE"]
 
 
-class TestSelectYears:
-    """Tests pour select_years."""
+class TestSelectEditions:
+    """Tests pour select_editions."""
 
     @pytest.fixture
     def mock_live(self) -> MagicMock:
@@ -583,38 +583,38 @@ class TestSelectYears:
         mock.__exit__ = MagicMock(return_value=False)
         return mock
 
-    def test_default_years(self, mock_live: MagicMock) -> None:
-        """Test génération des années par défaut."""
+    def test_default_editions(self, mock_live: MagicMock) -> None:
+        """Test génération des éditions par défaut."""
         with (
             patch("pgboundary.cli_widgets.Live", return_value=mock_live),
             patch("pgboundary.cli_widgets.readchar.readkey", return_value=readchar.key.ENTER),
         ):
-            result = select_years()
+            result = select_editions()
 
-        # L'année courante devrait être sélectionnée
-        assert len(result.selected_values) == 1
+        # Aucun millésime disponible → annulé
+        assert result.cancelled is True
 
-    def test_custom_years(self, mock_live: MagicMock) -> None:
-        """Test avec années personnalisées."""
-        years = ["2024", "2023", "2022"]
+    def test_custom_editions(self, mock_live: MagicMock) -> None:
+        """Test avec éditions personnalisées."""
+        editions = ["2024", "2023", "2022"]
 
         with (
             patch("pgboundary.cli_widgets.Live", return_value=mock_live),
             patch("pgboundary.cli_widgets.readchar.readkey", return_value=readchar.key.ENTER),
         ):
-            result = select_years(available_years=years)
+            result = select_editions(available_editions=editions)
 
-        # La première année (2024) devrait être sélectionnée
+        # La première édition (2024) devrait être sélectionnée
         assert result.selected_values == ["2024"]
 
     def test_custom_preselection(self, mock_live: MagicMock) -> None:
         """Test avec présélection personnalisée."""
-        years = ["2024", "2023", "2022"]
+        editions = ["2024", "2023", "2022"]
 
         with (
             patch("pgboundary.cli_widgets.Live", return_value=mock_live),
             patch("pgboundary.cli_widgets.readchar.readkey", return_value=readchar.key.ENTER),
         ):
-            result = select_years(available_years=years, preselected=["2023", "2022"])
+            result = select_editions(available_editions=editions, preselected=["2023", "2022"])
 
         assert set(result.selected_values) == {"2023", "2022"}
