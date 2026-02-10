@@ -1,8 +1,8 @@
-"""Client pour l'API Atom IGN (data.geopf.fr).
+"""Client for the IGN Atom API (data.geopf.fr).
 
-Ce module parse les flux Atom XML exposés par la plateforme de
-téléchargement IGN pour découvrir dynamiquement les produits
-et leurs éditions disponibles.
+This module parses the Atom XML feeds exposed by the IGN
+download platform to dynamically discover products
+and their available editions.
 """
 
 from __future__ import annotations
@@ -22,40 +22,40 @@ BASE_URL = "https://data.geopf.fr/telechargement"
 
 
 class AtomProduct(BaseModel):
-    """Produit découvert via l'API Atom."""
+    """Product discovered via the Atom API."""
 
-    name: str = Field(..., description="Nom du produit (ex: ADMIN-EXPRESS-COG)")
-    title: str = Field(default="", description="Titre lisible")
-    description: str = Field(default="", description="Description du produit")
-    resource_url: str = Field(default="", description="URL du flux des éditions")
+    name: str = Field(..., description="Product name (e.g. ADMIN-EXPRESS-COG)")
+    title: str = Field(default="", description="Human-readable title")
+    description: str = Field(default="", description="Product description")
+    resource_url: str = Field(default="", description="URL of the editions feed")
 
 
 class AtomEdition(BaseModel):
-    """Édition d'un produit découverte via l'API Atom."""
+    """Product edition discovered via the Atom API."""
 
-    title: str = Field(..., description="Titre de l'édition")
-    edition_date: str = Field(default="", description="Date de l'édition")
+    title: str = Field(..., description="Edition title")
+    edition_date: str = Field(default="", description="Edition date")
     format: str = Field(default="", description="Format (GPKG, SHP, ...)")
-    zone: str = Field(default="", description="Zone/territoire (FRA, FXX, ...)")
-    crs: str = Field(default="", description="Système de coordonnées")
-    download_url: str = Field(default="", description="URL de téléchargement")
+    zone: str = Field(default="", description="Zone/territory (FRA, FXX, ...)")
+    crs: str = Field(default="", description="Coordinate reference system")
+    download_url: str = Field(default="", description="Download URL")
 
 
 def _extract_namespaces(root: ET.Element) -> dict[str, str]:
-    """Extrait les namespaces depuis l'élément racine.
+    """Extract namespaces from the root element.
 
     Args:
-        root: Élément racine XML.
+        root: XML root element.
 
     Returns:
-        Dictionnaire des préfixes de namespace.
+        Dictionary of namespace prefixes.
     """
     ns: dict[str, str] = {}
     tag = root.tag
     if tag.startswith("{"):
         default_ns = tag[1 : tag.index("}")]
         ns["atom"] = default_ns
-    # Namespaces courants dans les flux Atom IGN
+    # Common namespaces in IGN Atom feeds
     for prefix, uri in [
         ("georss", "http://www.georss.org/georss"),
         ("inspire_dls", "http://inspire.ec.europa.eu/schemas/inspire_dls/1.0"),
@@ -66,14 +66,14 @@ def _extract_namespaces(root: ET.Element) -> dict[str, str]:
 
 
 def _parse_product_entry(entry: ET.Element, ns: dict[str, str]) -> AtomProduct | None:
-    """Parse une entrée Atom de niveau capabilities en AtomProduct.
+    """Parse a capabilities-level Atom entry into an AtomProduct.
 
     Args:
-        entry: Élément XML <entry>.
+        entry: XML <entry> element.
         ns: Namespaces.
 
     Returns:
-        AtomProduct ou None si le parsing échoue.
+        AtomProduct or None if parsing fails.
     """
     title_el = entry.find("atom:title", ns)
     title = title_el.text.strip() if title_el is not None and title_el.text else ""
@@ -81,7 +81,7 @@ def _parse_product_entry(entry: ET.Element, ns: dict[str, str]) -> AtomProduct |
     summary_el = entry.find("atom:summary", ns)
     description = summary_el.text.strip() if summary_el is not None and summary_el.text else ""
 
-    # Chercher le lien vers le flux des éditions
+    # Find the link to the editions feed
     resource_url = ""
     for link in entry.findall("atom:link", ns):
         href = link.get("href", "")
@@ -90,14 +90,14 @@ def _parse_product_entry(entry: ET.Element, ns: dict[str, str]) -> AtomProduct |
             resource_url = href
             break
 
-    # Extraire le nom du produit depuis l'ID ou le titre
+    # Extract the product name from the ID or title
     id_el = entry.find("atom:id", ns)
     entry_id = id_el.text.strip() if id_el is not None and id_el.text else ""
 
-    # Le nom est généralement dans l'ID ou dans l'URL
+    # The name is usually in the ID or in the URL
     name = ""
     if resource_url:
-        # URL typique : .../resource/ADMIN-EXPRESS-COG
+        # Typical URL: .../resource/ADMIN-EXPRESS-COG
         parts = resource_url.rstrip("/").split("/")
         if parts:
             name = parts[-1]
@@ -122,15 +122,15 @@ def _parse_edition_entry(
     ns: dict[str, str],
     product_name: str,
 ) -> AtomEdition | None:
-    """Parse une entrée Atom de niveau édition en AtomEdition.
+    """Parse an edition-level Atom entry into an AtomEdition.
 
     Args:
-        entry: Élément XML <entry>.
+        entry: XML <entry> element.
         ns: Namespaces.
-        product_name: Nom du produit parent.
+        product_name: Parent product name.
 
     Returns:
-        AtomEdition ou None si le parsing échoue.
+        AtomEdition or None if parsing fails.
     """
     title_el = entry.find("atom:title", ns)
     title = title_el.text.strip() if title_el is not None and title_el.text else ""
@@ -138,19 +138,19 @@ def _parse_edition_entry(
     if not title:
         return None
 
-    # Date de mise à jour
+    # Update date
     updated_el = entry.find("atom:updated", ns)
     edition_date = ""
     if updated_el is not None and updated_el.text:
         edition_date = updated_el.text.strip()[:10]  # YYYY-MM-DD
 
-    # Parser le titre pour extraire format, zone, CRS
-    # Titre typique : ADMIN-EXPRESS-COG_4-0__GPKG_LAMB93_FXX_2025-01-01
+    # Parse the title to extract format, zone, CRS
+    # Typical title: ADMIN-EXPRESS-COG_4-0__GPKG_LAMB93_FXX_2025-01-01
     fmt = ""
     zone = ""
     crs = ""
     parts = title.split("_")
-    # Chercher les patterns connus dans les parties du titre
+    # Look for known patterns in the title parts
     known_formats = {"GPKG", "SHP", "CSV"}
     known_crs = {
         "LAMB93",
@@ -173,7 +173,7 @@ def _parse_edition_entry(
         elif part_upper in known_zones:
             zone = part_upper
 
-    # Construire l'URL de téléchargement
+    # Build the download URL
     download_url = f"{BASE_URL}/download/{product_name}/{title}/{title}.7z"
 
     return AtomEdition(
@@ -187,10 +187,10 @@ def _parse_edition_entry(
 
 
 class AtomClient:
-    """Client pour l'API Atom IGN.
+    """Client for the IGN Atom API.
 
-    Scrape les flux Atom XML pour découvrir les produits
-    et leurs éditions disponibles.
+    Scrapes Atom XML feeds to discover products
+    and their available editions.
     """
 
     def __init__(self, base_url: str = BASE_URL) -> None:
@@ -218,16 +218,16 @@ class AtomClient:
         self.close()
 
     def _fetch_xml(self, url: str) -> ET.Element:
-        """Récupère et parse un flux XML.
+        """Fetch and parse an XML feed.
 
         Args:
-            url: URL du flux.
+            url: Feed URL.
 
         Returns:
-            Élément racine XML.
+            XML root element.
 
         Raises:
-            AtomApiError: En cas d'erreur réseau ou de parsing.
+            AtomApiError: On network or parsing error.
         """
         try:
             response = self.client.get(url)
@@ -241,10 +241,10 @@ class AtomClient:
             raise AtomApiError(f"Erreur de parsing XML pour {url}: {e}") from e
 
     def fetch_capabilities(self) -> list[AtomProduct]:
-        """Scrape le niveau capabilities pour obtenir la liste des produits.
+        """Scrape the capabilities level to obtain the product list.
 
         Returns:
-            Liste des produits disponibles.
+            List of available products.
         """
         url = f"{self.base_url}/capabilities"
         logger.info("Scraping capabilities: %s", url)
@@ -267,15 +267,15 @@ class AtomClient:
         format_filter: str | None = None,
         zone_filter: str | None = None,
     ) -> list[AtomEdition]:
-        """Scrape les éditions d'un produit.
+        """Scrape the editions of a product.
 
         Args:
-            product_name: Nom du produit (ex: ADMIN-EXPRESS-COG).
-            format_filter: Filtrer par format (ex: GPKG).
-            zone_filter: Filtrer par zone (ex: FRA).
+            product_name: Product name (e.g. ADMIN-EXPRESS-COG).
+            format_filter: Filter by format (e.g. GPKG).
+            zone_filter: Filter by zone (e.g. FRA).
 
         Returns:
-            Liste des éditions disponibles.
+            List of available editions.
         """
         url = f"{self.base_url}/resource/{product_name}"
         logger.info("Scraping éditions de %s: %s", product_name, url)
@@ -292,7 +292,7 @@ class AtomClient:
                 if edition:
                     all_editions.append(edition)
 
-            # Gestion de la pagination
+            # Pagination handling
             next_url = None
             for link in root.findall("atom:link", ns):
                 if link.get("rel") == "next":
@@ -304,7 +304,7 @@ class AtomClient:
                 page += 1
                 logger.debug("Page %d: %s", page, url)
 
-        # Appliquer les filtres
+        # Apply filters
         editions = all_editions
         if format_filter:
             fmt_upper = format_filter.upper()

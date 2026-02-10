@@ -1,7 +1,7 @@
-"""Source de données IGN Geoservices.
+"""IGN Geoservices data source.
 
-Ce module implémente l'accès aux données du géoportail IGN,
-incluant le téléchargement, l'extraction et la découverte de fichiers.
+This module implements access to IGN geoportal data,
+including downloading, extracting, and discovering data files.
 """
 
 from __future__ import annotations
@@ -34,19 +34,19 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Mapping territoire → CRS chargé depuis YAML
+# Territory → CRS mapping loaded from YAML
 _territory_crs: dict[str, str] | None = None
 
 
 def _get_territory_crs() -> dict[str, str]:
-    """Retourne le mapping territoire → CRS, chargé paresseusement."""
+    """Return the territory → CRS mapping, lazily loaded."""
     global _territory_crs
     if _territory_crs is None:
         _territory_crs = load_territory_crs()
     return _territory_crs
 
 
-# URLs des données Admin Express sur data.geopf.fr (rétrocompatibilité)
+# Admin Express data URLs on data.geopf.fr (backward compatibility)
 ADMIN_EXPRESS_URLS = {
     "france_metropolitaine": (
         "https://data.geopf.fr/telechargement/download/ADMIN-EXPRESS-COG/"
@@ -60,7 +60,7 @@ ADMIN_EXPRESS_URLS = {
     ),
 }
 
-# Couches disponibles dans Admin Express (rétrocompatibilité)
+# Available layers in Admin Express (backward compatibility)
 ADMIN_EXPRESS_LAYERS = [
     "REGION",
     "DEPARTEMENT",
@@ -72,13 +72,13 @@ ADMIN_EXPRESS_LAYERS = [
 
 Territory = Literal["france_metropolitaine", "france_entiere"]
 
-# Mapping des territoires legacy vers les codes standards
+# Mapping from legacy territories to standard codes
 TERRITORY_MAPPING: dict[str, TerritoryCode] = {
     "france_metropolitaine": TerritoryCode.FRA,
     "france_entiere": TerritoryCode.FXX,
 }
 
-# Mapping inverse
+# Reverse mapping
 TERRITORY_REVERSE_MAPPING: dict[TerritoryCode, str] = {
     TerritoryCode.FRA: "france_metropolitaine",
     TerritoryCode.FXX: "france_entiere",
@@ -86,17 +86,17 @@ TERRITORY_REVERSE_MAPPING: dict[TerritoryCode, str] = {
 
 
 class IGNDataSource(DataSource):
-    """Source de données IGN Geoservices.
+    """IGN Geoservices data source.
 
-    Permet de télécharger et extraire les données géographiques
-    depuis le géoportail de l'IGN (data.geopf.fr).
+    Downloads and extracts geographic data
+    from the IGN geoportal (data.geopf.fr).
     """
 
     def __init__(self, settings: Settings | None = None) -> None:
-        """Initialise la source de données IGN.
+        """Initialize the IGN data source.
 
         Args:
-            settings: Configuration du module.
+            settings: Module configuration.
         """
         from pgboundary.config import Settings
 
@@ -105,7 +105,7 @@ class IGNDataSource(DataSource):
 
     @property
     def client(self) -> httpx.Client:
-        """Retourne le client HTTP."""
+        """Return the HTTP client."""
         if self._client is None:
             self._client = httpx.Client(
                 timeout=httpx.Timeout(30.0, connect=10.0),
@@ -114,7 +114,7 @@ class IGNDataSource(DataSource):
         return self._client
 
     # =========================================================================
-    # Méthodes de l'interface DataSource
+    # DataSource interface methods
     # =========================================================================
 
     def build_url(
@@ -124,30 +124,30 @@ class IGNDataSource(DataSource):
         territory: str,
         year: str,
     ) -> str:
-        """Construit l'URL de téléchargement selon le template du produit.
+        """Build the download URL from the product template.
 
         Args:
-            product: Produit IGN à télécharger.
-            file_format: Format de fichier (SHP ou GPKG).
-            territory: Code du territoire.
-            year: Année des données (YYYY ou YYYY-MM-DD).
+            product: IGN product to download.
+            file_format: File format (SHP or GPKG).
+            territory: Territory code.
+            year: Data year (YYYY or YYYY-MM-DD).
 
         Returns:
-            URL de téléchargement.
+            Download URL.
         """
-        # Conversion du format en string IGN (sans CRS)
+        # Convert format to IGN string (without CRS)
         format_str = self._format_to_ign_string(file_format)
 
-        # Résoudre le CRS depuis le mapping territorial
+        # Resolve CRS from the territorial mapping
         crs_mapping = _get_territory_crs()
         crs = crs_mapping.get(territory, "WGS84G")
 
-        # Normaliser la date : YYYY → YYYY-01-01
+        # Normalize the date: YYYY → YYYY-01-01
         date_str = year
         if len(year) == 4 and year.isdigit():
             date_str = f"{year}-01-01"
 
-        # Utiliser le template du produit
+        # Use the product template
         return product.url_template.format(
             version=product.version_pattern,
             format=format_str,
@@ -158,18 +158,18 @@ class IGNDataSource(DataSource):
 
     @staticmethod
     def build_department_url(product: IGNProduct, department: str) -> str:
-        """Construit l'URL de téléchargement par département.
+        """Build the download URL for a specific department.
 
         Args:
-            product: Produit IGN avec department_url_template.
-            department: Code département (ex: "75", "2A", "974").
+            product: IGN product with department_url_template.
+            department: Department code (e.g., "75", "2A", "974").
 
         Returns:
-            URL de téléchargement pour le département.
+            Download URL for the department.
 
         Raises:
-            ValueError: Si le code département est invalide ou le produit
-                ne supporte pas le téléchargement par département.
+            ValueError: If the department code is invalid or the product
+                does not support per-department downloads.
         """
         if not product.supports_department_download:
             raise ValueError(
@@ -180,7 +180,7 @@ class IGNDataSource(DataSource):
                 f"Code département invalide: '{department}'. "
                 f"Codes valides: 01-19, 2A, 2B, 21-95, 971-976."
             )
-        assert product.department_url_template is not None  # garanti par le check ci-dessus
+        assert product.department_url_template is not None  # guaranteed by the check above
         return product.department_url_template.format(department=department)
 
     def download(
@@ -190,19 +190,19 @@ class IGNDataSource(DataSource):
         filename: str | None = None,
         force: bool = False,
     ) -> Path:
-        """Télécharge un fichier depuis une URL.
+        """Download a file from a URL.
 
         Args:
-            url: URL du fichier à télécharger.
-            dest_dir: Répertoire de destination.
-            filename: Nom du fichier (déduit de l'URL si non fourni).
-            force: Force le re-téléchargement.
+            url: URL of the file to download.
+            dest_dir: Destination directory.
+            filename: File name (inferred from the URL if not provided).
+            force: Force re-download.
 
         Returns:
-            Chemin vers le fichier téléchargé.
+            Path to the downloaded file.
 
         Raises:
-            DownloadError: En cas d'erreur de téléchargement.
+            DownloadError: If a download error occurs.
         """
         dest_dir.mkdir(parents=True, exist_ok=True)
 
@@ -250,18 +250,18 @@ class IGNDataSource(DataSource):
         dest_dir: Path | None = None,
         force: bool = False,
     ) -> Path:
-        """Extrait l'archive téléchargée.
+        """Extract the downloaded archive.
 
         Args:
-            archive_path: Chemin vers l'archive.
-            dest_dir: Répertoire de destination (déduit du nom d'archive si non fourni).
-            force: Force la ré-extraction.
+            archive_path: Path to the archive.
+            dest_dir: Destination directory (inferred from the archive name if not provided).
+            force: Force re-extraction.
 
         Returns:
-            Chemin vers le répertoire extrait.
+            Path to the extracted directory.
 
         Raises:
-            DownloadError: Si l'archive n'existe pas ou erreur d'extraction.
+            DownloadError: If the archive does not exist or an extraction error occurs.
         """
         if not archive_path.exists():
             raise DownloadError(f"Archive introuvable: {archive_path}")
@@ -302,27 +302,27 @@ class IGNDataSource(DataSource):
         product: IGNProduct,
         file_format: FileFormat,
     ) -> dict[str, Path]:
-        """Trouve les fichiers de données selon le format et le produit.
+        """Find data files matching the format and product.
 
         Args:
-            extract_dir: Répertoire contenant les données extraites.
-            product: Produit IGN pour lequel chercher les fichiers.
-            file_format: Format de fichier (SHP ou GPKG).
+            extract_dir: Directory containing the extracted data.
+            product: IGN product to search files for.
+            file_format: File format (SHP or GPKG).
 
         Returns:
-            Dictionnaire {nom_couche: chemin_fichier}.
+            Dictionary {layer_name: file_path}.
         """
         files: dict[str, Path] = {}
 
         if file_format == FileFormat.GPKG:
-            # GPKG: un seul fichier contenant toutes les couches
+            # GPKG: a single file containing all layers
             gpkg_files = list(extract_dir.glob("**/*.gpkg"))
             if gpkg_files:
                 gpkg_path = gpkg_files[0]
                 for layer in product.layers:
                     files[layer.name] = gpkg_path
         else:
-            # SHP: un fichier par couche
+            # SHP: one file per layer
             for layer in product.layers:
                 pattern = f"**/{layer.name}.shp"
                 matches = list(extract_dir.glob(pattern))
@@ -333,13 +333,13 @@ class IGNDataSource(DataSource):
         return files
 
     def close(self) -> None:
-        """Ferme le client HTTP."""
+        """Close the HTTP client."""
         if self._client is not None:
             self._client.close()
             self._client = None
 
     # =========================================================================
-    # Méthodes de rétrocompatibilité (legacy)
+    # Backward compatibility methods (legacy)
     # =========================================================================
 
     def get_download_url(
@@ -347,14 +347,14 @@ class IGNDataSource(DataSource):
         territory: Territory = "france_metropolitaine",
         year: str = "2024",
     ) -> str:
-        """Construit l'URL de téléchargement (méthode legacy).
+        """Build the download URL (legacy method).
 
         Args:
-            territory: Territoire à télécharger.
-            year: Année des données.
+            territory: Territory to download.
+            year: Data year.
 
         Returns:
-            URL de téléchargement.
+            Download URL.
         """
         template = ADMIN_EXPRESS_URLS[territory]
         return template.format(year=year)
@@ -365,18 +365,18 @@ class IGNDataSource(DataSource):
         year: str = "2024",
         force: bool = False,
     ) -> Path:
-        """Télécharge les données Admin Express (méthode legacy).
+        """Download Admin Express data (legacy method).
 
         Args:
-            territory: Territoire à télécharger.
-            year: Année des données.
-            force: Force le re-téléchargement même si le fichier existe.
+            territory: Territory to download.
+            year: Data year.
+            force: Force re-download even if the file already exists.
 
         Returns:
-            Chemin vers le fichier téléchargé.
+            Path to the downloaded file.
 
         Raises:
-            DownloadError: En cas d'erreur de téléchargement.
+            DownloadError: If a download error occurs.
         """
         data_dir = self.settings.ensure_data_dir()
         filename = f"admin_express_{territory}_{year}.7z"
@@ -385,13 +385,13 @@ class IGNDataSource(DataSource):
         return self.download(url, data_dir, filename, force)
 
     def find_shapefiles(self, extract_dir: Path) -> dict[str, Path]:
-        """Trouve les shapefiles dans le répertoire extrait (méthode legacy).
+        """Find shapefiles in the extracted directory (legacy method).
 
         Args:
-            extract_dir: Répertoire contenant les données extraites.
+            extract_dir: Directory containing the extracted data.
 
         Returns:
-            Dictionnaire {nom_couche: chemin_shapefile}.
+            Dictionary {layer_name: shapefile_path}.
         """
         shapefiles: dict[str, Path] = {}
 
@@ -405,21 +405,21 @@ class IGNDataSource(DataSource):
         return shapefiles
 
     # =========================================================================
-    # Méthodes utilitaires
+    # Utility methods
     # =========================================================================
 
     @staticmethod
     def _format_to_ign_string(file_format: FileFormat) -> str:
-        """Convertit un FileFormat en string IGN.
+        """Convert a FileFormat to an IGN string.
 
-        Le CRS est désormais géré séparément dans build_url() via le mapping
-        territorial, donc ce format ne contient plus le suffixe CRS.
+        The CRS is now handled separately in build_url() via the territorial
+        mapping, so this format no longer contains the CRS suffix.
 
         Args:
-            file_format: Format de fichier.
+            file_format: File format.
 
         Returns:
-            String pour l'URL IGN (ex: "SHP", "GPKG").
+            String for the IGN URL (e.g., "SHP", "GPKG").
         """
         if file_format == FileFormat.SHP:
             return "SHP"
@@ -427,24 +427,24 @@ class IGNDataSource(DataSource):
 
     @staticmethod
     def territory_to_code(territory: Territory) -> TerritoryCode:
-        """Convertit un territoire legacy en TerritoryCode.
+        """Convert a legacy territory to a TerritoryCode.
 
         Args:
-            territory: Territoire legacy.
+            territory: Legacy territory.
 
         Returns:
-            Code de territoire.
+            Territory code.
         """
         return TERRITORY_MAPPING.get(territory, TerritoryCode.FRA)
 
     @staticmethod
     def code_to_territory(code: TerritoryCode) -> str:
-        """Convertit un TerritoryCode en territoire legacy.
+        """Convert a TerritoryCode to a legacy territory.
 
         Args:
-            code: Code de territoire.
+            code: Territory code.
 
         Returns:
-            Territoire legacy.
+            Legacy territory.
         """
         return TERRITORY_REVERSE_MAPPING.get(code, "france_metropolitaine")

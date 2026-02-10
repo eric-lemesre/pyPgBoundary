@@ -1,13 +1,13 @@
-"""Configuration des imports de données géographiques.
+"""Geographic data import configuration.
 
-Ce module définit les structures de configuration pour les imports
-de produits IGN avec support de l'historisation.
+This module defines the configuration structures for IGN product imports
+with historization support.
 
-Matrice de décision pour la similarité géométrique:
-- [0.95 - 1.00] : IDENTICAL - Fusion automatique sans vérification
-- [0.80 - 0.95] : LIKELY_MATCH - Correspondance forte, validation si attributs diffèrent
-- [0.50 - 0.80] : SUSPECT - Conflit potentiel ou changement temporel
-- < 0.50 : DISTINCT - Objets distincts
+Decision matrix for geometric similarity:
+- [0.95 - 1.00] : IDENTICAL - Automatic merge without verification
+- [0.80 - 0.95] : LIKELY_MATCH - Strong match, validation if attributes differ
+- [0.50 - 0.80] : SUSPECT - Potential conflict or temporal change
+- < 0.50 : DISTINCT - Distinct objects
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 
 class SimilarityMethod(StrEnum):
-    """Méthodes de comparaison géométrique pour l'historisation."""
+    """Geometric comparison methods for historization."""
 
     MD5 = "md5"  # Hash MD5 des coordonnées (identité stricte)
     JACCARD = "jaccard"  # Indice de Jaccard / IoU (superposition spatiale)
@@ -28,7 +28,7 @@ class SimilarityMethod(StrEnum):
 
 
 class SimilarityLevel(StrEnum):
-    """Niveaux de similarité selon la matrice de décision."""
+    """Similarity levels according to the decision matrix."""
 
     IDENTICAL = "identical"  # [0.95 - 1.00] Fusion automatique
     LIKELY_MATCH = "likely_match"  # [0.80 - 0.95] Correspondance forte
@@ -38,15 +38,15 @@ class SimilarityLevel(StrEnum):
 
 @dataclass
 class SimilarityResult:
-    """Résultat d'une comparaison de similarité géométrique.
+    """Result of a geometric similarity comparison.
 
     Attributes:
-        level: Niveau de similarité selon la matrice de décision.
-        iou_score: Score IoU/Jaccard (0.0 à 1.0).
-        hausdorff_distance: Distance de Hausdorff (en unités du CRS).
-        combined_score: Score combiné normalisé (0.0 à 1.0).
-        needs_validation: Indique si une validation manuelle est recommandée.
-        reason: Explication du résultat.
+        level: Similarity level according to the decision matrix.
+        iou_score: IoU/Jaccard score (0.0 to 1.0).
+        hausdorff_distance: Hausdorff distance (in CRS units).
+        combined_score: Normalized combined score (0.0 to 1.0).
+        needs_validation: Indicates if manual validation is recommended.
+        reason: Explanation of the result.
     """
 
     level: SimilarityLevel
@@ -57,26 +57,26 @@ class SimilarityResult:
     reason: str = ""
 
     def is_match(self) -> bool:
-        """Détermine si les géométries correspondent.
+        """Determine if the geometries match.
 
         Returns:
-            True si IDENTICAL ou LIKELY_MATCH.
+            True if IDENTICAL or LIKELY_MATCH.
         """
         return self.level in (SimilarityLevel.IDENTICAL, SimilarityLevel.LIKELY_MATCH)
 
     def is_auto_merge(self) -> bool:
-        """Détermine si la fusion automatique est possible.
+        """Determine if automatic merge is possible.
 
         Returns:
-            True si IDENTICAL (pas de validation nécessaire).
+            True if IDENTICAL (no validation needed).
         """
         return self.level == SimilarityLevel.IDENTICAL
 
 
 class SimilarityThresholds(BaseModel):
-    """Seuils de la matrice de décision pour la similarité.
+    """Decision matrix thresholds for similarity.
 
-    Les seuils définissent les limites entre les niveaux de similarité.
+    The thresholds define the boundaries between similarity levels.
     """
 
     identical_min: float = Field(
@@ -105,20 +105,20 @@ class SimilarityThresholds(BaseModel):
 
 
 class HistorizationConfig(BaseModel):
-    """Configuration de l'historisation pour un produit.
+    """Historization configuration for a product.
 
-    L'historisation permet de conserver l'historique des modifications
-    des entités géographiques au fil des millésimes.
+    Historization allows preserving the modification history of geographic
+    entities across vintages.
 
-    La méthode recommandée est COMBINED qui utilise:
-    1. Calcul IoU d'abord - si très élevé (>= 0.95), c'est identique
-    2. Si IoU moyen, vérification Hausdorff pour confirmer la proximité des contours
+    The recommended method is COMBINED which uses:
+    1. IoU calculation first - if very high (>= 0.95), it is identical
+    2. If IoU is moderate, Hausdorff verification to confirm contour proximity
 
     Attributes:
-        enabled: Active l'historisation pour ce produit.
-        method: Méthode de comparaison géométrique (COMBINED recommandé).
-        thresholds: Seuils de la matrice de décision.
-        key_field: Champ utilisé comme clé d'identification (ex: cd_insee).
+        enabled: Enable historization for this product.
+        method: Geometric comparison method (COMBINED recommended).
+        thresholds: Decision matrix thresholds.
+        key_field: Field used as identification key (e.g., cd_insee).
     """
 
     enabled: bool = Field(default=False, description="Active l'historisation")
@@ -141,10 +141,10 @@ class HistorizationConfig(BaseModel):
     )
 
     def get_effective_thresholds(self) -> SimilarityThresholds:
-        """Retourne les seuils effectifs (avec rétrocompatibilité).
+        """Return the effective thresholds (with backward compatibility).
 
         Returns:
-            Seuils à utiliser.
+            Thresholds to use.
         """
         if self.threshold is not None:
             # Rétrocompatibilité: utiliser l'ancien threshold comme identical_min
@@ -152,10 +152,10 @@ class HistorizationConfig(BaseModel):
         return self.thresholds
 
     def get_threshold_description(self) -> str:
-        """Retourne une description des seuils selon la méthode.
+        """Return a description of thresholds by method.
 
         Returns:
-            Description lisible.
+            Human-readable description.
         """
         if self.method == SimilarityMethod.MD5:
             return "Comparaison exacte (hash MD5)"
@@ -174,18 +174,18 @@ class HistorizationConfig(BaseModel):
 
 
 class LayerImportConfig(BaseModel):
-    """Configuration d'import pour une couche spécifique.
+    """Import configuration for a specific layer.
 
-    Chaque couche peut surcharger les valeurs par défaut du produit.
-    Les champs None héritent de la configuration du produit parent.
+    Each layer can override the product's default values.
+    None fields inherit from the parent product configuration.
 
     Attributes:
-        enabled: Si True, la couche sera importée.
-        table_name: Nom de la table cible (optionnel, utilise le défaut si None).
-        territory: Code territoire (hérite du produit si None).
-        format: Format de fichier (hérite du produit si None).
-        years: Années à importer (hérite du produit si None).
-        historization: Configuration de l'historisation (hérite du produit si None).
+        enabled: If True, the layer will be imported.
+        table_name: Target table name (optional, uses default if None).
+        territory: Territory code (inherits from product if None).
+        format: File format (inherits from product if None).
+        years: Years to import (inherits from product if None).
+        historization: Historization configuration (inherits from product if None).
     """
 
     enabled: bool = Field(default=True, description="Active l'import de cette couche")
@@ -213,19 +213,19 @@ class LayerImportConfig(BaseModel):
 
 @dataclass
 class EffectiveLayerConfig:
-    """Configuration effective d'une couche après résolution de l'héritage.
+    """Effective layer configuration after inheritance resolution.
 
-    Cette classe représente la configuration finale d'une couche avec toutes
-    les valeurs résolues (pas de None).
+    This class represents the final configuration of a layer with all
+    values resolved (no None).
 
     Attributes:
-        layer_name: Nom de la couche.
-        enabled: Si True, la couche sera importée.
-        table_name: Nom de la table cible.
-        territory: Code territoire.
-        format: Format de fichier.
-        years: Années à importer.
-        historization: Configuration de l'historisation.
+        layer_name: Layer name.
+        enabled: If True, the layer will be imported.
+        table_name: Target table name.
+        territory: Territory code.
+        format: File format.
+        years: Years to import.
+        historization: Historization configuration.
     """
 
     layer_name: str
@@ -238,17 +238,17 @@ class EffectiveLayerConfig:
 
 
 class ProductImportConfig(BaseModel):
-    """Configuration d'import pour un produit spécifique.
+    """Import configuration for a specific product.
 
-    Les paramètres au niveau produit servent de valeurs par défaut
-    pour toutes les couches. Chaque couche peut surcharger ces valeurs.
+    Product-level parameters serve as default values for all layers.
+    Each layer can override these values.
 
     Attributes:
-        territory: Code territoire par défaut (FRA, FXX, GLP, etc.).
-        format: Format de fichier par défaut (shp, gpkg).
-        years: Années/millésimes par défaut à importer.
-        historization: Configuration de l'historisation par défaut.
-        layers: Configuration par couche.
+        territory: Default territory code (FRA, FXX, GLP, etc.).
+        format: Default file format (shp, gpkg).
+        years: Default years/vintages to import.
+        historization: Default historization configuration.
+        layers: Per-layer configuration.
     """
 
     territory: str = Field(default="FRA", description="Code territoire par défaut")
@@ -267,16 +267,16 @@ class ProductImportConfig(BaseModel):
     )
 
     def get_effective_layer_config(self, layer_name: str) -> EffectiveLayerConfig:
-        """Retourne la configuration effective d'une couche.
+        """Return the effective configuration of a layer.
 
-        Résout l'héritage en combinant la configuration de la couche
-        avec les valeurs par défaut du produit.
+        Resolve inheritance by combining the layer configuration
+        with the product's default values.
 
         Args:
-            layer_name: Nom de la couche.
+            layer_name: Layer name.
 
         Returns:
-            Configuration effective avec toutes les valeurs résolues.
+            Effective configuration with all values resolved.
         """
         layer_config = self.layers.get(layer_name, LayerImportConfig())
 
@@ -293,28 +293,28 @@ class ProductImportConfig(BaseModel):
         )
 
     def get_enabled_layers(self) -> list[str]:
-        """Retourne la liste des couches activées.
+        """Return the list of enabled layers.
 
         Returns:
-            Liste des noms de couches avec enabled=True.
+            List of layer names with enabled=True.
         """
         return [name for name, cfg in self.layers.items() if cfg.enabled]
 
     def get_latest_year(self) -> str | None:
-        """Retourne la dernière année configurée (au niveau produit).
+        """Return the latest configured year (at product level).
 
         Returns:
-            Dernière année ou None si aucune.
+            Latest year or None if none.
         """
         if not self.years:
             return None
         return sorted(self.years)[-1]
 
     def get_layers_display(self) -> str:
-        """Retourne un affichage des couches activées.
+        """Return a display of enabled layers.
 
         Returns:
-            Liste des couches ou "aucune".
+            List of layers or "aucune".
         """
         enabled = self.get_enabled_layers()
         if not enabled:
@@ -322,27 +322,27 @@ class ProductImportConfig(BaseModel):
         return ", ".join(enabled)
 
     def count_enabled_layers(self) -> int:
-        """Compte le nombre de couches activées.
+        """Count the number of enabled layers.
 
         Returns:
-            Nombre de couches avec enabled=True.
+            Number of layers with enabled=True.
         """
         return sum(1 for cfg in self.layers.values() if cfg.enabled)
 
     def has_enabled_layers(self) -> bool:
-        """Vérifie si au moins une couche est activée.
+        """Check if at least one layer is enabled.
 
         Returns:
-            True si au moins une couche est activée.
+            True if at least one layer is enabled.
         """
         return any(cfg.enabled for cfg in self.layers.values())
 
 
 class ImportsConfig(BaseModel):
-    """Configuration de tous les imports.
+    """Configuration for all imports.
 
     Attributes:
-        products: Dictionnaire des configurations par produit.
+        products: Dictionary of configurations per product.
     """
 
     products: dict[str, ProductImportConfig] = Field(
@@ -351,21 +351,21 @@ class ImportsConfig(BaseModel):
     )
 
     def get_enabled_products(self) -> dict[str, ProductImportConfig]:
-        """Retourne les produits qui ont au moins une couche activée.
+        """Return the products that have at least one enabled layer.
 
         Returns:
-            Dictionnaire des produits avec au moins une couche enabled=True.
+            Dictionary of products with at least one layer with enabled=True.
         """
         return {k: v for k, v in self.products.items() if v.has_enabled_layers()}
 
     def get_product(self, product_id: str) -> ProductImportConfig | None:
-        """Retourne la configuration d'un produit.
+        """Return the configuration of a product.
 
         Args:
-            product_id: Identifiant du produit.
+            product_id: Product identifier.
 
         Returns:
-            Configuration ou None si non trouvé.
+            Configuration or None if not found.
         """
         return self.products.get(product_id)
 
@@ -374,24 +374,24 @@ class ImportsConfig(BaseModel):
         product_id: str,
         config: ProductImportConfig | None = None,
     ) -> None:
-        """Ajoute un produit à la configuration.
+        """Add a product to the configuration.
 
         Args:
-            product_id: Identifiant du produit.
-            config: Configuration (défaut si None).
+            product_id: Product identifier.
+            config: Configuration (default if None).
         """
         if config is None:
             config = ProductImportConfig()
         self.products[product_id] = config
 
     def remove_product(self, product_id: str) -> bool:
-        """Supprime un produit de la configuration.
+        """Remove a product from the configuration.
 
         Args:
-            product_id: Identifiant du produit.
+            product_id: Product identifier.
 
         Returns:
-            True si supprimé, False si non trouvé.
+            True if removed, False if not found.
         """
         if product_id in self.products:
             del self.products[product_id]
@@ -399,18 +399,18 @@ class ImportsConfig(BaseModel):
         return False
 
     def count_enabled(self) -> int:
-        """Compte les produits avec au moins une couche activée.
+        """Count the products with at least one enabled layer.
 
         Returns:
-            Nombre de produits avec au moins une couche activée.
+            Number of products with at least one enabled layer.
         """
         return sum(1 for p in self.products.values() if p.has_enabled_layers())
 
     def count_total(self) -> int:
-        """Compte le total de produits.
+        """Count the total number of products.
 
         Returns:
-            Nombre total de produits.
+            Total number of products.
         """
         return len(self.products)
 
@@ -469,14 +469,14 @@ DEFAULT_PRODUCT_CONFIGS: dict[str, ProductImportConfig] = {
 
 
 def get_default_key_field(product_id: str, layer_name: str) -> str:  # noqa: ARG001
-    """Retourne le champ clé par défaut pour un produit/couche.
+    """Return the default key field for a product/layer.
 
     Args:
-        product_id: Identifiant du produit.
-        layer_name: Nom de la couche.
+        product_id: Product identifier.
+        layer_name: Layer name.
 
     Returns:
-        Nom du champ clé.
+        Key field name.
     """
     # Mapping des champs clés par couche
     key_fields = {

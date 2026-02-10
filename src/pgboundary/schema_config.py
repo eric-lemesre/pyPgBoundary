@@ -1,4 +1,4 @@
-"""Configuration du schéma de base de données via fichier YAML."""
+"""Database schema configuration via YAML file."""
 
 import logging
 from datetime import datetime
@@ -15,14 +15,14 @@ DEFAULT_CONFIG_FILENAME = "pgboundary.yml"
 
 
 class StorageMode(StrEnum):
-    """Mode de stockage des tables."""
+    """Table storage mode."""
 
     PREFIX = "prefix"  # Dans le schéma public avec préfixe
     SCHEMA = "schema"  # Dans un schéma dédié
 
 
 class FieldPrefixes(BaseModel):
-    """Préfixes des champs selon leur type."""
+    """Field prefixes by type."""
 
     code: str = Field(default="cd_", description="Préfixe pour les champs de code")
     label: str = Field(default="lb_", description="Préfixe pour les champs de libellé/nom")
@@ -30,10 +30,10 @@ class FieldPrefixes(BaseModel):
 
 
 class TableNames(BaseModel):
-    """Noms des tables.
+    """Table names.
 
-    Cette classe définit les noms de tables pour tous les produits IGN supportés.
-    Les tables sont organisées par catégorie de produit.
+    This class defines table names for all supported IGN products.
+    Tables are organized by product category.
     """
 
     # Admin Express - Couches de base
@@ -152,24 +152,24 @@ class TableNames(BaseModel):
 
 
 class LayerTableOverride(BaseModel):
-    """Override de nom de table pour une couche spécifique.
+    """Table name override for a specific layer.
 
     Attributes:
-        table_name: Nom de table personnalisé pour cette couche.
+        table_name: Custom table name for this layer.
     """
 
     table_name: str = Field(..., description="Nom de table personnalisé")
 
 
 class ProductTableOverride(BaseModel):
-    """Override de nom de table pour un produit.
+    """Table name override for a product.
 
-    Permet de définir un nom de table par défaut pour toutes les couches
-    d'un produit, et/ou des noms spécifiques par couche.
+    Allows defining a default table name for all layers of a product,
+    and/or specific names per layer.
 
     Attributes:
-        default_table: Nom de table par défaut pour toutes les couches du produit.
-        layers: Overrides spécifiques par couche (prioritaires sur default_table).
+        default_table: Default table name for all layers of the product.
+        layers: Layer-specific overrides (take priority over default_table).
     """
 
     default_table: str | None = Field(
@@ -182,15 +182,15 @@ class ProductTableOverride(BaseModel):
     )
 
     def get_table_name(self, layer_name: str) -> str | None:
-        """Retourne le nom de table pour une couche.
+        """Return the table name for a layer.
 
-        La priorité est: override de couche > default_table > None.
+        Priority is: layer override > default_table > None.
 
         Args:
-            layer_name: Nom de la couche.
+            layer_name: Layer name.
 
         Returns:
-            Nom de table personnalisé ou None.
+            Custom table name or None.
         """
         if layer_name in self.layers:
             return self.layers[layer_name].table_name
@@ -198,13 +198,12 @@ class ProductTableOverride(BaseModel):
 
 
 class TableOverrides(BaseModel):
-    """Configuration des overrides de noms de tables par produit.
+    """Table name override configuration by product.
 
-    Permet de rediriger les données d'un produit ou d'une couche vers
-    une table spécifique.
+    Allows redirecting data from a product or layer to a specific table.
 
     Attributes:
-        products: Dictionnaire des overrides par ID de produit.
+        products: Dictionary of overrides by product ID.
     """
 
     products: dict[str, ProductTableOverride] = Field(
@@ -213,29 +212,29 @@ class TableOverrides(BaseModel):
     )
 
     def get_table_name(self, product_id: str, layer_name: str) -> str | None:
-        """Retourne le nom de table pour un produit/couche.
+        """Return the table name for a product/layer.
 
         Args:
-            product_id: Identifiant du produit.
-            layer_name: Nom de la couche.
+            product_id: Product identifier.
+            layer_name: Layer name.
 
         Returns:
-            Nom de table personnalisé ou None si pas d'override.
+            Custom table name or None if no override.
         """
         if product_id not in self.products:
             return None
         return self.products[product_id].get_table_name(layer_name)
 
     def get_products_for_table(self, table_name: str) -> list[str]:
-        """Retourne les produits qui utilisent une table donnée.
+        """Return the products that use a given table.
 
-        Utile pour déterminer si type_produit est nécessaire.
+        Useful for determining if type_produit is needed.
 
         Args:
-            table_name: Nom de la table.
+            table_name: Table name.
 
         Returns:
-            Liste des IDs de produits utilisant cette table.
+            List of product IDs using this table.
         """
         result = []
         for product_id, override in self.products.items():
@@ -248,7 +247,7 @@ class TableOverrides(BaseModel):
 
 
 class StorageConfig(BaseModel):
-    """Configuration du mode de stockage."""
+    """Storage mode configuration."""
 
     mode: StorageMode = Field(
         default=StorageMode.SCHEMA,
@@ -265,7 +264,7 @@ class StorageConfig(BaseModel):
 
 
 class SchemaConfig(BaseModel):
-    """Configuration complète du schéma de base de données."""
+    """Complete database schema configuration."""
 
     storage: StorageConfig = Field(default_factory=StorageConfig)
     field_prefixes: FieldPrefixes = Field(default_factory=FieldPrefixes)
@@ -280,7 +279,7 @@ class SchemaConfig(BaseModel):
     @field_validator("imports", mode="before")
     @classmethod
     def validate_imports(cls, v: Any) -> dict[str, dict[str, Any]]:
-        """Valide le champ imports, convertit None en dict vide."""
+        """Validate the imports field, convert None to empty dict."""
         if v is None:
             return {}
         return dict(v)
@@ -293,22 +292,22 @@ class SchemaConfig(BaseModel):
         layer_name: str | None = None,
         cli_table_name: str | None = None,
     ) -> str:
-        """Retourne le nom complet de la table selon le mode de stockage.
+        """Return the full table name according to the storage mode.
 
-        Priorité de résolution du nom de table:
-        1. Paramètre CLI (cli_table_name)
-        2. Override de couche (table_overrides.products[product_id].layers[layer_name])
-        3. Override de produit (table_overrides.products[product_id].default_table)
-        4. Nom de table par défaut (table_names)
+        Table name resolution priority:
+        1. CLI parameter (cli_table_name)
+        2. Layer override (table_overrides.products[product_id].layers[layer_name])
+        3. Product override (table_overrides.products[product_id].default_table)
+        4. Default table name (table_names)
 
         Args:
-            table_key: Clé de la table (region, departement, etc.)
-            product_id: Identifiant du produit (optionnel).
-            layer_name: Nom de la couche (optionnel).
-            cli_table_name: Nom de table spécifié via CLI (prioritaire).
+            table_key: Table key (region, departement, etc.)
+            product_id: Product identifier (optional).
+            layer_name: Layer name (optional).
+            cli_table_name: Table name specified via CLI (takes priority).
 
         Returns:
-            Nom complet de la table.
+            Full table name.
         """
         # 1. Priorité au CLI
         if cli_table_name:
@@ -330,16 +329,16 @@ class SchemaConfig(BaseModel):
         table_name: str,
         product_id: str,
     ) -> bool:
-        """Détermine si la colonne type_produit est nécessaire.
+        """Determine if the type_produit column is needed.
 
-        La colonne est ajoutée quand plusieurs produits partagent la même table.
+        The column is added when multiple products share the same table.
 
         Args:
-            table_name: Nom de la table.
-            product_id: ID du produit courant.
+            table_name: Table name.
+            product_id: Current product ID.
 
         Returns:
-            True si type_produit est nécessaire.
+            True if type_produit is needed.
         """
         products_using_table = self.table_overrides.get_products_for_table(table_name)
         # Ajouter le produit courant s'il n'est pas dans les overrides
@@ -348,44 +347,44 @@ class SchemaConfig(BaseModel):
         return len(products_using_table) > 1
 
     def get_schema_name(self) -> str | None:
-        """Retourne le nom du schéma ou None si mode prefix.
+        """Return the schema name or None if in prefix mode.
 
         Returns:
-            Nom du schéma ou None.
+            Schema name or None.
         """
         if self.storage.mode == StorageMode.SCHEMA:
             return self.storage.schema_name
         return None
 
     def get_column_name(self, field_type: Literal["code", "label", "date"], name: str) -> str:
-        """Retourne le nom de colonne avec le préfixe approprié.
+        """Return the column name with the appropriate prefix.
 
         Args:
-            field_type: Type de champ (code, label, date).
-            name: Nom de base du champ.
+            field_type: Field type (code, label, date).
+            name: Base field name.
 
         Returns:
-            Nom de colonne préfixé.
+            Prefixed column name.
         """
         prefix = getattr(self.field_prefixes, field_type)
         return f"{prefix}{name}"
 
     def get_import_config(self, product_id: str) -> dict[str, Any] | None:
-        """Retourne la configuration d'import pour un produit.
+        """Return the import configuration for a product.
 
         Args:
-            product_id: Identifiant du produit.
+            product_id: Product identifier.
 
         Returns:
-            Configuration d'import ou None.
+            Import configuration or None.
         """
         return self.imports.get(product_id)
 
     def get_enabled_imports(self) -> dict[str, dict[str, Any]]:
-        """Retourne les imports avec au moins une couche activée.
+        """Return imports with at least one enabled layer.
 
         Returns:
-            Dictionnaire des imports avec au moins une couche enabled=True.
+            Dictionary of imports with at least one layer where enabled=True.
         """
         result = {}
         for k, v in self.imports.items():
@@ -400,10 +399,10 @@ class SchemaConfig(BaseModel):
         return result
 
     def count_imports(self) -> tuple[int, int]:
-        """Compte les imports (avec couches activées, total).
+        """Count imports (with enabled layers, total).
 
         Returns:
-            Tuple (nombre avec couches activées, nombre total).
+            Tuple (number with enabled layers, total number).
         """
         total = len(self.imports)
         enabled = len(self.get_enabled_imports())
@@ -418,14 +417,14 @@ class SchemaConfig(BaseModel):
         year: str | None = None,
         layers: list[str] | None = None,
     ) -> None:
-        """Met à jour le statut d'injection d'un produit.
+        """Update the injection status of a product.
 
         Args:
-            product_id: Identifiant du produit.
-            injected: True si le produit a été injecté.
-            count: Nombre d'entités injectées.
-            year: Millésime injecté.
-            layers: Couches injectées.
+            product_id: Product identifier.
+            injected: True if the product was injected.
+            count: Number of injected entities.
+            year: Injected vintage year.
+            layers: Injected layers.
         """
         if product_id not in self.imports:
             return
@@ -446,23 +445,23 @@ class SchemaConfig(BaseModel):
         self.imports[product_id]["injection"] = injection_info
 
     def get_injection_status(self, product_id: str) -> dict[str, Any] | None:
-        """Retourne le statut d'injection d'un produit.
+        """Return the injection status of a product.
 
         Args:
-            product_id: Identifiant du produit.
+            product_id: Product identifier.
 
         Returns:
-            Dictionnaire avec les informations d'injection ou None.
+            Dictionary with injection information or None.
         """
         if product_id not in self.imports:
             return None
         return self.imports[product_id].get("injection")
 
     def get_injected_products(self) -> dict[str, dict[str, Any]]:
-        """Retourne les produits qui ont été injectés.
+        """Return the products that have been injected.
 
         Returns:
-            Dictionnaire des produits injectés avec leurs informations.
+            Dictionary of injected products with their information.
         """
         return {
             k: v for k, v in self.imports.items() if v.get("injection", {}).get("injected", False)
@@ -470,19 +469,19 @@ class SchemaConfig(BaseModel):
 
 
 def get_default_config() -> SchemaConfig:
-    """Retourne la configuration par défaut.
+    """Return the default configuration.
 
     Returns:
-        Configuration par défaut.
+        Default configuration.
     """
     return SchemaConfig()
 
 
 def get_default_yaml() -> str:
-    """Génère le contenu YAML par défaut avec commentaires.
+    """Generate the default YAML content with comments.
 
     Returns:
-        Contenu YAML formaté.
+        Formatted YAML content.
     """
     return """# Configuration pyPgBoundary - Schéma de base de données
 # Ce fichier est créé automatiquement avec les valeurs par défaut
@@ -590,16 +589,16 @@ imports:
 
 
 def load_config(config_path: Path | None = None) -> SchemaConfig:
-    """Charge la configuration depuis un fichier YAML.
+    """Load the configuration from a YAML file.
 
-    Si le fichier n'existe pas, il est créé avec les valeurs par défaut.
+    If the file does not exist, it is created with default values.
 
     Args:
-        config_path: Chemin vers le fichier de configuration.
-                    Si None, utilise le répertoire courant.
+        config_path: Path to the configuration file.
+                    If None, uses the current directory.
 
     Returns:
-        Configuration chargée.
+        Loaded configuration.
     """
     if config_path is None:
         config_path = Path.cwd() / DEFAULT_CONFIG_FILENAME
@@ -620,10 +619,10 @@ def load_config(config_path: Path | None = None) -> SchemaConfig:
 
 
 def create_default_config(config_path: Path) -> None:
-    """Crée le fichier de configuration par défaut.
+    """Create the default configuration file.
 
     Args:
-        config_path: Chemin où créer le fichier.
+        config_path: Path where the file will be created.
     """
     config_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -634,11 +633,11 @@ def create_default_config(config_path: Path) -> None:
 
 
 def save_config(config: SchemaConfig, config_path: Path) -> None:
-    """Sauvegarde la configuration dans un fichier YAML.
+    """Save the configuration to a YAML file.
 
     Args:
-        config: Configuration à sauvegarder.
-        config_path: Chemin du fichier.
+        config: Configuration to save.
+        config_path: File path.
     """
     config_path.parent.mkdir(parents=True, exist_ok=True)
 

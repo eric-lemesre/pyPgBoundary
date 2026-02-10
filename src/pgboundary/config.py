@@ -1,4 +1,4 @@
-"""Configuration du module pgBoundary."""
+"""pgBoundary module configuration."""
 
 import logging
 import os
@@ -23,10 +23,10 @@ ENV_VAR_DATA_DIR = "PGBOUNDARY_DATA_DIR"
 
 
 class Settings(BaseSettings):
-    """Configuration globale du module.
+    """Global module configuration.
 
-    Les paramètres peuvent être définis via des variables d'environnement
-    préfixées par PGBOUNDARY_.
+    Settings can be defined via environment variables prefixed with
+    PGBOUNDARY_.
     """
 
     model_config = SettingsConfigDict(
@@ -71,14 +71,14 @@ class Settings(BaseSettings):
     @field_validator("data_dir", "config_file", "catalog_db", mode="before")
     @classmethod
     def ensure_path(cls, v: str | Path) -> Path:
-        """Convertit la valeur en Path si nécessaire."""
+        """Convert the value to Path if necessary."""
         return Path(v) if isinstance(v, str) else v
 
     @property
     def schema_config(self) -> SchemaConfig:
-        """Charge et retourne la configuration du schéma.
+        """Load and return the schema configuration.
 
-        La configuration est mise en cache après le premier chargement.
+        The configuration is cached after the first load.
         """
         if self._schema_config is None:
             self._schema_config = load_config(self.config_file)
@@ -86,37 +86,37 @@ class Settings(BaseSettings):
 
     @property
     def schema_name(self) -> str | None:
-        """Retourne le nom du schéma selon la configuration."""
+        """Return the schema name from the configuration."""
         return self.schema_config.get_schema_name()
 
     @property
     def srid(self) -> int:
-        """Retourne le SRID configuré."""
+        """Return the configured SRID."""
         return self.schema_config.srid
 
     def ensure_data_dir(self) -> Path:
-        """Crée le répertoire de données s'il n'existe pas."""
+        """Create the data directory if it does not exist."""
         self.data_dir.mkdir(parents=True, exist_ok=True)
         return self.data_dir
 
     def reload_schema_config(self) -> SchemaConfig:
-        """Force le rechargement de la configuration du schéma."""
+        """Force reload of the schema configuration."""
         self._schema_config = load_config(self.config_file)
         return self._schema_config
 
 
 def has_database_url_configured(env_file: Path | None = None) -> bool:
-    """Vérifie si une URL de base de données est configurée.
+    """Check if a database URL is configured.
 
-    Vérifie dans l'ordre:
-    1. Variable d'environnement PGBOUNDARY_DATABASE_URL
-    2. Fichier .env
+    Checks in order:
+    1. PGBOUNDARY_DATABASE_URL environment variable
+    2. .env file
 
     Args:
-        env_file: Chemin vers le fichier .env (par défaut: ./.env)
+        env_file: Path to the .env file (default: ./.env)
 
     Returns:
-        True si une URL est configurée, False sinon.
+        True if a URL is configured, False otherwise.
     """
     # Vérifier la variable d'environnement
     if os.environ.get(ENV_VAR_DATABASE_URL):
@@ -142,17 +142,17 @@ def build_database_url(
     user: str = "postgres",
     password: str = "",
 ) -> str:
-    """Construit une URL de connexion PostgreSQL.
+    """Build a PostgreSQL connection URL.
 
     Args:
-        host: Hôte PostgreSQL.
-        port: Port PostgreSQL.
-        database: Nom de la base de données.
-        user: Nom d'utilisateur.
-        password: Mot de passe.
+        host: PostgreSQL host.
+        port: PostgreSQL port.
+        database: Database name.
+        user: Username.
+        password: Password.
 
     Returns:
-        URL de connexion PostgreSQL.
+        PostgreSQL connection URL.
     """
     if password:
         return f"postgresql://{user}:{password}@{host}:{port}/{database}"
@@ -163,14 +163,14 @@ def save_database_url_to_env(
     database_url: str,
     env_file: Path | None = None,
 ) -> None:
-    """Sauvegarde l'URL de la base de données dans le fichier .env.
+    """Save the database URL to the .env file.
 
-    Si le fichier existe, met à jour la ligne PGBOUNDARY_DATABASE_URL.
-    Sinon, crée le fichier avec l'URL.
+    If the file exists, updates the PGBOUNDARY_DATABASE_URL line.
+    Otherwise, creates the file with the URL.
 
     Args:
-        database_url: URL de connexion PostgreSQL.
-        env_file: Chemin vers le fichier .env (par défaut: ./.env)
+        database_url: PostgreSQL connection URL.
+        env_file: Path to the .env file (default: ./.env)
     """
     env_path = env_file or ENV_FILE
     env_line = f"{ENV_VAR_DATABASE_URL}={database_url}"
@@ -215,14 +215,14 @@ def save_data_dir_to_env(
     data_dir: str,
     env_file: Path | None = None,
 ) -> None:
-    """Sauvegarde le répertoire de données dans le fichier .env.
+    """Save the data directory to the .env file.
 
-    Si le fichier existe, met à jour la ligne PGBOUNDARY_DATA_DIR.
-    Sinon, ajoute la variable à la fin du fichier.
+    If the file exists, updates the PGBOUNDARY_DATA_DIR line.
+    Otherwise, appends the variable at the end of the file.
 
     Args:
-        data_dir: Chemin du répertoire de données.
-        env_file: Chemin vers le fichier .env (par défaut: ./.env)
+        data_dir: Path to the data directory.
+        env_file: Path to the .env file (default: ./.env)
     """
     env_path = env_file or ENV_FILE
     env_line = f"{ENV_VAR_DATA_DIR}={data_dir}"
@@ -256,13 +256,13 @@ def save_data_dir_to_env(
 
 
 def parse_database_url(url: str) -> dict[str, str | int]:
-    """Parse une URL de connexion PostgreSQL.
+    """Parse a PostgreSQL connection URL.
 
     Args:
-        url: URL de connexion PostgreSQL.
+        url: PostgreSQL connection URL.
 
     Returns:
-        Dictionnaire avec host, port, database, user, password.
+        Dictionary with host, port, database, user, password.
     """
     # Pattern pour parser postgresql://user:pass@host:port/database
     pattern = r"postgresql://(?:([^:]+)(?::([^@]*))?@)?([^:/]+)(?::(\d+))?/(.+)"

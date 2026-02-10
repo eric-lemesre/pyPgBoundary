@@ -1,10 +1,10 @@
-"""Widgets CLI interactifs pour pgBoundary.
+"""Interactive CLI widgets for pgBoundary.
 
-Ce module fournit des composants d'interface utilisateur réutilisables :
-- checkbox_select : sélection multiple avec cases à cocher
-- select_single : sélection unique dans une liste
-- select_layers : sélection des couches
-- select_years : sélection des millésimes
+This module provides reusable user interface components:
+- checkbox_select: multiple selection with checkboxes
+- select_single: single selection from a list
+- select_layers: layer selection
+- select_years: vintage/year selection
 """
 
 from __future__ import annotations
@@ -24,25 +24,25 @@ T = TypeVar("T")
 
 
 def _is_cancel_key(key: str) -> bool:
-    """Vérifie si la touche est une touche d'annulation (r ou Échap).
+    """Check if the key is a cancel key (r or Escape).
 
-    Utilise 'r' comme touche principale car Échap ne fonctionne pas
-    correctement dans certains terminaux d'IDE.
+    Uses 'r' as the primary key because Escape does not work
+    correctly in some IDE terminals.
 
     Args:
-        key: Touche pressée.
+        key: Key pressed.
 
     Returns:
-        True si c'est une touche d'annulation.
+        True if it is a cancel key.
     """
-    # 'r' pour retour (fonctionne partout)
-    # ESC (0x1B) comme alternative (ne fonctionne pas dans tous les IDE)
+    # 'r' for return (works everywhere)
+    # ESC (0x1B) as an alternative (does not work in all IDEs)
     return key == "r" or key == "\x1b"
 
 
 @dataclass
 class CheckboxItem:
-    """Un élément de la liste de sélection."""
+    """An item in the selection list."""
 
     label: str
     value: str
@@ -51,7 +51,7 @@ class CheckboxItem:
 
 
 class CheckboxResult:
-    """Résultat de la sélection checkbox."""
+    """Result of a checkbox selection."""
 
     def __init__(self, items: list[CheckboxItem], cancelled: bool = False) -> None:
         self.items = items
@@ -59,16 +59,16 @@ class CheckboxResult:
 
     @property
     def selected_values(self) -> list[str]:
-        """Retourne les valeurs sélectionnées."""
+        """Return the selected values."""
         return [item.value for item in self.items if item.selected]
 
     @property
     def selected_labels(self) -> list[str]:
-        """Retourne les labels sélectionnés."""
+        """Return the selected labels."""
         return [item.label for item in self.items if item.selected]
 
     def __bool__(self) -> bool:
-        """True si au moins un élément est sélectionné et non annulé."""
+        """True if at least one item is selected and not cancelled."""
         return not self.cancelled and len(self.selected_values) > 0
 
 
@@ -78,43 +78,43 @@ def checkbox_select(
     min_selected: int = 0,
     show_help: bool = True,
 ) -> CheckboxResult:
-    """Affiche une liste de cases à cocher interactive.
+    """Display an interactive checkbox list.
 
     Args:
-        items: Liste des éléments à afficher
-        title: Titre du panneau
-        min_selected: Nombre minimum d'éléments à sélectionner (0 = optionnel)
-        show_help: Afficher l'aide en bas
+        items: List of items to display.
+        title: Panel title.
+        min_selected: Minimum number of items to select (0 = optional).
+        show_help: Show help at the bottom.
 
     Returns:
-        CheckboxResult avec les éléments sélectionnés
+        CheckboxResult with the selected items.
 
     Controls:
-        ↑/↓ ou k/j : Naviguer
-        Espace : Cocher/décocher
-        a : Tout sélectionner
-        n : Tout désélectionner
-        Entrée : Valider
-        r : Annuler et retour
+        Up/Down or k/j: Navigate
+        Space: Check/uncheck
+        a: Select all
+        n: Deselect all
+        Enter: Confirm
+        r: Cancel and go back
     """
     cursor_pos = 0
     cancelled = False
 
     def render() -> Panel:
-        """Génère le rendu du composant."""
+        """Generate the component rendering."""
         lines = []
 
         for i, item in enumerate(items):
-            # Curseur et checkbox
+            # Cursor and checkbox
             cursor = ">" if i == cursor_pos else " "
             checkbox = "[green]✓[/green]" if item.selected else "[dim]○[/dim]"
 
-            # Label avec highlight si curseur
+            # Label with highlight if cursor
             label = f"[bold cyan]{item.label}[/bold cyan]" if i == cursor_pos else item.label
 
             line = f" {cursor} {checkbox} {label}"
 
-            # Description si présente
+            # Description if present
             if item.description:
                 line += f" [dim]- {item.description}[/dim]"
 
@@ -129,7 +129,7 @@ def checkbox_select(
             )
             content += help_text
 
-        # Compteur de sélection
+        # Selection counter
         selected_count = sum(1 for item in items if item.selected)
         subtitle = f"{selected_count}/{len(items)} sélectionné(s)"
 
@@ -160,7 +160,7 @@ def checkbox_select(
                 selected_count = sum(1 for item in items if item.selected)
                 if selected_count >= min_selected:
                     break
-                # Si pas assez sélectionné, afficher un message
+                # If not enough selected, show a message
                 console.print(
                     f"[yellow]Veuillez sélectionner au moins {min_selected} élément(s)[/yellow]"
                 )
@@ -175,7 +175,7 @@ def checkbox_select(
 
 @dataclass
 class SelectItem:
-    """Un élément de la liste de sélection unique."""
+    """An item in the single selection list."""
 
     label: str
     value: str
@@ -183,7 +183,7 @@ class SelectItem:
 
 
 class SelectResult:
-    """Résultat de la sélection unique."""
+    """Result of a single selection."""
 
     def __init__(self, item: SelectItem | None = None, cancelled: bool = False) -> None:
         self.item = item
@@ -191,16 +191,16 @@ class SelectResult:
 
     @property
     def value(self) -> str | None:
-        """Retourne la valeur sélectionnée."""
+        """Return the selected value."""
         return self.item.value if self.item else None
 
     @property
     def label(self) -> str | None:
-        """Retourne le label sélectionné."""
+        """Return the selected label."""
         return self.item.label if self.item else None
 
     def __bool__(self) -> bool:
-        """True si un élément est sélectionné et non annulé."""
+        """True if an item is selected and not cancelled."""
         return not self.cancelled and self.item is not None
 
 
@@ -210,21 +210,21 @@ def select_single(
     default_index: int = 0,
     show_help: bool = True,
 ) -> SelectResult:
-    """Affiche une liste de sélection unique interactive.
+    """Display an interactive single selection list.
 
     Args:
-        items: Liste des éléments à afficher
-        title: Titre du panneau
-        default_index: Index de l'élément sélectionné par défaut
-        show_help: Afficher l'aide en bas
+        items: List of items to display.
+        title: Panel title.
+        default_index: Index of the default selected item.
+        show_help: Show help at the bottom.
 
     Returns:
-        SelectResult avec l'élément sélectionné
+        SelectResult with the selected item.
 
     Controls:
-        ↑/↓ ou k/j : Naviguer
-        Entrée : Valider
-        r : Annuler et retour
+        Up/Down or k/j: Navigate
+        Enter: Confirm
+        r: Cancel and go back
     """
     if not items:
         return SelectResult(cancelled=True)
@@ -233,11 +233,11 @@ def select_single(
     cancelled = False
 
     def render() -> Panel:
-        """Génère le rendu du composant."""
+        """Generate the component rendering."""
         lines = []
 
         for i, item in enumerate(items):
-            # Curseur et indicateur
+            # Cursor and indicator
             if i == cursor_pos:
                 cursor = ">"
                 indicator = "[green]●[/green]"
@@ -249,7 +249,7 @@ def select_single(
 
             line = f" {cursor} {indicator} {label}"
 
-            # Description si présente
+            # Description if present
             if item.description:
                 line += f" [dim]- {item.description}[/dim]"
 
@@ -292,14 +292,14 @@ def select_territory(
     territories: list[str],
     default: str = "FRA",
 ) -> SelectResult:
-    """Sélection interactive du territoire.
+    """Interactive territory selection.
 
     Args:
-        territories: Liste des codes territoires disponibles
-        default: Territoire par défaut
+        territories: List of available territory codes.
+        default: Default territory.
 
     Returns:
-        SelectResult avec le territoire sélectionné
+        SelectResult with the selected territory.
     """
     territory_names = {
         "FRA": "France entière",
@@ -333,14 +333,14 @@ def select_format(
     formats: list[str],
     default: str = "shp",
 ) -> SelectResult:
-    """Sélection interactive du format.
+    """Interactive format selection.
 
     Args:
-        formats: Liste des formats disponibles
-        default: Format par défaut
+        formats: List of available formats.
+        default: Default format.
 
     Returns:
-        SelectResult avec le format sélectionné
+        SelectResult with the selected format.
     """
     format_names = {
         "shp": "Shapefile (.shp)",
@@ -370,17 +370,17 @@ def select_layers(
     layers: list[tuple[str, str]],
     preselected: list[str] | None = None,
 ) -> CheckboxResult:
-    """Sélection interactive des couches.
+    """Interactive layer selection.
 
     Args:
-        layers: Liste de tuples (nom_couche, description)
-        preselected: Liste des couches pré-sélectionnées (None = toutes)
+        layers: List of tuples (layer_name, description).
+        preselected: List of preselected layers (None = all).
 
     Returns:
-        CheckboxResult avec les couches sélectionnées
+        CheckboxResult with the selected layers.
     """
     if preselected is None:
-        # Par défaut, tout est sélectionné
+        # By default, everything is selected
         preselected = [layer[0] for layer in layers]
 
     items = [
@@ -400,14 +400,14 @@ def select_years(
     available_years: list[str] | None = None,
     preselected: list[str] | None = None,
 ) -> CheckboxResult:
-    """Sélection interactive des millésimes.
+    """Interactive vintage/year selection.
 
     Args:
-        available_years: Liste des années disponibles (défaut: 5 dernières)
-        preselected: Liste des années pré-sélectionnées
+        available_years: List of available years (default: last 5).
+        preselected: List of preselected years.
 
     Returns:
-        CheckboxResult avec les années sélectionnées
+        CheckboxResult with the selected years.
     """
     from datetime import datetime
 
@@ -432,28 +432,28 @@ def select_years(
 
 
 # =============================================================================
-# Nouveaux widgets pour les menus et actions
+# New widgets for menus and actions
 # =============================================================================
 
 
 @dataclass
 class MenuOption:
-    """Une option de menu."""
+    """A menu option."""
 
-    key: str  # Touche pour sélectionner (1, 2, a, s, q, etc.)
-    label: str  # Texte affiché
-    description: str | None = None  # Description optionnelle
+    key: str  # Key to select (1, 2, a, s, q, etc.)
+    label: str  # Displayed text
+    description: str | None = None  # Optional description
 
 
 class MenuResult:
-    """Résultat d'une sélection de menu."""
+    """Result of a menu selection."""
 
     def __init__(self, key: str | None = None, cancelled: bool = False) -> None:
         self.key = key
         self.cancelled = cancelled
 
     def __bool__(self) -> bool:
-        """True si une option est sélectionnée et non annulé."""
+        """True if an option is selected and not cancelled."""
         return not self.cancelled and self.key is not None
 
 
@@ -464,25 +464,25 @@ def select_menu(
     cancel_label: str = "Retour",
     show_help: bool = True,
 ) -> MenuResult:
-    """Affiche un menu interactif avec navigation au clavier.
+    """Display an interactive menu with keyboard navigation.
 
     Args:
-        options: Liste des options du menu.
-        title: Titre du panneau.
-        cancel_key: Touche pour annuler/retour.
-        cancel_label: Label pour l'option d'annulation.
-        show_help: Afficher l'aide en bas.
+        options: List of menu options.
+        title: Panel title.
+        cancel_key: Key for cancel/go back.
+        cancel_label: Label for the cancel option.
+        show_help: Show help at the bottom.
 
     Returns:
-        MenuResult avec la touche sélectionnée.
+        MenuResult with the selected key.
 
     Controls:
-        ↑/↓ ou k/j : Naviguer
-        Entrée : Valider l'option courante
-        Touche directe : Sélectionner directement
-        r : Annuler et retour
+        Up/Down or k/j: Navigate
+        Enter: Confirm current option
+        Direct key: Select directly
+        r: Cancel and go back
     """
-    # Ajouter l'option d'annulation
+    # Add the cancel option
     all_options = [*options, MenuOption(key=cancel_key, label=cancel_label)]
     valid_keys = {opt.key.lower() for opt in all_options}
 
@@ -491,22 +491,22 @@ def select_menu(
     selected_key: str | None = None
 
     def render() -> Panel:
-        """Génère le rendu du composant."""
+        """Generate the component rendering."""
         lines = []
 
         for i, opt in enumerate(all_options):
-            # Curseur
+            # Cursor
             cursor = ">" if i == cursor_pos else " "
 
-            # Formater la touche
+            # Format the key
             key_display = f"[cyan]{opt.key}[/cyan]"
 
-            # Label avec highlight si curseur
+            # Label with highlight if cursor
             label = f"[bold]{opt.label}[/bold]" if i == cursor_pos else opt.label
 
             line = f" {cursor} {key_display} : {label}"
 
-            # Description si présente
+            # Description if present
             if opt.description:
                 line += f" [dim]- {opt.description}[/dim]"
 
@@ -541,7 +541,7 @@ def select_menu(
                 cancelled = True
                 break
             elif key.lower() in valid_keys:
-                # Sélection directe par touche
+                # Direct selection by key
                 selected_key = key.lower()
                 if selected_key == cancel_key:
                     cancelled = True
@@ -556,7 +556,7 @@ def select_menu(
 
 @dataclass
 class ToggleItem:
-    """Un élément avec état on/off."""
+    """An item with on/off state."""
 
     label: str
     value: str
@@ -565,7 +565,7 @@ class ToggleItem:
 
 
 class ToggleListResult:
-    """Résultat d'une liste toggle."""
+    """Result of a toggle list."""
 
     def __init__(
         self,
@@ -575,15 +575,15 @@ class ToggleListResult:
     ) -> None:
         self.items = items
         self.cancelled = cancelled
-        self.action = action  # 't' pour tout, 'n' pour rien, None sinon
+        self.action = action  # 't' for all, 'n' for none, None otherwise
 
     @property
     def enabled_values(self) -> list[str]:
-        """Retourne les valeurs activées."""
+        """Return the enabled values."""
         return [item.value for item in self.items if item.enabled]
 
     def __bool__(self) -> bool:
-        """True si non annulé."""
+        """True if not cancelled."""
         return not self.cancelled
 
 
@@ -592,46 +592,46 @@ def select_toggle_list(
     title: str = "Activation",
     show_help: bool = True,
 ) -> ToggleListResult:
-    """Affiche une liste avec toggle on/off interactif.
+    """Display a list with interactive on/off toggle.
 
     Args:
-        items: Liste des éléments à afficher.
-        title: Titre du panneau.
-        show_help: Afficher l'aide en bas.
+        items: List of items to display.
+        title: Panel title.
+        show_help: Show help at the bottom.
 
     Returns:
-        ToggleListResult avec les éléments modifiés.
+        ToggleListResult with the modified items.
 
     Controls:
-        ↑/↓ ou k/j : Naviguer
-        Espace ou Entrée : Basculer l'état
-        t : Tout activer
-        n : Tout désactiver
-        1-9 : Basculer par numéro
-        q ou r : Terminer/retour
+        Up/Down or k/j: Navigate
+        Space or Enter: Toggle state
+        t: Enable all
+        n: Disable all
+        1-9: Toggle by number
+        q or r: Finish/go back
     """
     cursor_pos = 0
     cancelled = False
     action: str | None = None
 
     def render() -> Panel:
-        """Génère le rendu du composant."""
+        """Generate the component rendering."""
         lines = []
 
         for i, item in enumerate(items):
-            # Numéro et curseur
+            # Number and cursor
             num = str(i + 1) if i < 9 else " "
             cursor = ">" if i == cursor_pos else " "
 
-            # État on/off
+            # On/off state
             status = "[green]✓ ON [/green]" if item.enabled else "[red]✗ OFF[/red]"
 
-            # Label avec highlight si curseur
+            # Label with highlight if cursor
             label = f"[bold cyan]{item.label}[/bold cyan]" if i == cursor_pos else item.label
 
             line = f" {cursor} [dim]{num}[/dim] {status} {label}"
 
-            # Description si présente
+            # Description if present
             if item.description:
                 line += f" [dim]- {item.description}[/dim]"
 
@@ -646,7 +646,7 @@ def select_toggle_list(
             )
             content += help_text
 
-        # Compteur
+        # Counter
         enabled_count = sum(1 for item in items if item.enabled)
         subtitle = f"{enabled_count}/{len(items)} activé(s)"
 
@@ -692,15 +692,15 @@ def select_option(
     title: str = "Sélection",
     default: str | None = None,
 ) -> SelectResult:
-    """Sélection rapide parmi une liste d'options simples.
+    """Quick selection from a list of simple options.
 
     Args:
-        options: Liste des options (valeurs = labels).
-        title: Titre du panneau.
-        default: Option par défaut.
+        options: List of options (values = labels).
+        title: Panel title.
+        default: Default option.
 
     Returns:
-        SelectResult avec l'option sélectionnée.
+        SelectResult with the selected option.
     """
     items = [SelectItem(label=opt, value=opt) for opt in options]
 

@@ -1,13 +1,13 @@
 """
-pyPgBoundary - Module Python pour charger les données géographiques IGN dans PostgreSQL/PostGIS.
+pyPgBoundary - Python module for loading IGN geographic data into PostgreSQL/PostGIS.
 
-Ce module permet de télécharger et charger les données géographiques de l'IGN
-dans une base de données PostgreSQL avec l'extension PostGIS.
+This module allows downloading and loading IGN geographic data
+into a PostgreSQL database with the PostGIS extension.
 
-Produits supportés:
-- Admin Express (5 variantes)
+Supported products:
+- Admin Express (5 variants)
 - Contours IRIS
-- BD FORÊT et Masque FORÊT
+- BD FORET and Masque FORET
 - BD CARTO
 - ADRESSE PREMIUM
 - BAN PLUS
@@ -33,7 +33,7 @@ __all__ = [
     "AdminExpressLoader",
     "FileFormat",
     "IGNProduct",
-    # Produits
+    # Products
     "ProductCatalog",
     "ProductCategory",
     "ProductLoader",

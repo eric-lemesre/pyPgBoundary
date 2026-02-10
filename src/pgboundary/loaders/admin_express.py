@@ -1,7 +1,7 @@
-"""Loader pour les données Admin Express de l'IGN.
+"""Loader for IGN Admin Express data.
 
-Ce module fournit un loader spécialisé pour les produits Admin Express,
-avec rétrocompatibilité pour l'API existante.
+This module provides a specialized loader for Admin Express products,
+with backward compatibility for the existing API.
 """
 
 from __future__ import annotations
@@ -46,16 +46,16 @@ TERRITORY_TO_CODE = {
 
 
 class AdminExpressLoader(ProductLoader):
-    """Loader spécialisé pour Admin Express COG.
+    """Specialized loader for Admin Express COG.
 
-    Ce loader hérite de ProductLoader et ajoute des méthodes de commodité
-    pour charger spécifiquement les données Admin Express.
+    This loader inherits from ProductLoader and adds convenience methods
+    to specifically load Admin Express data.
 
     Example:
         >>> loader = AdminExpressLoader()
         >>> loader.load(territory="france_metropolitaine", year="2024")
 
-        >>> # Ou avec une variante spécifique
+        >>> # Or with a specific variant
         >>> loader = AdminExpressLoader(variant="carto")
         >>> loader.load_communes()
     """
@@ -67,18 +67,18 @@ class AdminExpressLoader(ProductLoader):
         db_manager: DatabaseManager | None = None,
         settings: Settings | None = None,
     ) -> None:
-        """Initialise le loader Admin Express.
+        """Initialize the Admin Express loader.
 
         Args:
-            variant: Variante du produit:
-                - "base" ou "express": ADMIN EXPRESS
-                - "cog": ADMIN EXPRESS COG (défaut)
+            variant: Product variant:
+                - "base" or "express": ADMIN EXPRESS
+                - "cog": ADMIN EXPRESS COG (default)
                 - "carto": ADMIN EXPRESS COG CARTO
                 - "pe": ADMIN EXPRESS COG CARTO PE
-                - "plus" ou "plus-pe": ADMIN EXPRESS COG CARTO PLUS PE
-            catalog: Catalogue de produits.
-            db_manager: Gestionnaire de base de données.
-            settings: Configuration du module.
+                - "plus" or "plus-pe": ADMIN EXPRESS COG CARTO PLUS PE
+            catalog: Product catalog.
+            db_manager: Database manager.
+            settings: Module configuration.
         """
         product = get_admin_express_product(variant)
         if product is None:
@@ -105,21 +105,21 @@ class AdminExpressLoader(ProductLoader):
         file_format: FileFormat = FileFormat.SHP,
         **kwargs: Any,
     ) -> int:
-        """Charge les données Admin Express dans PostgreSQL.
+        """Load Admin Express data into PostgreSQL.
 
-        Cette méthode surcharge la méthode parente pour maintenir
-        la rétrocompatibilité avec l'API existante.
+        This method overrides the parent method to maintain
+        backward compatibility with the existing API.
 
         Args:
-            source_path: Chemin vers le répertoire extrait (optionnel).
-            layers: Liste des couches à charger (toutes par défaut).
-            territory: Territoire à télécharger si source_path non fourni.
-            year: Année des données.
-            if_exists: Comportement si la table existe.
-            file_format: Format de fichier (SHP par défaut).
+            source_path: Path to the extracted directory (optional).
+            layers: List of layers to load (all by default).
+            territory: Territory to download if source_path not provided.
+            year: Data year.
+            if_exists: Behavior if the table exists.
+            file_format: File format (SHP by default).
 
         Returns:
-            Nombre total d'enregistrements chargés.
+            Total number of loaded records.
         """
         # Conversion du territoire legacy vers le code standard
         territory_code = TERRITORY_TO_CODE.get(territory, territory)
@@ -145,16 +145,16 @@ class AdminExpressLoader(ProductLoader):
         year: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
-        """Charge uniquement les régions.
+        """Load only regions.
 
         Args:
-            source_path: Chemin vers les données.
-            territory: Territoire à utiliser.
-            year: Année des données.
-            if_exists: Comportement si la table existe.
+            source_path: Path to the data.
+            territory: Territory to use.
+            year: Data year.
+            if_exists: Behavior if the table exists.
 
         Returns:
-            Nombre d'enregistrements chargés.
+            Number of loaded records.
         """
         return self.load(
             source_path=source_path,
@@ -171,16 +171,16 @@ class AdminExpressLoader(ProductLoader):
         year: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
-        """Charge uniquement les départements.
+        """Load only departments.
 
         Args:
-            source_path: Chemin vers les données.
-            territory: Territoire à utiliser.
-            year: Année des données.
-            if_exists: Comportement si la table existe.
+            source_path: Path to the data.
+            territory: Territory to use.
+            year: Data year.
+            if_exists: Behavior if the table exists.
 
         Returns:
-            Nombre d'enregistrements chargés.
+            Number of loaded records.
         """
         return self.load(
             source_path=source_path,
@@ -197,16 +197,16 @@ class AdminExpressLoader(ProductLoader):
         year: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
-        """Charge uniquement les communes.
+        """Load only communes.
 
         Args:
-            source_path: Chemin vers les données.
-            territory: Territoire à utiliser.
-            year: Année des données.
-            if_exists: Comportement si la table existe.
+            source_path: Path to the data.
+            territory: Territory to use.
+            year: Data year.
+            if_exists: Behavior if the table exists.
 
         Returns:
-            Nombre d'enregistrements chargés.
+            Number of loaded records.
         """
         return self.load(
             source_path=source_path,
@@ -223,16 +223,16 @@ class AdminExpressLoader(ProductLoader):
         year: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
-        """Charge uniquement les EPCI.
+        """Load only EPCI.
 
         Args:
-            source_path: Chemin vers les données.
-            territory: Territoire à utiliser.
-            year: Année des données.
-            if_exists: Comportement si la table existe.
+            source_path: Path to the data.
+            territory: Territory to use.
+            year: Data year.
+            if_exists: Behavior if the table exists.
 
         Returns:
-            Nombre d'enregistrements chargés.
+            Number of loaded records.
         """
         return self.load(
             source_path=source_path,
@@ -249,16 +249,16 @@ class AdminExpressLoader(ProductLoader):
         year: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
-        """Charge uniquement les arrondissements.
+        """Load only arrondissements.
 
         Args:
-            source_path: Chemin vers les données.
-            territory: Territoire à utiliser.
-            year: Année des données.
-            if_exists: Comportement si la table existe.
+            source_path: Path to the data.
+            territory: Territory to use.
+            year: Data year.
+            if_exists: Behavior if the table exists.
 
         Returns:
-            Nombre d'enregistrements chargés.
+            Number of loaded records.
         """
         return self.load(
             source_path=source_path,
@@ -275,16 +275,16 @@ class AdminExpressLoader(ProductLoader):
         year: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
-        """Charge uniquement les communes associées ou déléguées.
+        """Load only associated or delegated communes.
 
         Args:
-            source_path: Chemin vers les données.
-            territory: Territoire à utiliser.
-            year: Année des données.
-            if_exists: Comportement si la table existe.
+            source_path: Path to the data.
+            territory: Territory to use.
+            year: Data year.
+            if_exists: Behavior if the table exists.
 
         Returns:
-            Nombre d'enregistrements chargés.
+            Number of loaded records.
         """
         return self.load(
             source_path=source_path,
@@ -301,19 +301,19 @@ class AdminExpressLoader(ProductLoader):
         year: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
-        """Charge toutes les couches administratives de base.
+        """Load all base administrative layers.
 
-        Charge: REGION, DEPARTEMENT, ARRONDISSEMENT, EPCI, COMMUNE,
+        Loads: REGION, DEPARTEMENT, ARRONDISSEMENT, EPCI, COMMUNE,
         COMMUNE_ASSOCIEE_OU_DELEGUEE.
 
         Args:
-            source_path: Chemin vers les données.
-            territory: Territoire à utiliser.
-            year: Année des données.
-            if_exists: Comportement si la table existe.
+            source_path: Path to the data.
+            territory: Territory to use.
+            year: Data year.
+            if_exists: Behavior if the table exists.
 
         Returns:
-            Nombre total d'enregistrements chargés.
+            Total number of loaded records.
         """
         layers = [
             "REGION",

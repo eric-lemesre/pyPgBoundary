@@ -1,7 +1,7 @@
-"""Rétrocompatibilité: définitions des autres produits IGN.
+"""Backward compatibility: definitions of other IGN products.
 
-Les produits sont désormais définis dans les fichiers YAML sous sources/.
-Ce module fournit les mêmes exports pour la rétrocompatibilité.
+Products are now defined in YAML files under sources/.
+This module provides the same exports for backward compatibility.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from pgboundary.products.catalog import (
 
 
 def _get_other_products() -> list[IGNProduct]:
-    """Retourne tous les produits non-Admin Express et non-codes postaux."""
+    """Return all products that are not Admin Express or postal codes."""
     catalog = get_default_catalog()
     excluded_categories = {ProductCategory.ADMIN, ProductCategory.ADDRESS}
     return [p for p in catalog.list_all() if p.category not in excluded_categories]

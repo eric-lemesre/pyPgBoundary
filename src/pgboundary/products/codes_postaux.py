@@ -1,7 +1,7 @@
-"""Rétrocompatibilité: définitions des produits codes postaux.
+"""Backward compatibility: postal code product definitions.
 
-Les produits sont désormais définis dans les fichiers YAML sous sources/.
-Ce module fournit les mêmes exports pour la rétrocompatibilité.
+Products are now defined in YAML files under sources/.
+This module provides the same exports for backward compatibility.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from pgboundary.products.catalog import (
 
 
 def _get_codes_postaux_products() -> list[IGNProduct]:
-    """Retourne tous les produits de la catégorie ADDRESS."""
+    """Return all products in the ADDRESS category."""
     catalog = get_default_catalog()
     return catalog.list_by_category(ProductCategory.ADDRESS)
 

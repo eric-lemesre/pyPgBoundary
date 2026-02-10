@@ -1,13 +1,13 @@
-"""Loader pour les données de codes postaux.
+"""Loader for postal code data.
 
-Ce module fournit des loaders spécialisés pour les différentes sources
-de codes postaux français.
+This module provides specialized loaders for the various French
+postal code data sources.
 
-Sources supportées:
-1. Contours calculés BAN (GeoJSON officiel)
-2. Base officielle La Poste (CSV avec centroïdes)
-3. Fond de carte Géoclip (Shapefile ancien)
-4. Génération Voronoï (à partir de La Poste + AdminExpress)
+Supported sources:
+1. BAN computed boundaries (official GeoJSON)
+2. Official La Poste database (CSV with centroids)
+3. Géoclip basemap (legacy Shapefile)
+4. Voronoi generation (from La Poste + AdminExpress)
 """
 
 from __future__ import annotations
@@ -38,13 +38,13 @@ logger = logging.getLogger(__name__)
 
 
 class CodesPostauxLoader(BaseLoader):
-    """Loader pour les données de codes postaux.
+    """Loader for postal code data.
 
-    Supporte plusieurs sources de données avec différentes caractéristiques:
-    - BAN: contours officiels (2021, GeoJSON)
-    - La Poste: points centroïdes (mis à jour 2x/an)
-    - Géoclip: contours anciens (2013, métropole)
-    - Voronoï: génération locale (à jour)
+    Supports multiple data sources with different characteristics:
+    - BAN: official boundaries (2021, GeoJSON)
+    - La Poste: centroid points (updated 2x/year)
+    - Géoclip: legacy boundaries (2013, mainland)
+    - Voronoi: local generation (up to date)
     """
 
     def __init__(
@@ -53,16 +53,16 @@ class CodesPostauxLoader(BaseLoader):
         db_manager: DatabaseManager | None = None,
         settings: Settings | None = None,
     ) -> None:
-        """Initialise le loader de codes postaux.
+        """Initialize the postal code loader.
 
         Args:
-            source: Source de données:
-                - "ban": Contours calculés BAN (défaut)
-                - "laposte": Base officielle La Poste (points)
-                - "geoclip": Fond de carte Géoclip (ancien)
-                - "voronoi" ou "generated": Génération Voronoï
-            db_manager: Gestionnaire de base de données.
-            settings: Configuration du module.
+            source: Data source:
+                - "ban": BAN computed boundaries (default)
+                - "laposte": Official La Poste database (points)
+                - "geoclip": Géoclip basemap (legacy)
+                - "voronoi" or "generated": Voronoi generation
+            db_manager: Database manager.
+            settings: Module configuration.
         """
         super().__init__(db_manager, settings)
         self.source = source
@@ -79,7 +79,7 @@ class CodesPostauxLoader(BaseLoader):
 
     @property
     def client(self) -> httpx.Client:
-        """Retourne le client HTTP."""
+        """Return the HTTP client."""
         if self._client is None:
             self._client = httpx.Client(
                 timeout=httpx.Timeout(60.0, connect=10.0),
@@ -93,15 +93,15 @@ class CodesPostauxLoader(BaseLoader):
         if_exists: Literal["replace", "append", "fail"] = "replace",
         **kwargs: Any,
     ) -> int:
-        """Charge les données de codes postaux.
+        """Load postal code data.
 
         Args:
-            source_path: Chemin vers les données locales (optionnel).
-            if_exists: Comportement si la table existe.
-            **kwargs: Arguments supplémentaires (admin_express_path pour Voronoï).
+            source_path: Path to local data (optional).
+            if_exists: Behavior if the table exists.
+            **kwargs: Additional arguments (admin_express_path for Voronoi).
 
         Returns:
-            Nombre d'enregistrements chargés.
+            Number of loaded records.
         """
         if self.source in ("voronoi", "generated"):
             return self._load_voronoi(
@@ -122,14 +122,14 @@ class CodesPostauxLoader(BaseLoader):
         source_path: Path | None = None,
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
-        """Charge les contours calculés BAN.
+        """Load BAN computed boundaries.
 
         Args:
-            source_path: Chemin vers le GeoJSON local.
-            if_exists: Comportement si la table existe.
+            source_path: Path to the local GeoJSON.
+            if_exists: Behavior if the table exists.
 
         Returns:
-            Nombre d'enregistrements chargés.
+            Number of loaded records.
         """
         logger.info("Chargement des contours codes postaux BAN")
         logger.warning(
@@ -171,14 +171,14 @@ class CodesPostauxLoader(BaseLoader):
         source_path: Path | None = None,
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
-        """Charge la base officielle La Poste (points).
+        """Load the official La Poste database (points).
 
         Args:
-            source_path: Chemin vers le CSV local.
-            if_exists: Comportement si la table existe.
+            source_path: Path to the local CSV.
+            if_exists: Behavior if the table exists.
 
         Returns:
-            Nombre d'enregistrements chargés.
+            Number of loaded records.
         """
         logger.info("Chargement de la base officielle La Poste")
         logger.info("NOTE: Cette source ne contient que des points (centroïdes)")
@@ -215,14 +215,14 @@ class CodesPostauxLoader(BaseLoader):
         source_path: Path | None = None,
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
-        """Charge le fond de carte Géoclip.
+        """Load the Géoclip basemap.
 
         Args:
-            source_path: Chemin vers le shapefile ou archive zip.
-            if_exists: Comportement si la table existe.
+            source_path: Path to the shapefile or zip archive.
+            if_exists: Behavior if the table exists.
 
         Returns:
-            Nombre d'enregistrements chargés.
+            Number of loaded records.
         """
         logger.info("Chargement du fond de carte Géoclip")
         logger.warning(
@@ -275,18 +275,18 @@ class CodesPostauxLoader(BaseLoader):
         admin_express_path: Path | None = None,
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
-        """Génère et charge les contours par Voronoï.
+        """Generate and load boundaries via Voronoi.
 
-        Cette méthode génère les contours des codes postaux en utilisant
-        la tessellation de Voronoï à partir des centroïdes La Poste,
-        découpée par les limites départementales AdminExpress.
+        This method generates postal code boundaries using Voronoi
+        tessellation from La Poste centroids, clipped by AdminExpress
+        departmental boundaries.
 
         Args:
-            admin_express_path: Chemin vers les données AdminExpress.
-            if_exists: Comportement si la table existe.
+            admin_express_path: Path to the AdminExpress data.
+            if_exists: Behavior if the table exists.
 
         Returns:
-            Nombre d'enregistrements chargés.
+            Number of loaded records.
         """
         logger.info("Génération des contours codes postaux par Voronoï")
         logger.info("Cette méthode combine la base La Poste avec les limites AdminExpress")
@@ -336,13 +336,13 @@ class CodesPostauxLoader(BaseLoader):
         )
 
     def _prepare_ban_gdf(self, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-        """Prépare le GeoDataFrame BAN.
+        """Prepare the BAN GeoDataFrame.
 
         Args:
-            gdf: GeoDataFrame source.
+            gdf: Source GeoDataFrame.
 
         Returns:
-            GeoDataFrame préparé.
+            Prepared GeoDataFrame.
         """
         gdf = gdf.copy()
 
@@ -363,13 +363,13 @@ class CodesPostauxLoader(BaseLoader):
         return gdf
 
     def _prepare_geoclip_gdf(self, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-        """Prépare le GeoDataFrame Géoclip.
+        """Prepare the Géoclip GeoDataFrame.
 
         Args:
-            gdf: GeoDataFrame source.
+            gdf: Source GeoDataFrame.
 
         Returns:
-            GeoDataFrame préparé.
+            Prepared GeoDataFrame.
         """
         gdf = gdf.copy()
 
@@ -391,13 +391,13 @@ class CodesPostauxLoader(BaseLoader):
         return gdf
 
     def _parse_laposte_csv(self, content: str) -> gpd.GeoDataFrame:
-        """Parse le CSV La Poste en GeoDataFrame.
+        """Parse the La Poste CSV into a GeoDataFrame.
 
         Args:
-            content: Contenu CSV.
+            content: CSV content.
 
         Returns:
-            GeoDataFrame avec géométries Point.
+            GeoDataFrame with Point geometries.
         """
         # Détecter le séparateur
         delimiter = ";" if ";" in content[:500] else ","
@@ -466,17 +466,17 @@ class CodesPostauxLoader(BaseLoader):
         points_gdf: gpd.GeoDataFrame,
         boundaries_gdf: gpd.GeoDataFrame,
     ) -> gpd.GeoDataFrame:
-        """Génère les polygones Voronoï.
+        """Generate Voronoi polygons.
 
         Args:
-            points_gdf: GeoDataFrame avec les points (codes postaux).
-            boundaries_gdf: GeoDataFrame avec les limites (départements).
+            points_gdf: GeoDataFrame with points (postal codes).
+            boundaries_gdf: GeoDataFrame with boundaries (departments).
 
         Returns:
-            GeoDataFrame avec les polygones générés.
+            GeoDataFrame with generated polygons.
 
         Raises:
-            LoaderError: Si scipy n'est pas installé.
+            LoaderError: If scipy is not installed.
         """
         try:
             from scipy.spatial import Voronoi
@@ -570,13 +570,13 @@ class CodesPostauxLoader(BaseLoader):
         return result
 
     def _ensure_multipolygon(self, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-        """Convertit les géométries en MultiPolygon.
+        """Convert geometries to MultiPolygon.
 
         Args:
-            gdf: GeoDataFrame à convertir.
+            gdf: GeoDataFrame to convert.
 
         Returns:
-            GeoDataFrame avec géométries MultiPolygon.
+            GeoDataFrame with MultiPolygon geometries.
         """
 
         def to_multi(geom: Polygon | MultiPolygon | None) -> MultiPolygon | None:
@@ -591,7 +591,7 @@ class CodesPostauxLoader(BaseLoader):
         return gdf
 
     def close(self) -> None:
-        """Ferme les ressources."""
+        """Close resources."""
         if self._client is not None:
             self._client.close()
             self._client = None

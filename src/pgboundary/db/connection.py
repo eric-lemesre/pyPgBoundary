@@ -1,4 +1,4 @@
-"""Gestion de la connexion à la base de données PostgreSQL/PostGIS."""
+"""PostgreSQL/PostGIS database connection management."""
 
 import logging
 from collections.abc import Iterator
@@ -19,13 +19,13 @@ logger = logging.getLogger(__name__)
 
 
 class DatabaseManager:
-    """Gestionnaire de connexion à la base de données PostgreSQL/PostGIS."""
+    """Connection manager for the PostgreSQL/PostGIS database."""
 
     def __init__(self, settings: Settings | None = None) -> None:
-        """Initialise le gestionnaire de base de données.
+        """Initialize the database manager.
 
         Args:
-            settings: Configuration du module. Utilise les valeurs par défaut si non fourni.
+            settings: Module configuration. Uses default values if not provided.
         """
         self.settings = settings or Settings()
         self._engine: Engine | None = None
@@ -34,7 +34,7 @@ class DatabaseManager:
 
     @property
     def engine(self) -> "Engine":
-        """Retourne le moteur SQLAlchemy, le crée si nécessaire."""
+        """Return the SQLAlchemy engine, creating it if necessary."""
         if self._engine is None:
             self._engine = create_engine(
                 str(self.settings.database_url),
@@ -46,27 +46,27 @@ class DatabaseManager:
 
     @property
     def session_factory(self) -> sessionmaker[Session]:
-        """Retourne la factory de sessions."""
+        """Return the session factory."""
         if self._session_factory is None:
             self._session_factory = sessionmaker(bind=self.engine, expire_on_commit=False)
         return self._session_factory
 
     @property
     def table_factory(self) -> TableFactory:
-        """Retourne la factory de tables."""
+        """Return the table factory."""
         if self._table_factory is None:
             self._table_factory = TableFactory(self.settings.schema_config)
         return self._table_factory
 
     @contextmanager
     def session(self) -> Iterator[Session]:
-        """Context manager pour les sessions de base de données.
+        """Context manager for database sessions.
 
         Yields:
-            Session SQLAlchemy.
+            SQLAlchemy Session.
 
         Raises:
-            ConnectionError: En cas d'erreur de connexion.
+            ConnectionError: If a connection error occurs.
         """
         session = self.session_factory()
         try:
@@ -80,14 +80,14 @@ class DatabaseManager:
             session.close()
 
     def check_connection(self) -> bool:
-        """Vérifie la connexion à la base de données.
+        """Check the database connection.
 
         Returns:
-            True si la connexion est établie.
+            True if the connection is established.
 
         Raises:
-            DatabaseNotFoundError: Si la base de données n'existe pas.
-            ConnectionError: Si la connexion échoue pour une autre raison.
+            DatabaseNotFoundError: If the database does not exist.
+            ConnectionError: If the connection fails for another reason.
         """
         try:
             with self.engine.connect() as conn:
@@ -103,10 +103,10 @@ class DatabaseManager:
             raise ConnectionError(f"Impossible de se connecter à la base de données: {e}") from e
 
     def _get_database_name(self) -> str:
-        """Extrait le nom de la base de données depuis l'URL.
+        """Extract the database name from the URL.
 
         Returns:
-            Nom de la base de données.
+            Database name.
         """
         from urllib.parse import urlparse
 
@@ -114,10 +114,10 @@ class DatabaseManager:
         return parsed.path.lstrip("/") or "unknown"
 
     def _get_admin_url(self) -> str:
-        """Retourne l'URL de connexion à la base postgres (admin).
+        """Return the connection URL to the postgres (admin) database.
 
         Returns:
-            URL de connexion à la base postgres.
+            Connection URL to the postgres database.
         """
         from urllib.parse import urlparse, urlunparse
 
@@ -127,10 +127,10 @@ class DatabaseManager:
         return urlunparse(admin_parsed)
 
     def database_exists(self) -> bool:
-        """Vérifie si la base de données existe.
+        """Check if the database exists.
 
         Returns:
-            True si la base existe, False sinon.
+            True if the database exists, False otherwise.
         """
         db_name = self._get_database_name()
         admin_url = self._get_admin_url()
@@ -150,10 +150,10 @@ class DatabaseManager:
             return False
 
     def create_database(self) -> None:
-        """Crée la base de données.
+        """Create the database.
 
         Raises:
-            SchemaError: Si la création échoue.
+            SchemaError: If the creation fails.
         """
         db_name = self._get_database_name()
         admin_url = self._get_admin_url()
@@ -180,12 +180,12 @@ class DatabaseManager:
             raise SchemaError(f"Impossible de créer la base de données '{db_name}': {e}") from e
 
     def ensure_extensions(self) -> None:
-        """Crée les extensions PostgreSQL nécessaires si elles n'existent pas.
+        """Create required PostgreSQL extensions if they don't exist.
 
-        Crée les extensions PostGIS et pgcrypto.
+        Creates the PostGIS and pgcrypto extensions.
 
         Raises:
-            SchemaError: Si la création des extensions échoue.
+            SchemaError: If the extension creation fails.
         """
         extensions = ["postgis", "pgcrypto"]
 
@@ -199,13 +199,13 @@ class DatabaseManager:
             raise SchemaError(f"Impossible de créer les extensions: {e}") from e
 
     def check_postgis(self) -> bool:
-        """Vérifie que l'extension PostGIS est disponible.
+        """Check that the PostGIS extension is available.
 
         Returns:
-            True si PostGIS est installé.
+            True if PostGIS is installed.
 
         Raises:
-            SchemaError: Si PostGIS n'est pas disponible.
+            SchemaError: If PostGIS is not available.
         """
         try:
             with self.engine.connect() as conn:
@@ -217,10 +217,10 @@ class DatabaseManager:
             raise SchemaError(f"PostGIS n'est pas disponible: {e}") from e
 
     def create_schema(self) -> None:
-        """Crée le schéma PostgreSQL pour les données (si mode schema).
+        """Create the PostgreSQL schema for data (if schema mode).
 
         Raises:
-            SchemaError: En cas d'erreur de création.
+            SchemaError: If a creation error occurs.
         """
         schema_name = self.settings.schema_name
         if schema_name is None:
@@ -236,10 +236,10 @@ class DatabaseManager:
             raise SchemaError(f"Erreur lors de la création du schéma: {e}") from e
 
     def create_tables(self) -> None:
-        """Crée les tables dans la base de données.
+        """Create tables in the database.
 
         Raises:
-            SchemaError: En cas d'erreur de création.
+            SchemaError: If a creation error occurs.
         """
         try:
             self.table_factory.get_all_tables()
@@ -249,10 +249,10 @@ class DatabaseManager:
             raise SchemaError(f"Erreur lors de la création des tables: {e}") from e
 
     def drop_tables(self) -> None:
-        """Supprime les tables de la base de données.
+        """Drop tables from the database.
 
         Raises:
-            SchemaError: En cas d'erreur de suppression.
+            SchemaError: If a deletion error occurs.
         """
         try:
             self.table_factory.get_all_tables()
@@ -262,9 +262,9 @@ class DatabaseManager:
             raise SchemaError(f"Erreur lors de la suppression des tables: {e}") from e
 
     def init_database(self) -> None:
-        """Initialise complètement la base de données.
+        """Fully initialize the database.
 
-        Vérifie la connexion, crée les extensions, le schéma et les tables.
+        Checks the connection, creates extensions, schema, and tables.
         """
         self.check_connection()
         self.ensure_extensions()
@@ -274,7 +274,7 @@ class DatabaseManager:
         logger.info("Base de données initialisée avec succès")
 
     def close(self) -> None:
-        """Ferme les connexions à la base de données."""
+        """Close database connections."""
         if self._engine is not None:
             self._engine.dispose()
             self._engine = None

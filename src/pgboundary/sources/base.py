@@ -1,8 +1,7 @@
-"""Interface de base pour les sources de données.
+"""Base interface for data sources.
 
-Ce module définit l'interface abstraite pour les sources de données
-géographiques, permettant d'implémenter différentes sources
-(IGN, OpenStreetMap, etc.).
+This module defines the abstract interface for geographic data sources,
+allowing different sources to be implemented (IGN, OpenStreetMap, etc.).
 """
 
 from __future__ import annotations
@@ -20,10 +19,10 @@ logger = logging.getLogger(__name__)
 
 
 class DataSource(ABC):
-    """Interface de base pour les sources de données géographiques.
+    """Base interface for geographic data sources.
 
-    Cette classe abstraite définit le contrat que toutes les sources
-    de données doivent implémenter.
+    This abstract class defines the contract that all data sources
+    must implement.
     """
 
     @abstractmethod
@@ -34,16 +33,16 @@ class DataSource(ABC):
         territory: str,
         year: str,
     ) -> str:
-        """Construit l'URL de téléchargement pour un produit.
+        """Build the download URL for a product.
 
         Args:
-            product: Produit IGN à télécharger.
-            file_format: Format de fichier souhaité (SHP, GPKG).
-            territory: Code du territoire (FRA, FXX, etc.).
-            year: Année des données.
+            product: IGN product to download.
+            file_format: Desired file format (SHP, GPKG).
+            territory: Territory code (FRA, FXX, etc.).
+            year: Data year.
 
         Returns:
-            URL de téléchargement complète.
+            Complete download URL.
         """
 
     @abstractmethod
@@ -54,16 +53,16 @@ class DataSource(ABC):
         filename: str | None = None,
         force: bool = False,
     ) -> Path:
-        """Télécharge un fichier depuis une URL.
+        """Download a file from a URL.
 
         Args:
-            url: URL du fichier à télécharger.
-            dest_dir: Répertoire de destination.
-            filename: Nom du fichier (déduit de l'URL si non fourni).
-            force: Force le re-téléchargement même si le fichier existe.
+            url: URL of the file to download.
+            dest_dir: Destination directory.
+            filename: File name (inferred from the URL if not provided).
+            force: Force re-download even if the file exists.
 
         Returns:
-            Chemin vers le fichier téléchargé.
+            Path to the downloaded file.
         """
 
     @abstractmethod
@@ -73,15 +72,15 @@ class DataSource(ABC):
         dest_dir: Path | None = None,
         force: bool = False,
     ) -> Path:
-        """Extrait une archive.
+        """Extract an archive.
 
         Args:
-            archive_path: Chemin vers l'archive.
-            dest_dir: Répertoire de destination (même répertoire par défaut).
-            force: Force la ré-extraction même si déjà extraite.
+            archive_path: Path to the archive.
+            dest_dir: Destination directory (same directory by default).
+            force: Force re-extraction even if already extracted.
 
         Returns:
-            Chemin vers le répertoire extrait.
+            Path to the extracted directory.
         """
 
     @abstractmethod
@@ -91,20 +90,20 @@ class DataSource(ABC):
         product: IGNProduct,
         file_format: FileFormat,
     ) -> dict[str, Path]:
-        """Trouve les fichiers de données dans un répertoire extrait.
+        """Find data files in an extracted directory.
 
         Args:
-            extract_dir: Répertoire contenant les données extraites.
-            product: Produit IGN pour lequel chercher les fichiers.
-            file_format: Format de fichier (SHP ou GPKG).
+            extract_dir: Directory containing the extracted data.
+            product: IGN product to search files for.
+            file_format: File format (SHP or GPKG).
 
         Returns:
-            Dictionnaire {nom_couche: chemin_fichier}.
+            Dictionary {layer_name: file_path}.
         """
 
     @abstractmethod
     def close(self) -> None:
-        """Ferme les ressources utilisées par la source."""
+        """Close resources used by the source."""
 
     def download_product(
         self,
@@ -115,21 +114,21 @@ class DataSource(ABC):
         dest_dir: Path,
         force: bool = False,
     ) -> tuple[Path, dict[str, Path]]:
-        """Télécharge et extrait un produit, puis retourne les fichiers.
+        """Download and extract a product, then return the files.
 
-        Cette méthode combine les étapes de téléchargement, extraction
-        et recherche de fichiers en une seule opération.
+        This method combines the download, extraction, and file search
+        steps into a single operation.
 
         Args:
-            product: Produit IGN à télécharger.
-            file_format: Format de fichier souhaité.
-            territory: Code du territoire.
-            year: Année des données.
-            dest_dir: Répertoire de destination.
-            force: Force le re-téléchargement/extraction.
+            product: IGN product to download.
+            file_format: Desired file format.
+            territory: Territory code.
+            year: Data year.
+            dest_dir: Destination directory.
+            force: Force re-download/extraction.
 
         Returns:
-            Tuple (répertoire_extrait, dict_fichiers).
+            Tuple (extracted_directory, files_dict).
         """
         url = self.build_url(product, file_format, territory, year)
         logger.info("Téléchargement depuis: %s", url)

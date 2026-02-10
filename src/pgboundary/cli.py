@@ -1,4 +1,4 @@
-"""Interface en ligne de commande pour pyPgBoundary."""
+"""Command-line interface for pyPgBoundary."""
 
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ app = typer.Typer(
     add_completion=True,
 )
 
-# Importer et ajouter les sous-commandes
+# Import and register subcommands
 from pgboundary.cli_catalog import catalog_app  # noqa: E402
 from pgboundary.cli_completion import completion_app  # noqa: E402
 from pgboundary.cli_config import config_app  # noqa: E402
@@ -61,7 +61,7 @@ console = Console()
 
 
 def setup_logging(verbose: bool = False) -> None:
-    """Configure le logging."""
+    """Configure logging."""
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(
         level=level,
@@ -71,28 +71,28 @@ def setup_logging(verbose: bool = False) -> None:
 
 
 def version_callback(value: bool) -> None:
-    """Affiche la version et quitte."""
+    """Display the version and exit."""
     if value:
         console.print(f"[bold]pgboundary[/bold] version {__version__}")
         raise typer.Exit()
 
 
 def _mask_password(url: str) -> str:
-    """Masque le mot de passe dans une URL de base de données."""
+    """Mask the password in a database URL."""
     import re
 
     return re.sub(r"://([^:]+):([^@]+)@", r"://\\1:****@", url)
 
 
 def _display_db_status() -> None:
-    """Affiche le statut de connexion à la base de données."""
+    """Display the database connection status."""
     if has_database_url_configured():
         try:
             import re
 
             settings = Settings()
             db_url = str(settings.database_url)
-            # Extraire le nom de la base de données pour un affichage plus court
+            # Extract the database name for a shorter display
             match = re.search(r"/([^/?]+)(?:\?|$)", db_url)
             db_name = match.group(1) if match else "?"
             host_match = re.search(r"@([^:/]+)", db_url)
@@ -133,10 +133,10 @@ def main(
 
 
 def _interactive_database_config() -> str:
-    """Configure la connexion à la base de données en mode interactif.
+    """Configure the database connection interactively.
 
     Returns:
-        URL de connexion PostgreSQL.
+        PostgreSQL connection URL.
     """
     console.print(Panel("[bold]Configuration de la connexion PostgreSQL[/bold]"))
 
@@ -154,7 +154,7 @@ def _interactive_database_config() -> str:
         password=password,
     )
 
-    # Afficher l'URL (sans le mot de passe)
+    # Display the URL (without the password)
     display_url = database_url
     if password:
         display_url = database_url.replace(f":{password}@", ":****@")
@@ -171,27 +171,27 @@ def _ensure_database_configured(
     database_url: str | None = None,
     interactive: bool = False,
 ) -> str | None:
-    """S'assure que la base de données est configurée.
+    """Ensure the database is configured.
 
-    Si aucune URL n'est fournie et qu'aucune configuration n'existe,
-    propose la configuration interactive.
+    If no URL is provided and no configuration exists,
+    offers interactive configuration.
 
     Args:
-        database_url: URL fournie en paramètre CLI.
-        interactive: Mode interactif activé.
+        database_url: URL provided as a CLI parameter.
+        interactive: Whether interactive mode is enabled.
 
     Returns:
-        URL de connexion ou None si configuration annulée.
+        Connection URL, or None if configuration was cancelled.
     """
-    # Si une URL est fournie en paramètre, l'utiliser
+    # If a URL is provided as a parameter, use it
     if database_url:
         return database_url
 
-    # Vérifier si une configuration existe
+    # Check if a configuration exists
     if has_database_url_configured():
-        return None  # Utiliser la config existante
+        return None  # Use the existing configuration
 
-    # Pas de configuration, proposer le mode interactif
+    # No configuration found, offer interactive mode
     console.print("[yellow]Aucune configuration de base de données détectée.[/yellow]")
 
     if interactive or Confirm.ask(
@@ -207,7 +207,7 @@ def _ensure_database_configured(
 
 
 def _interactive_config() -> SchemaConfig:
-    """Crée une configuration en mode interactif."""
+    """Create a configuration interactively."""
     from pgboundary.cli_widgets import SelectItem, select_single
 
     console.print(Panel("[bold]Configuration du schéma de base de données[/bold]"))
@@ -263,7 +263,7 @@ def _interactive_config() -> SchemaConfig:
 
 
 def _display_config(cfg: SchemaConfig, config_path: Path) -> None:
-    """Affiche la configuration."""
+    """Display the configuration."""
     table = Table(title=f"Configuration: {config_path}")
     table.add_column("Paramètre", style="cyan")
     table.add_column("Valeur", style="green")
@@ -310,10 +310,10 @@ def init(
         typer.Option("--verbose", "-V", help="Mode verbeux."),
     ] = False,
 ) -> None:
-    """Initialise la base de données (schéma et tables)."""
+    """Initialize the database (schema and tables)."""
     setup_logging(verbose)
 
-    # Vérifier/configurer la connexion à la base de données
+    # Verify/configure the database connection
     db_url = _ensure_database_configured(database_url, interactive)
 
     config_path = config_file or Path.cwd() / DEFAULT_CONFIG_FILENAME
@@ -352,7 +352,7 @@ def init(
                 db.create_database()
                 console.print(f"[green]Base de données '{db_name}' créée[/green]")
 
-                # Réinitialiser l'engine pour la nouvelle base
+                # Reset the engine for the new database
                 db.close()
                 db = DatabaseManager(settings)
                 db.init_database()
@@ -389,7 +389,7 @@ def download(
         typer.Option("--verbose", "-V", help="Mode verbeux."),
     ] = False,
 ) -> None:
-    """Télécharge les données Admin Express depuis l'IGN."""
+    """Download Admin Express data from IGN."""
     setup_logging(verbose)
 
     settings = Settings()
@@ -450,11 +450,11 @@ def load_cmd(
         typer.Option("--verbose", "-V", help="Mode verbeux."),
     ] = False,
 ) -> None:
-    """Charge les données selon la configuration.
+    """Load data according to the configuration.
 
-    Sans option: affiche la configuration et demande validation.
-    Avec --all: importe sans validation.
-    Avec --product: importe un seul produit.
+    Without options: displays the configuration and asks for confirmation.
+    With --all: imports without confirmation.
+    With --product: imports a single product.
     """
     if ctx.invoked_subcommand is not None:
         return
@@ -499,7 +499,7 @@ def load_check_cmd(
         typer.Option("--verbose", "-V", help="Affiche les URL complètes."),
     ] = False,
 ) -> None:
-    """Vérifie l'accessibilité des URL de téléchargement."""
+    """Check the accessibility of download URLs."""
     from pgboundary.cli_load import check_urls_command
 
     check_urls_command(all_products, product, date, config_file, verbose, department)
@@ -543,7 +543,7 @@ def load_legacy(
         typer.Option("--verbose", "-V", help="Mode verbeux."),
     ] = False,
 ) -> None:
-    """[Legacy] Charge les limites Admin Express dans PostgreSQL."""
+    """[Legacy] Load Admin Express boundaries into PostgreSQL."""
     setup_logging(verbose)
 
     config_path = config_file or Path.cwd() / DEFAULT_CONFIG_FILENAME
@@ -582,7 +582,7 @@ def info(
         typer.Option("--config", "-c", help="Chemin du fichier de configuration."),
     ] = None,
 ) -> None:
-    """Affiche les informations de configuration."""
+    """Display configuration information."""
     config_path = config_file or Path.cwd() / DEFAULT_CONFIG_FILENAME
     settings = Settings(config_file=config_path)
 
@@ -615,7 +615,7 @@ def check(
         typer.Option("--config", "-c", help="Chemin du fichier de configuration."),
     ] = None,
 ) -> None:
-    """Vérifie la connexion à la base de données."""
+    """Check the database connection."""
     config_path = config_file or Path.cwd() / DEFAULT_CONFIG_FILENAME
     settings = Settings(config_file=config_path)
     if database_url:
@@ -666,7 +666,7 @@ def inspect(
         typer.Option("--table", "-t", help="Inspecter une table spécifique."),
     ] = None,
 ) -> None:
-    """Inspecte les tables géographiques de la base de données."""
+    """Inspect the geographic tables in the database."""
     from sqlalchemy import text
 
     config_path = config_file or Path.cwd() / DEFAULT_CONFIG_FILENAME
@@ -674,7 +674,7 @@ def inspect(
     if database_url:
         settings.database_url = database_url
 
-    # Déterminer le niveau de détail
+    # Determine the detail level
     if full:
         detail_level = "full"
     elif detailed:
@@ -687,7 +687,7 @@ def inspect(
         schema_name = settings.schema_config.get_schema_name() or "public"
 
         with db.session() as session:
-            # Récupérer les tables géographiques
+            # Retrieve the geographic tables
             geo_tables_query = text("""
                 SELECT
                     f_table_schema as schema,
@@ -708,14 +708,14 @@ def inspect(
                 )
                 return
 
-            # Si une table spécifique est demandée
+            # If a specific table is requested
             if table_name:
                 geo_tables = [t for t in geo_tables if t.table_name == table_name]
                 if not geo_tables:
                     console.print(f"[red]Table '{table_name}' non trouvée[/red]")
                     return
 
-            # Afficher les informations
+            # Display the information
             for geo_table in geo_tables:
                 _display_table_info(session, geo_table, detail_level, console)
 
@@ -727,18 +727,18 @@ def inspect(
 def _display_table_info(
     session: Session, geo_table: Row[Any], detail_level: str, console: Console
 ) -> None:
-    """Affiche les informations d'une table géographique."""
+    """Display information about a geographic table."""
     from sqlalchemy import text
 
     schema = geo_table.schema
     table_name = geo_table.table_name
     full_name = f"{schema}.{table_name}"
 
-    # Compter les lignes
+    # Count the rows
     count_query = text(f"SELECT COUNT(*) FROM {full_name}")
     count = session.execute(count_query).scalar()
 
-    # Affichage résumé (toujours affiché)
+    # Summary display (always shown)
     table = Table(title=f"[bold]{full_name}[/bold]", show_header=True)
     table.add_column("Propriété", style="cyan")
     table.add_column("Valeur", style="green")
@@ -749,7 +749,7 @@ def _display_table_info(
     table.add_row("Colonne géométrie", geo_table.geom_column)
 
     if detail_level in ("detailed", "full"):
-        # Récupérer les colonnes
+        # Retrieve the columns
         columns_query = text("""
             SELECT column_name, data_type, is_nullable
             FROM information_schema.columns
@@ -763,14 +763,14 @@ def _display_table_info(
             cols_str += f" ... (+{len(columns) - 5})"
         table.add_row("Colonnes", cols_str)
 
-        # Taille sur disque
+        # Size on disk
         size_query = text("""
             SELECT pg_size_pretty(pg_total_relation_size(:full_name))
         """)
         size = session.execute(size_query, {"full_name": full_name}).scalar()
         table.add_row("Taille", size)
 
-        # Index
+        # Indexes
         index_query = text("""
             SELECT indexname FROM pg_indexes
             WHERE schemaname = :schema AND tablename = :table
@@ -793,7 +793,7 @@ def _display_table_info(
             )
             table.add_row("Extent", extent_str)
 
-        # Statistiques
+        # Statistics
         stats_query = text(f"""
             SELECT
                 COUNT(*) as total,
@@ -826,10 +826,10 @@ def products(
         typer.Option("--verbose", "-V", help="Affiche plus de détails."),
     ] = False,
 ) -> None:
-    """Liste les produits IGN disponibles."""
+    """List available IGN products."""
     catalog = get_default_catalog()
 
-    # Filtrage par catégorie si demandé
+    # Filter by category if requested
     if category:
         category_map = {
             "admin": ProductCategory.ADMIN,
@@ -906,7 +906,7 @@ def product_info(
         typer.Argument(help="ID du produit (ex: admin-express-cog, contours-iris)."),
     ],
 ) -> None:
-    """Affiche les détails d'un produit IGN."""
+    """Display details of an IGN product."""
     catalog = get_default_catalog()
     product = catalog.get(product_id)
 
@@ -915,7 +915,7 @@ def product_info(
         console.print(f"Produits disponibles: {', '.join(catalog.list_ids())}")
         raise typer.Exit(1)
 
-    # Informations générales
+    # General information
     console.print(Panel(f"[bold]{product.name}[/bold]", title="Produit IGN"))
 
     info_table = Table(show_header=False)

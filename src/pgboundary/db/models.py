@@ -1,4 +1,4 @@
-"""Modèles SQLAlchemy générés dynamiquement pour les limites administratives."""
+"""Dynamically generated SQLAlchemy models for administrative boundaries."""
 
 import uuid
 
@@ -10,33 +10,33 @@ from pgboundary.schema_config import SchemaConfig
 
 
 class Base(DeclarativeBase):
-    """Classe de base pour les modèles SQLAlchemy."""
+    """Base class for SQLAlchemy models."""
 
     pass
 
 
 def create_metadata(config: SchemaConfig) -> MetaData:
-    """Crée l'objet MetaData avec le schéma approprié.
+    """Create the MetaData object with the appropriate schema.
 
     Args:
-        config: Configuration du schéma.
+        config: Schema configuration.
 
     Returns:
-        MetaData configuré.
+        Configured MetaData.
     """
     schema = config.get_schema_name()
     return MetaData(schema=schema)
 
 
 def create_region_table(metadata: MetaData, config: SchemaConfig) -> Table:
-    """Crée la table des régions.
+    """Create the regions table.
 
     Args:
-        metadata: MetaData SQLAlchemy.
-        config: Configuration du schéma.
+        metadata: SQLAlchemy MetaData.
+        config: Schema configuration.
 
     Returns:
-        Table SQLAlchemy.
+        SQLAlchemy Table.
     """
     table_name = config.get_full_table_name("region")
     fp = config.field_prefixes
@@ -57,14 +57,14 @@ def create_region_table(metadata: MetaData, config: SchemaConfig) -> Table:
 
 
 def create_departement_table(metadata: MetaData, config: SchemaConfig) -> Table:
-    """Crée la table des départements.
+    """Create the departments table.
 
     Args:
-        metadata: MetaData SQLAlchemy.
-        config: Configuration du schéma.
+        metadata: SQLAlchemy MetaData.
+        config: Schema configuration.
 
     Returns:
-        Table SQLAlchemy.
+        SQLAlchemy Table.
     """
     table_name = config.get_full_table_name("departement")
     fp = config.field_prefixes
@@ -86,14 +86,14 @@ def create_departement_table(metadata: MetaData, config: SchemaConfig) -> Table:
 
 
 def create_epci_table(metadata: MetaData, config: SchemaConfig) -> Table:
-    """Crée la table des EPCI.
+    """Create the EPCI table.
 
     Args:
-        metadata: MetaData SQLAlchemy.
-        config: Configuration du schéma.
+        metadata: SQLAlchemy MetaData.
+        config: Schema configuration.
 
     Returns:
-        Table SQLAlchemy.
+        SQLAlchemy Table.
     """
     table_name = config.get_full_table_name("epci")
     fp = config.field_prefixes
@@ -115,14 +115,14 @@ def create_epci_table(metadata: MetaData, config: SchemaConfig) -> Table:
 
 
 def create_commune_table(metadata: MetaData, config: SchemaConfig) -> Table:
-    """Crée la table des communes.
+    """Create the communes table.
 
     Args:
-        metadata: MetaData SQLAlchemy.
-        config: Configuration du schéma.
+        metadata: SQLAlchemy MetaData.
+        config: Schema configuration.
 
     Returns:
-        Table SQLAlchemy.
+        SQLAlchemy Table.
     """
     table_name = config.get_full_table_name("commune")
     fp = config.field_prefixes
@@ -148,14 +148,14 @@ def create_commune_table(metadata: MetaData, config: SchemaConfig) -> Table:
 
 
 def create_commune_associee_deleguee_table(metadata: MetaData, config: SchemaConfig) -> Table:
-    """Crée la table des communes associées et déléguées.
+    """Create the associated and delegated communes table.
 
     Args:
-        metadata: MetaData SQLAlchemy.
-        config: Configuration du schéma.
+        metadata: SQLAlchemy MetaData.
+        config: Schema configuration.
 
     Returns:
-        Table SQLAlchemy.
+        SQLAlchemy Table.
     """
     table_name = config.get_full_table_name("commune_associee_deleguee")
     fp = config.field_prefixes
@@ -177,13 +177,13 @@ def create_commune_associee_deleguee_table(metadata: MetaData, config: SchemaCon
 
 
 class TableFactory:
-    """Factory pour créer les tables selon la configuration."""
+    """Factory for creating tables according to the configuration."""
 
     def __init__(self, config: SchemaConfig) -> None:
-        """Initialise la factory.
+        """Initialize the factory.
 
         Args:
-            config: Configuration du schéma.
+            config: Schema configuration.
         """
         self.config = config
         self.metadata = create_metadata(config)
@@ -191,35 +191,35 @@ class TableFactory:
 
     @property
     def region(self) -> Table:
-        """Retourne la table des régions."""
+        """Return the regions table."""
         if "region" not in self._tables:
             self._tables["region"] = create_region_table(self.metadata, self.config)
         return self._tables["region"]
 
     @property
     def departement(self) -> Table:
-        """Retourne la table des départements."""
+        """Return the departments table."""
         if "departement" not in self._tables:
             self._tables["departement"] = create_departement_table(self.metadata, self.config)
         return self._tables["departement"]
 
     @property
     def epci(self) -> Table:
-        """Retourne la table des EPCI."""
+        """Return the EPCI table."""
         if "epci" not in self._tables:
             self._tables["epci"] = create_epci_table(self.metadata, self.config)
         return self._tables["epci"]
 
     @property
     def commune(self) -> Table:
-        """Retourne la table des communes."""
+        """Return the communes table."""
         if "commune" not in self._tables:
             self._tables["commune"] = create_commune_table(self.metadata, self.config)
         return self._tables["commune"]
 
     @property
     def commune_associee_deleguee(self) -> Table:
-        """Retourne la table des communes associées/déléguées."""
+        """Return the associated/delegated communes table."""
         if "commune_associee_deleguee" not in self._tables:
             self._tables["commune_associee_deleguee"] = create_commune_associee_deleguee_table(
                 self.metadata, self.config
@@ -227,10 +227,10 @@ class TableFactory:
         return self._tables["commune_associee_deleguee"]
 
     def get_all_tables(self) -> dict[str, Table]:
-        """Retourne toutes les tables.
+        """Return all tables.
 
         Returns:
-            Dictionnaire des tables.
+            Dictionary of tables.
         """
         _ = self.region
         _ = self.departement
@@ -240,13 +240,13 @@ class TableFactory:
         return self._tables
 
     def get_column_mapping(self, layer: str) -> dict[str, str]:
-        """Retourne le mapping des colonnes Admin Express vers les colonnes DB.
+        """Return the column mapping from Admin Express to DB columns.
 
         Args:
-            layer: Nom de la couche (REGION, DEPARTEMENT, etc.)
+            layer: Layer name (REGION, DEPARTEMENT, etc.)
 
         Returns:
-            Dictionnaire de mapping {colonne_source: colonne_cible}.
+            Mapping dictionary {source_column: target_column}.
         """
         fp = self.config.field_prefixes
 

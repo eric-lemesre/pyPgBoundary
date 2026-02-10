@@ -1,17 +1,17 @@
-"""Module de comparaison géométrique pour l'historisation.
+"""Geometry comparison module for historization.
 
-Ce module fournit des fonctions pour comparer des géométries
-et déterminer si elles représentent la même entité géographique.
+This module provides functions for comparing geometries
+and determining if they represent the same geographic entity.
 
-Logique de calcul combiné (recommandé):
-1. Calcul IoU (Jaccard) d'abord
-   - Si IoU >= 0.95 : IDENTICAL, fusion automatique
-2. Si IoU moyen [0.80 - 0.95] : vérification Hausdorff
-   - Si Hausdorff <= seuil : LIKELY_MATCH, correspondance forte
-3. Si IoU [0.50 - 0.80] : SUSPECT, conflit potentiel
-4. Si IoU < 0.50 : DISTINCT, objets différents
+Combined computation logic (recommended):
+1. Compute IoU (Jaccard) first
+   - If IoU >= 0.95: IDENTICAL, automatic merge
+2. If medium IoU [0.80 - 0.95]: Hausdorff verification
+   - If Hausdorff <= threshold: LIKELY_MATCH, strong match
+3. If IoU [0.50 - 0.80]: SUSPECT, potential conflict
+4. If IoU < 0.50: DISTINCT, different objects
 
-Utilise Shapely pour les opérations géométriques.
+Uses Shapely for geometric operations.
 """
 
 from __future__ import annotations
@@ -33,13 +33,13 @@ if TYPE_CHECKING:
 
 
 def compute_geometry_hash(geom: BaseGeometry) -> str:
-    """Calcule le hash MD5 des coordonnées d'une géométrie.
+    """Compute the MD5 hash of a geometry's coordinates.
 
     Args:
-        geom: Géométrie à hasher.
+        geom: Geometry to hash.
 
     Returns:
-        Hash MD5 hexadécimal des coordonnées.
+        Hexadecimal MD5 hash of the coordinates.
     """
     if geom is None or geom.is_empty:
         return ""
@@ -49,14 +49,14 @@ def compute_geometry_hash(geom: BaseGeometry) -> str:
 
 
 def _normalize_coords(geom: BaseGeometry, precision: int = 6) -> str:
-    """Normalise les coordonnées d'une géométrie en chaîne.
+    """Normalize a geometry's coordinates to a string.
 
     Args:
-        geom: Géométrie à normaliser.
-        precision: Nombre de décimales.
+        geom: Geometry to normalize.
+        precision: Number of decimal places.
 
     Returns:
-        Chaîne représentant les coordonnées normalisées.
+        String representing the normalized coordinates.
     """
     if isinstance(geom, Polygon | MultiPolygon):
         coords = []
@@ -68,18 +68,18 @@ def _normalize_coords(geom: BaseGeometry, precision: int = 6) -> str:
 
 
 def compute_jaccard_index(geom1: BaseGeometry, geom2: BaseGeometry) -> float:
-    """Calcule l'indice de Jaccard (IoU) entre deux géométries.
+    """Compute the Jaccard index (IoU) between two geometries.
 
-    L'indice de Jaccard = Intersection / Union
-    - 1.0 = géométries identiques
-    - 0.0 = aucune superposition
+    Jaccard index = Intersection / Union
+    - 1.0 = identical geometries
+    - 0.0 = no overlap
 
     Args:
-        geom1: Première géométrie.
-        geom2: Deuxième géométrie.
+        geom1: First geometry.
+        geom2: Second geometry.
 
     Returns:
-        Indice de Jaccard (0.0 à 1.0).
+        Jaccard index (0.0 to 1.0).
     """
     if geom1 is None or geom2 is None:
         return 0.0
@@ -99,19 +99,19 @@ def compute_jaccard_index(geom1: BaseGeometry, geom2: BaseGeometry) -> float:
 
 
 def compute_hausdorff_distance(geom1: BaseGeometry, geom2: BaseGeometry) -> float:
-    """Calcule la distance de Hausdorff entre deux géométries.
+    """Compute the Hausdorff distance between two geometries.
 
-    La distance de Hausdorff mesure la distance maximale entre
-    les points les plus proches de deux ensembles.
+    The Hausdorff distance measures the maximum distance between
+    the nearest points of two sets.
 
-    Plus la distance est petite, plus les formes sont similaires.
+    The smaller the distance, the more similar the shapes are.
 
     Args:
-        geom1: Première géométrie.
-        geom2: Deuxième géométrie.
+        geom1: First geometry.
+        geom2: Second geometry.
 
     Returns:
-        Distance de Hausdorff dans l'unité du système de coordonnées.
+        Hausdorff distance in the coordinate system's unit.
     """
     if geom1 is None or geom2 is None:
         return float("inf")
@@ -129,23 +129,23 @@ def compute_combined_similarity(
     geom2: BaseGeometry,
     thresholds: SimilarityThresholds | None = None,
 ) -> SimilarityResult:
-    """Calcule la similarité combinée IoU + Hausdorff.
+    """Compute the combined IoU + Hausdorff similarity.
 
-    Logique séquentielle:
-    1. Calcul IoU - si très élevé (>= identical_min), on s'arrête : IDENTICAL
-    2. Si IoU moyen (>= likely_match_min), on vérifie Hausdorff:
-       - Si Hausdorff <= hausdorff_max : LIKELY_MATCH
-       - Sinon : SUSPECT (IoU ok mais contours différents)
-    3. Si IoU faible (>= suspect_min) : SUSPECT
-    4. Si IoU très faible (< suspect_min) : DISTINCT
+    Sequential logic:
+    1. Compute IoU - if very high (>= identical_min), stop: IDENTICAL
+    2. If medium IoU (>= likely_match_min), verify Hausdorff:
+       - If Hausdorff <= hausdorff_max: LIKELY_MATCH
+       - Otherwise: SUSPECT (IoU ok but different contours)
+    3. If low IoU (>= suspect_min): SUSPECT
+    4. If very low IoU (< suspect_min): DISTINCT
 
     Args:
-        geom1: Première géométrie.
-        geom2: Deuxième géométrie.
-        thresholds: Seuils de la matrice de décision.
+        geom1: First geometry.
+        geom2: Second geometry.
+        thresholds: Decision matrix thresholds.
 
     Returns:
-        Résultat détaillé de la comparaison.
+        Detailed comparison result.
     """
     if thresholds is None:
         thresholds = SimilarityThresholds()
@@ -237,17 +237,17 @@ def _compute_combined_score(
     hausdorff: float,
     thresholds: SimilarityThresholds,
 ) -> float:
-    """Calcule un score combiné normalisé.
+    """Compute a normalized combined score.
 
-    Combine IoU et Hausdorff en un score unique [0, 1].
+    Combines IoU and Hausdorff into a single score [0, 1].
 
     Args:
-        iou: Score IoU (0 à 1).
-        hausdorff: Distance Hausdorff.
-        thresholds: Seuils de configuration.
+        iou: IoU score (0 to 1).
+        hausdorff: Hausdorff distance.
+        thresholds: Configuration thresholds.
 
     Returns:
-        Score combiné (0 à 1).
+        Combined score (0 to 1).
     """
     # Normaliser Hausdorff inversé (plus petit = meilleur)
     # On utilise une fonction exponentielle décroissante
@@ -264,17 +264,17 @@ def are_geometries_similar(
     threshold: float | None = None,
     thresholds: SimilarityThresholds | None = None,
 ) -> bool:
-    """Détermine si deux géométries sont similaires selon la méthode choisie.
+    """Determine if two geometries are similar according to the chosen method.
 
     Args:
-        geom1: Première géométrie.
-        geom2: Deuxième géométrie.
-        method: Méthode de comparaison.
-        threshold: Seuil simple (rétrocompatibilité).
-        thresholds: Seuils de la matrice de décision.
+        geom1: First geometry.
+        geom2: Second geometry.
+        method: Comparison method.
+        threshold: Simple threshold (backward compatibility).
+        thresholds: Decision matrix thresholds.
 
     Returns:
-        True si les géométries sont considérées similaires.
+        True if the geometries are considered similar.
     """
     if method == SimilarityMethod.MD5:
         hash1 = compute_geometry_hash(geom1)
@@ -304,18 +304,18 @@ def compute_similarity(
     method: SimilarityMethod = SimilarityMethod.COMBINED,
     thresholds: SimilarityThresholds | None = None,
 ) -> SimilarityResult:
-    """Calcule la similarité entre deux géométries avec résultat détaillé.
+    """Compute the similarity between two geometries with detailed result.
 
-    C'est la fonction principale à utiliser pour la comparaison.
+    This is the main function to use for comparison.
 
     Args:
-        geom1: Première géométrie.
-        geom2: Deuxième géométrie.
-        method: Méthode de comparaison (COMBINED recommandé).
-        thresholds: Seuils de la matrice de décision.
+        geom1: First geometry.
+        geom2: Second geometry.
+        method: Comparison method (COMBINED recommended).
+        thresholds: Decision matrix thresholds.
 
     Returns:
-        Résultat détaillé avec niveau, scores et explication.
+        Detailed result with level, scores, and explanation.
     """
     if thresholds is None:
         thresholds = SimilarityThresholds()
@@ -357,7 +357,7 @@ def compute_similarity(
 
 
 def _classify_iou_only(iou: float, thresholds: SimilarityThresholds) -> SimilarityLevel:
-    """Classifie selon IoU uniquement."""
+    """Classify by IoU only."""
     if iou >= thresholds.identical_min:
         return SimilarityLevel.IDENTICAL
     elif iou >= thresholds.likely_match_min:
@@ -368,7 +368,7 @@ def _classify_iou_only(iou: float, thresholds: SimilarityThresholds) -> Similari
 
 
 def _classify_hausdorff_only(hausdorff: float, thresholds: SimilarityThresholds) -> SimilarityLevel:
-    """Classifie selon Hausdorff uniquement."""
+    """Classify by Hausdorff only."""
     if hausdorff <= thresholds.hausdorff_max * 0.5:
         return SimilarityLevel.IDENTICAL
     elif hausdorff <= thresholds.hausdorff_max:
@@ -384,17 +384,17 @@ def compute_similarity_score(
     geom2: BaseGeometry,
     method: SimilarityMethod,
 ) -> float:
-    """Calcule un score de similarité entre deux géométries.
+    """Compute a similarity score between two geometries.
 
-    DEPRECATED: Utilisez compute_similarity() pour un résultat détaillé.
+    DEPRECATED: Use compute_similarity() for a detailed result.
 
     Args:
-        geom1: Première géométrie.
-        geom2: Deuxième géométrie.
-        method: Méthode de comparaison.
+        geom1: First geometry.
+        geom2: Second geometry.
+        method: Comparison method.
 
     Returns:
-        Score de similarité (interprétation selon la méthode).
+        Similarity score (interpretation depends on the method).
     """
     if method == SimilarityMethod.MD5:
         hash1 = compute_geometry_hash(geom1)
@@ -415,11 +415,10 @@ def compute_similarity_score(
 
 
 class GeometryMatcher:
-    """Classe pour la correspondance de géométries entre millésimes.
+    """Class for geometry matching between vintages.
 
-    Cette classe permet de trouver les correspondances entre les entités
-    de deux millésimes différents en utilisant une clé d'identification
-    et la matrice de décision de similarité.
+    This class finds matches between entities from two different vintages
+    using an identification key and the similarity decision matrix.
     """
 
     def __init__(
@@ -430,13 +429,13 @@ class GeometryMatcher:
         # Rétrocompatibilité
         threshold: float | None = None,
     ) -> None:
-        """Initialise le matcher.
+        """Initialize the matcher.
 
         Args:
-            method: Méthode de comparaison géométrique (COMBINED recommandé).
-            thresholds: Seuils de la matrice de décision.
-            key_field: Champ utilisé comme clé d'identification.
-            threshold: [DEPRECATED] Utilisez thresholds à la place.
+            method: Geometric comparison method (COMBINED recommended).
+            thresholds: Decision matrix thresholds.
+            key_field: Field used as the identification key.
+            threshold: [DEPRECATED] Use thresholds instead.
         """
         self.method = method
         self.key_field = key_field
@@ -450,14 +449,14 @@ class GeometryMatcher:
             self.thresholds = SimilarityThresholds()
 
     def compare(self, geom1: BaseGeometry, geom2: BaseGeometry) -> SimilarityResult:
-        """Compare deux géométries et retourne le résultat détaillé.
+        """Compare two geometries and return the detailed result.
 
         Args:
-            geom1: Première géométrie.
-            geom2: Deuxième géométrie.
+            geom1: First geometry.
+            geom2: Second geometry.
 
         Returns:
-            Résultat de la comparaison avec niveau et scores.
+            Comparison result with level and scores.
         """
         return compute_similarity(geom1, geom2, self.method, self.thresholds)
 
@@ -471,18 +470,18 @@ class GeometryMatcher:
         list[dict[str, Any]],
         list[tuple[dict[str, Any], dict[str, Any], SimilarityResult]],
     ]:
-        """Trouve les correspondances entre deux ensembles de features.
+        """Find matches between two sets of features.
 
         Args:
-            old_features: Features de l'ancien millésime.
-            new_features: Features du nouveau millésime.
+            old_features: Features from the old vintage.
+            new_features: Features from the new vintage.
 
         Returns:
-            Tuple contenant:
-            - Liste des correspondances automatiques (old, new, result)
-            - Liste des features supprimées
-            - Liste des features ajoutées
-            - Liste des correspondances à valider (old, new, result)
+            Tuple containing:
+            - List of automatic matches (old, new, result)
+            - List of deleted features
+            - List of added features
+            - List of matches requiring validation (old, new, result)
         """
         # Indexer par clé
         old_by_key = {f.get(self.key_field): f for f in old_features}
@@ -538,10 +537,10 @@ class GeometryMatcher:
         return auto_matches, removed, added, needs_validation
 
     def get_method_description(self) -> str:
-        """Retourne une description de la méthode utilisée.
+        """Return a description of the method used.
 
         Returns:
-            Description lisible.
+            Human-readable description.
         """
         t = self.thresholds
         descriptions = {

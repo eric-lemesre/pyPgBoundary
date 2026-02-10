@@ -1,7 +1,7 @@
-"""Chargeur de définitions de produits depuis les fichiers YAML.
+"""Product definition loader from YAML files.
 
-Ce module parcourt les fichiers YAML dans le répertoire sources/
-et les convertit en objets IGNProduct pour le catalogue.
+This module traverses YAML files in the sources/ directory
+and converts them into IGNProduct objects for the catalog.
 """
 
 from __future__ import annotations
@@ -24,10 +24,10 @@ from pgboundary.products.catalog import (
 
 logger = logging.getLogger(__name__)
 
-# Répertoire racine des sources YAML
+# Root directory for YAML sources
 SOURCES_DIR = Path(__file__).parent
 
-# Mapping catégorie string → enum
+# Category string to enum mapping
 CATEGORY_MAPPING: dict[str, ProductCategory] = {
     "administrative": ProductCategory.ADMIN,
     "statistics": ProductCategory.STATS,
@@ -37,14 +37,14 @@ CATEGORY_MAPPING: dict[str, ProductCategory] = {
     "cartography": ProductCategory.CARTO,
 }
 
-# Mapping format string → enum
+# Format string to enum mapping
 FORMAT_MAPPING: dict[str, FileFormat] = {
     "shp": FileFormat.SHP,
     "gpkg": FileFormat.GPKG,
     "csv": FileFormat.CSV,
 }
 
-# Mapping geometry type string → enum
+# Geometry type string to enum mapping
 GEOMETRY_MAPPING: dict[str, GeometryType] = {
     "Point": GeometryType.POINT,
     "MultiPoint": GeometryType.MULTIPOINT,
@@ -54,7 +54,7 @@ GEOMETRY_MAPPING: dict[str, GeometryType] = {
     "MultiPolygon": GeometryType.MULTIPOLYGON,
 }
 
-# Mapping territoire string → enum
+# Territory string to enum mapping
 TERRITORY_MAPPING: dict[str, TerritoryCode] = {
     "FRA": TerritoryCode.FRA,
     "FXX": TerritoryCode.FXX,
@@ -67,14 +67,14 @@ TERRITORY_MAPPING: dict[str, TerritoryCode] = {
 
 
 def load_territory_crs(territories_dir: Path | None = None) -> dict[str, str]:
-    """Charge le mapping territoire → CRS depuis les fichiers YAML.
+    """Load the territory to CRS mapping from YAML files.
 
     Args:
-        territories_dir: Répertoire contenant les fichiers territoires.
-            Par défaut, utilise sources/territories/.
+        territories_dir: Directory containing the territory files.
+            Defaults to sources/territories/.
 
     Returns:
-        Dictionnaire {code_territoire: crs}.
+        Dictionary {territory_code: crs}.
     """
     if territories_dir is None:
         territories_dir = SOURCES_DIR / "territories"
@@ -93,13 +93,13 @@ def load_territory_crs(territories_dir: Path | None = None) -> dict[str, str]:
 
 
 def _parse_layer(layer_data: dict[str, Any]) -> LayerConfig:
-    """Parse un dictionnaire YAML en LayerConfig.
+    """Parse a YAML dictionary into a LayerConfig.
 
     Args:
-        layer_data: Données YAML de la couche.
+        layer_data: YAML data for the layer.
 
     Returns:
-        Configuration de couche.
+        Layer configuration.
     """
     description = layer_data.get("description", {})
     if isinstance(description, str):
@@ -123,13 +123,13 @@ def _parse_layer(layer_data: dict[str, Any]) -> LayerConfig:
 
 
 def _parse_product(data: dict[str, Any]) -> IGNProduct:
-    """Parse un dictionnaire YAML en IGNProduct.
+    """Parse a YAML dictionary into an IGNProduct.
 
     Args:
-        data: Données YAML du produit.
+        data: YAML data for the product.
 
     Returns:
-        Produit IGN.
+        IGN product.
     """
     description = data.get("description", {})
     if isinstance(description, str):
@@ -139,10 +139,10 @@ def _parse_product(data: dict[str, Any]) -> IGNProduct:
         description_fr = description.get("fr", "")
         description_en = description.get("en", "")
 
-    # Nettoyage du url_template (les blocs YAML multi-lignes ajoutent des espaces)
+    # Clean url_template (YAML multi-line blocks add extra spaces)
     url_template = data["url_template"].replace(" ", "").strip()
 
-    # Nettoyage du department_url_template (même traitement)
+    # Clean department_url_template (same treatment)
     department_url_template = data.get("department_url_template")
     if department_url_template:
         department_url_template = department_url_template.replace(" ", "").strip()
@@ -178,24 +178,24 @@ def _parse_product(data: dict[str, Any]) -> IGNProduct:
 
 
 def load_products(sources_dir: Path | None = None) -> list[IGNProduct]:
-    """Charge tous les produits depuis les fichiers YAML.
+    """Load all products from YAML files.
 
-    Parcourt récursivement les sous-répertoires de sources/ pour
-    trouver les fichiers .yml de définition de produits.
+    Recursively traverses the subdirectories of sources/ to
+    find product definition .yml files.
 
     Args:
-        sources_dir: Répertoire racine des sources.
-            Par défaut, utilise le répertoire du module.
+        sources_dir: Root directory for sources.
+            Defaults to the module directory.
 
     Returns:
-        Liste des produits IGN chargés.
+        List of loaded IGN products.
     """
     if sources_dir is None:
         sources_dir = SOURCES_DIR
 
     products: list[IGNProduct] = []
 
-    # Répertoires contenant des produits (exclure territories/)
+    # Directories containing products (exclude territories/)
     product_dirs = [
         "administrative",
         "statistical",
@@ -227,16 +227,16 @@ def load_products(sources_dir: Path | None = None) -> list[IGNProduct]:
 
 
 def load_sources(sources_dir: Path | None = None) -> ProductCatalog:
-    """Charge les sources YAML et retourne un catalogue de produits.
+    """Load YAML sources and return a product catalog.
 
-    C'est le point d'entrée principal pour obtenir le catalogue
-    depuis les définitions YAML.
+    This is the main entry point for obtaining the catalog
+    from YAML definitions.
 
     Args:
-        sources_dir: Répertoire racine des sources.
+        sources_dir: Root directory for sources.
 
     Returns:
-        Catalogue initialisé avec tous les produits YAML.
+        Catalog initialized with all YAML products.
     """
     products = load_products(sources_dir)
     catalog = ProductCatalog()

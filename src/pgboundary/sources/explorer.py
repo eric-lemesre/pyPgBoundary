@@ -1,6 +1,6 @@
-"""Explorateur de catalogue IGN via l'API Atom.
+"""IGN catalog explorer via the Atom API.
 
-Orchestre le scraping de l'API Atom et le peuplement de la base SQLite.
+Orchestrates Atom API scraping and SQLite database population.
 """
 
 from __future__ import annotations
@@ -26,17 +26,17 @@ STALE_THRESHOLD_SECONDS = 24 * 60 * 60
 
 
 class ScanResult(BaseModel):
-    """Résultat d'un scan de catalogue."""
+    """Catalog scan result."""
 
-    products_scanned: int = Field(default=0, description="Nombre de produits scannés")
-    editions_discovered: int = Field(default=0, description="Éditions découvertes")
-    editions_new: int = Field(default=0, description="Nouvelles éditions insérées")
-    errors: list[str] = Field(default_factory=list, description="Erreurs rencontrées")
-    duration: float = Field(default=0.0, description="Durée en secondes")
+    products_scanned: int = Field(default=0, description="Number of products scanned")
+    editions_discovered: int = Field(default=0, description="Editions discovered")
+    editions_new: int = Field(default=0, description="New editions inserted")
+    errors: list[str] = Field(default_factory=list, description="Errors encountered")
+    duration: float = Field(default=0.0, description="Duration in seconds")
 
 
 class CatalogExplorer:
-    """Orchestre le scraping API Atom → peuplement SQLite."""
+    """Orchestrates Atom API scraping → SQLite population."""
 
     def __init__(
         self,
@@ -53,14 +53,14 @@ class CatalogExplorer:
         force: bool = False,
         progress_callback: Callable[[str, int, int], None] | None = None,
     ) -> ScanResult:
-        """Scan complet : capabilities + toutes les éditions.
+        """Full scan: capabilities + all editions.
 
         Args:
-            force: Force le scan même si les données sont fraîches.
-            progress_callback: Callback (product_name, current, total) pour la progression.
+            force: Force the scan even if data is still fresh.
+            progress_callback: Callback (product_name, current, total) for progress tracking.
 
         Returns:
-            Résultat du scan.
+            Scan result.
         """
         start = time.monotonic()
         result = ScanResult()
@@ -128,14 +128,14 @@ class CatalogExplorer:
         product_name: str,
         force: bool = False,
     ) -> ScanResult:
-        """Scan d'un seul produit.
+        """Scan a single product.
 
         Args:
-            product_name: Nom du produit à scanner.
-            force: Force le scan même si les données sont fraîches.
+            product_name: Name of the product to scan.
+            force: Force the scan even if data is still fresh.
 
         Returns:
-            Résultat du scan.
+            Scan result.
         """
         start = time.monotonic()
         result = ScanResult()
@@ -177,13 +177,13 @@ class CatalogExplorer:
         return result
 
     def is_stale(self, product_name: str) -> bool:
-        """Vérifie si les données d'un produit sont périmées.
+        """Check if a product's data is stale.
 
         Args:
-            product_name: Nom du produit.
+            product_name: Name of the product.
 
         Returns:
-            True si les données sont périmées ou absentes.
+            True if the data is stale or missing.
         """
         if not self.db_path.exists():
             return True
@@ -192,14 +192,14 @@ class CatalogExplorer:
             return self._is_stale_db(db, product_name)
 
     def _is_stale_db(self, db: CatalogDatabase, product_name: str) -> bool:
-        """Vérifie la fraîcheur d'un produit sur une connexion ouverte.
+        """Check product freshness on an open connection.
 
         Args:
-            db: Base de données ouverte.
-            product_name: Nom du produit.
+            db: Open database.
+            product_name: Name of the product.
 
         Returns:
-            True si les données sont périmées ou absentes.
+            True if the data is stale or missing.
         """
         product = db.get_product(product_name)
         if product is None or not product.get("last_scanned"):

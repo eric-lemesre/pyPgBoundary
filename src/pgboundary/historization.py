@@ -1,12 +1,12 @@
-"""Module d'historisation des données géographiques.
+"""Geographic data historization module.
 
-Ce module gère l'historisation des entités géographiques lors
-de l'import de nouveaux millésimes.
+This module manages the historization of geographic entities during
+the import of new vintage datasets.
 
-Fonctionnalités:
-- Ajout des colonnes dt_debut et dt_fin
-- Comparaison avec les données existantes
-- Mise à jour des dates de fin pour les entités modifiées/supprimées
+Features:
+- Addition of dt_debut and dt_fin columns
+- Comparison with existing data
+- Update of end dates for modified/deleted entities
 """
 
 from __future__ import annotations
@@ -28,38 +28,38 @@ logger = logging.getLogger(__name__)
 
 
 def get_year_start_date(year: str) -> date:
-    """Retourne la date de début d'une année.
+    """Return the start date of a year.
 
     Args:
-        year: Année au format "YYYY".
+        year: Year in "YYYY" format.
 
     Returns:
-        Date du 1er janvier de l'année.
+        Date of January 1st of the year.
     """
     return date(int(year), 1, 1)
 
 
 def get_year_end_date(year: str) -> date:
-    """Retourne la date de fin d'une année.
+    """Return the end date of a year.
 
     Args:
-        year: Année au format "YYYY".
+        year: Year in "YYYY" format.
 
     Returns:
-        Date du 31 décembre de l'année.
+        Date of December 31st of the year.
     """
     return date(int(year), 12, 31)
 
 
 def add_historization_columns(gdf: gpd.GeoDataFrame, year: str) -> gpd.GeoDataFrame:
-    """Ajoute les colonnes d'historisation à un GeoDataFrame.
+    """Add historization columns to a GeoDataFrame.
 
     Args:
-        gdf: GeoDataFrame à modifier.
-        year: Année du millésime.
+        gdf: GeoDataFrame to modify.
+        year: Vintage year.
 
     Returns:
-        GeoDataFrame avec colonnes dt_debut et dt_fin.
+        GeoDataFrame with dt_debut and dt_fin columns.
     """
     gdf = gdf.copy()
     gdf["dt_debut"] = get_year_start_date(year)
@@ -75,21 +75,21 @@ def close_old_records(
     keys_to_close: list[Any],
     end_date: date,
 ) -> int:
-    """Ferme les enregistrements qui ne sont plus valides.
+    """Close records that are no longer valid.
 
-    Met à jour dt_fin pour les enregistrements dont la clé est dans keys_to_close
-    et qui n'ont pas encore de date de fin.
+    Updates dt_fin for records whose key is in keys_to_close
+    and that do not yet have an end date.
 
     Args:
-        engine: Engine SQLAlchemy.
-        schema: Nom du schéma (ou None).
-        table: Nom de la table.
-        key_field: Nom du champ clé.
-        keys_to_close: Liste des clés à fermer.
-        end_date: Date de fin à appliquer.
+        engine: SQLAlchemy Engine.
+        schema: Schema name (or None).
+        table: Table name.
+        key_field: Key field name.
+        keys_to_close: List of keys to close.
+        end_date: End date to apply.
 
     Returns:
-        Nombre d'enregistrements mis à jour.
+        Number of records updated.
     """
     if not keys_to_close:
         return 0
@@ -123,16 +123,16 @@ def get_existing_keys(
     table: str,
     key_field: str,
 ) -> set[Any]:
-    """Récupère les clés existantes (enregistrements actifs).
+    """Retrieve existing keys (active records).
 
     Args:
-        engine: Engine SQLAlchemy.
-        schema: Nom du schéma (ou None).
-        table: Nom de la table.
-        key_field: Nom du champ clé.
+        engine: SQLAlchemy Engine.
+        schema: Schema name (or None).
+        table: Table name.
+        key_field: Key field name.
 
     Returns:
-        Ensemble des clés actives (dt_fin IS NULL).
+        Set of active keys (dt_fin IS NULL).
     """
     full_table = f"{schema}.{table}" if schema else table
 
@@ -157,16 +157,16 @@ def get_existing_records(
     table: str,
     geometry_column: str = "geometry",
 ) -> gpd.GeoDataFrame:
-    """Récupère les enregistrements actifs avec leur géométrie.
+    """Retrieve active records with their geometry.
 
     Args:
-        engine: Engine SQLAlchemy.
-        schema: Nom du schéma (ou None).
-        table: Nom de la table.
-        geometry_column: Nom de la colonne géométrie.
+        engine: SQLAlchemy Engine.
+        schema: Schema name (or None).
+        table: Table name.
+        geometry_column: Geometry column name.
 
     Returns:
-        GeoDataFrame des enregistrements actifs.
+        GeoDataFrame of active records.
     """
     full_table = f"{schema}.{table}" if schema else table
 
@@ -184,16 +184,16 @@ def get_existing_records(
 
 
 class HistorizationManager:
-    """Gestionnaire d'historisation pour les imports.
+    """Historization manager for imports.
 
-    Cette classe orchestre le processus d'historisation lors de l'import
-    de nouveaux millésimes de données géographiques.
+    This class orchestrates the historization process during the import
+    of new vintage geographic datasets.
 
-    Utilise la matrice de décision pour classifier les correspondances:
-    - IDENTICAL: fusion automatique
-    - LIKELY_MATCH: correspondance probable
-    - SUSPECT: conflit potentiel
-    - DISTINCT: objets différents
+    Uses the decision matrix to classify matches:
+    - IDENTICAL: automatic merge
+    - LIKELY_MATCH: probable match
+    - SUSPECT: potential conflict
+    - DISTINCT: different objects
     """
 
     def __init__(
@@ -207,16 +207,16 @@ class HistorizationManager:
         # Rétrocompatibilité
         threshold: float | None = None,
     ) -> None:
-        """Initialise le gestionnaire.
+        """Initialize the manager.
 
         Args:
-            engine: Engine SQLAlchemy.
-            schema: Nom du schéma.
-            table: Nom de la table.
-            key_field: Champ clé pour l'identification.
-            method: Méthode de comparaison (COMBINED recommandé).
-            thresholds: Seuils de la matrice de décision.
-            threshold: [DEPRECATED] Utilisez thresholds à la place.
+            engine: SQLAlchemy Engine.
+            schema: Schema name.
+            table: Table name.
+            key_field: Key field for identification.
+            method: Comparison method (COMBINED recommended).
+            thresholds: Decision matrix thresholds.
+            threshold: [DEPRECATED] Use thresholds instead.
         """
         self.engine = engine
         self.schema = schema
@@ -234,18 +234,18 @@ class HistorizationManager:
         new_data: gpd.GeoDataFrame,
         year: str,
     ) -> tuple[gpd.GeoDataFrame, list[Any]]:
-        """Prépare les données pour l'import avec historisation.
+        """Prepare data for import with historization.
 
-        Compare les nouvelles données avec les existantes et détermine:
-        - Les nouvelles entités à insérer
-        - Les entités à fermer (dt_fin)
+        Compares new data with existing data and determines:
+        - New entities to insert
+        - Entities to close (dt_fin)
 
         Args:
-            new_data: Nouvelles données à importer.
-            year: Année du millésime.
+            new_data: New data to import.
+            year: Vintage year.
 
         Returns:
-            Tuple (données à insérer, clés à fermer).
+            Tuple (data to insert, keys to close).
         """
         # Ajouter les colonnes d'historisation
         new_data = add_historization_columns(new_data, year)
@@ -277,14 +277,14 @@ class HistorizationManager:
         return new_data, keys_to_close
 
     def close_records(self, keys_to_close: list[Any], year: str) -> int:
-        """Ferme les enregistrements obsolètes.
+        """Close obsolete records.
 
         Args:
-            keys_to_close: Clés des enregistrements à fermer.
-            year: Année du nouveau millésime.
+            keys_to_close: Keys of records to close.
+            year: New vintage year.
 
         Returns:
-            Nombre d'enregistrements fermés.
+            Number of records closed.
         """
         if not keys_to_close:
             return 0
@@ -310,14 +310,14 @@ class HistorizationManager:
         new_data: gpd.GeoDataFrame,
         year: str,
     ) -> int:
-        """Importe des données avec gestion de l'historisation.
+        """Import data with historization management.
 
         Args:
-            new_data: Données à importer.
-            year: Année du millésime.
+            new_data: Data to import.
+            year: Vintage year.
 
         Returns:
-            Nombre d'enregistrements insérés.
+            Number of records inserted.
         """
         # Préparer l'import
         data_to_insert, keys_to_close = self.prepare_import(new_data, year)

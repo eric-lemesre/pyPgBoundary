@@ -1,7 +1,7 @@
-"""Base de données SQLite pour le catalogue des produits IGN.
+"""SQLite database for the IGN product catalog.
 
-Persiste les données découvertes via l'API Atom dans une base
-SQLite locale (~/.pgboundary/catalog.db).
+Persists the data discovered via the Atom API in a local
+SQLite database (~/.pgboundary/catalog.db).
 """
 
 from __future__ import annotations
@@ -45,9 +45,9 @@ CREATE INDEX IF NOT EXISTS idx_editions_product_format_zone
 
 
 class CatalogDatabase:
-    """Gestionnaire de la base SQLite du catalogue.
+    """SQLite catalog database manager.
 
-    Utilisable comme context manager :
+    Can be used as a context manager:
         with CatalogDatabase(path) as db:
             db.upsert_product(...)
     """
@@ -85,7 +85,7 @@ class CatalogDatabase:
         self.close()
 
     # =========================================================================
-    # Produits
+    # Products
     # =========================================================================
 
     def upsert_product(
@@ -95,13 +95,13 @@ class CatalogDatabase:
         description: str = "",
         resource_url: str = "",
     ) -> None:
-        """Insère ou met à jour un produit.
+        """Insert or update a product.
 
         Args:
-            name: Nom du produit (clé primaire).
-            title: Titre lisible.
+            name: Product name (primary key).
+            title: Human-readable title.
             description: Description.
-            resource_url: URL du flux des éditions.
+            resource_url: URL of the editions feed.
         """
         now = datetime.now(UTC).isoformat()
         self.conn.execute(
@@ -120,28 +120,28 @@ class CatalogDatabase:
         self.conn.commit()
 
     def get_product(self, name: str) -> dict[str, Any] | None:
-        """Retourne un produit par son nom.
+        """Return a product by its name.
 
         Args:
-            name: Nom du produit.
+            name: Product name.
 
         Returns:
-            Dictionnaire du produit ou None.
+            Product dictionary or None.
         """
         row = self.conn.execute("SELECT * FROM products WHERE name = ?", (name,)).fetchone()
         return dict(row) if row else None
 
     def list_products(self) -> list[dict[str, Any]]:
-        """Liste tous les produits.
+        """List all products.
 
         Returns:
-            Liste de dictionnaires.
+            List of dictionaries.
         """
         rows = self.conn.execute("SELECT * FROM products ORDER BY name").fetchall()
         return [dict(r) for r in rows]
 
     # =========================================================================
-    # Éditions
+    # Editions
     # =========================================================================
 
     def upsert_editions(
@@ -149,14 +149,14 @@ class CatalogDatabase:
         product_name: str,
         editions: list[dict[str, str]],
     ) -> int:
-        """Insère ou met à jour des éditions d'un produit.
+        """Insert or update editions for a product.
 
         Args:
-            product_name: Nom du produit parent.
-            editions: Liste de dicts avec title, edition_date, format, zone, crs, download_url.
+            product_name: Parent product name.
+            editions: List of dicts with title, edition_date, format, zone, crs, download_url.
 
         Returns:
-            Nombre d'éditions insérées ou mises à jour.
+            Number of editions inserted or updated.
         """
         count = 0
         for ed in editions:
@@ -191,15 +191,15 @@ class CatalogDatabase:
         format: str | None = None,
         zone: str | None = None,
     ) -> list[dict[str, Any]]:
-        """Retourne les éditions d'un produit avec filtres optionnels.
+        """Return editions for a product with optional filters.
 
         Args:
-            product_name: Nom du produit.
-            format: Filtre par format.
-            zone: Filtre par zone.
+            product_name: Product name.
+            format: Filter by format.
+            zone: Filter by zone.
 
         Returns:
-            Liste de dicts d'éditions.
+            List of edition dicts.
         """
         query = "SELECT * FROM editions WHERE product_name = ?"
         params: list[str] = [product_name]
@@ -217,15 +217,15 @@ class CatalogDatabase:
         return [dict(r) for r in rows]
 
     def get_available_dates(self, product_name: str) -> list[str]:
-        """Retourne les dates d'édition distinctes pour un produit.
+        """Return distinct edition dates for a product.
 
-        Les dates sont extraites des titres d'éditions et dédupliquées.
+        Dates are extracted from edition titles and deduplicated.
 
         Args:
-            product_name: Nom du produit.
+            product_name: Product name.
 
         Returns:
-            Liste de dates triées (plus récentes d'abord).
+            List of dates sorted by most recent first.
         """
         rows = self.conn.execute(
             """
@@ -238,13 +238,13 @@ class CatalogDatabase:
         return [r["edition_date"] for r in rows]
 
     def get_latest_date(self, product_name: str) -> str | None:
-        """Retourne la date d'édition la plus récente.
+        """Return the most recent edition date.
 
         Args:
-            product_name: Nom du produit.
+            product_name: Product name.
 
         Returns:
-            Date la plus récente ou None.
+            Most recent date or None.
         """
         row = self.conn.execute(
             """
@@ -263,16 +263,16 @@ class CatalogDatabase:
         zone: str,
         date: str | None = None,
     ) -> str | None:
-        """Retourne l'URL de téléchargement pour un produit/format/zone.
+        """Return the download URL for a product/format/zone.
 
         Args:
-            product_name: Nom du produit.
-            format: Format souhaité (GPKG, SHP).
-            zone: Zone/territoire (FRA, FXX, ...).
-            date: Date spécifique (optionnel, dernière si absente).
+            product_name: Product name.
+            format: Desired format (GPKG, SHP).
+            zone: Zone/territory (FRA, FXX, ...).
+            date: Specific date (optional, latest if absent).
 
         Returns:
-            URL de téléchargement ou None.
+            Download URL or None.
         """
         if date:
             row = self.conn.execute(
@@ -297,13 +297,13 @@ class CatalogDatabase:
         return row["download_url"] if row else None
 
     def get_edition_count(self, product_name: str) -> int:
-        """Retourne le nombre d'éditions pour un produit.
+        """Return the number of editions for a product.
 
         Args:
-            product_name: Nom du produit.
+            product_name: Product name.
 
         Returns:
-            Nombre d'éditions.
+            Number of editions.
         """
         row = self.conn.execute(
             "SELECT COUNT(*) as cnt FROM editions WHERE product_name = ?",
@@ -312,10 +312,10 @@ class CatalogDatabase:
         return int(row["cnt"]) if row else 0
 
     def get_stats(self) -> dict[str, Any]:
-        """Retourne les statistiques de la base.
+        """Return database statistics.
 
         Returns:
-            Dictionnaire avec compteurs et taille fichier.
+            Dictionary with counters and file size.
         """
         product_count = self.conn.execute("SELECT COUNT(*) as cnt FROM products").fetchone()
         edition_count = self.conn.execute("SELECT COUNT(*) as cnt FROM editions").fetchone()

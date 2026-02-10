@@ -1,4 +1,4 @@
-"""Classe de base pour les loaders de données géographiques."""
+"""Base class for geographic data loaders."""
 
 import logging
 from abc import ABC, abstractmethod
@@ -14,44 +14,44 @@ logger = logging.getLogger(__name__)
 
 
 class BaseLoader(ABC):
-    """Classe de base abstraite pour les loaders de données."""
+    """Abstract base class for data loaders."""
 
     def __init__(
         self,
         db_manager: DatabaseManager | None = None,
         settings: Settings | None = None,
     ) -> None:
-        """Initialise le loader.
+        """Initialize the loader.
 
         Args:
-            db_manager: Gestionnaire de base de données.
-            settings: Configuration du module.
+            db_manager: Database manager.
+            settings: Module configuration.
         """
         self.settings = settings or Settings()
         self.db_manager = db_manager or DatabaseManager(self.settings)
 
     @abstractmethod
     def load(self, source_path: Path | None = None, **kwargs: Any) -> int:
-        """Charge les données depuis un fichier source.
+        """Load data from a source file.
 
         Args:
-            source_path: Chemin vers le fichier source (optionnel pour certains loaders).
-            **kwargs: Arguments supplémentaires.
+            source_path: Path to the source file (optional for some loaders).
+            **kwargs: Additional arguments.
 
         Returns:
-            Nombre d'enregistrements chargés.
+            Number of loaded records.
         """
         pass
 
     def read_shapefile(self, path: Path, encoding: str = "utf-8") -> gpd.GeoDataFrame:
-        """Lit un shapefile et retourne un GeoDataFrame.
+        """Read a shapefile and return a GeoDataFrame.
 
         Args:
-            path: Chemin vers le shapefile.
-            encoding: Encodage du fichier.
+            path: Path to the shapefile.
+            encoding: File encoding.
 
         Returns:
-            GeoDataFrame avec les données.
+            GeoDataFrame with the data.
         """
         logger.debug("Lecture du shapefile: %s", path)
         gdf = gpd.read_file(path, encoding=encoding)
@@ -63,14 +63,14 @@ class BaseLoader(ABC):
         gdf: gpd.GeoDataFrame,
         target_srid: int | None = None,
     ) -> gpd.GeoDataFrame:
-        """Reprojette un GeoDataFrame vers le SRID cible.
+        """Reproject a GeoDataFrame to the target SRID.
 
         Args:
-            gdf: GeoDataFrame à reprojeter.
-            target_srid: SRID cible (utilise celui de la config si non fourni).
+            gdf: GeoDataFrame to reproject.
+            target_srid: Target SRID (uses the config value if not provided).
 
         Returns:
-            GeoDataFrame reprojeté.
+            Reprojected GeoDataFrame.
         """
         target_srid = target_srid or self.settings.srid
         current_srid = gdf.crs.to_epsg() if gdf.crs else None
@@ -82,13 +82,13 @@ class BaseLoader(ABC):
         return gdf
 
     def to_multipolygon(self, gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-        """Convertit toutes les géométries en MultiPolygon.
+        """Convert all geometries to MultiPolygon.
 
         Args:
-            gdf: GeoDataFrame à convertir.
+            gdf: GeoDataFrame to convert.
 
         Returns:
-            GeoDataFrame avec géométries MultiPolygon.
+            GeoDataFrame with MultiPolygon geometries.
         """
         from shapely.geometry import MultiPolygon, Polygon
 
@@ -108,16 +108,16 @@ class BaseLoader(ABC):
         schema: str | None = None,
         if_exists: str = "replace",
     ) -> int:
-        """Charge un GeoDataFrame dans PostgreSQL.
+        """Load a GeoDataFrame into PostgreSQL.
 
         Args:
-            gdf: GeoDataFrame à charger.
-            table_name: Nom de la table cible.
-            schema: Schéma PostgreSQL.
-            if_exists: Comportement si la table existe ('replace', 'append', 'fail').
+            gdf: GeoDataFrame to load.
+            table_name: Target table name.
+            schema: PostgreSQL schema.
+            if_exists: Behavior if the table exists ('replace', 'append', 'fail').
 
         Returns:
-            Nombre d'enregistrements chargés.
+            Number of loaded records.
         """
         schema = schema or self.settings.schema_name
 

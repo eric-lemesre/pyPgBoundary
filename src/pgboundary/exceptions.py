@@ -1,41 +1,41 @@
-"""Exceptions personnalisées du module pyPgBoundary."""
+"""Custom exceptions for the pyPgBoundary module."""
 
 
 class PyPgBoundaryError(Exception):
-    """Exception de base pour pyPgBoundary."""
+    """Base exception for pyPgBoundary."""
 
 
 class DatabaseError(PyPgBoundaryError):
-    """Erreur liée à la base de données."""
+    """Database-related error."""
 
 
 class ConnectionError(DatabaseError):
-    """Erreur de connexion à la base de données."""
+    """Database connection error."""
 
 
 class DatabaseNotFoundError(ConnectionError):
-    """La base de données spécifiée n'existe pas."""
+    """The specified database does not exist."""
 
 
 class SchemaError(DatabaseError):
-    """Erreur liée au schéma de la base de données."""
+    """Database schema-related error."""
 
 
 class DownloadError(PyPgBoundaryError):
-    """Erreur lors du téléchargement des données."""
+    """Error during data download."""
 
 
 class DataSourceError(PyPgBoundaryError):
-    """Erreur liée à la source de données."""
+    """Data source-related error."""
 
 
 class ValidationError(PyPgBoundaryError):
-    """Erreur de validation des données."""
+    """Data validation error."""
 
 
 class LoaderError(PyPgBoundaryError):
-    """Erreur lors du chargement des données."""
+    """Error during data loading."""
 
 
 class AtomApiError(DataSourceError):
-    """Erreur de communication avec l'API Atom."""
+    """Atom API communication error."""

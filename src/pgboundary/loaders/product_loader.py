@@ -1,7 +1,7 @@
-"""Loader générique pour les produits IGN.
+"""Generic loader for IGN products.
 
-Ce module implémente un loader générique capable de charger
-n'importe quel produit IGN défini dans le catalogue.
+This module implements a generic loader capable of loading
+any IGN product defined in the catalog.
 """
 
 from __future__ import annotations
@@ -30,11 +30,11 @@ logger = logging.getLogger(__name__)
 
 
 class ProductLoader(BaseLoader):
-    """Loader générique pour les produits IGN.
+    """Generic loader for IGN products.
 
-    Ce loader peut charger n'importe quel produit défini dans le catalogue IGN.
-    Il gère automatiquement le téléchargement, l'extraction et le chargement
-    des données dans PostgreSQL/PostGIS.
+    This loader can load any product defined in the IGN catalog.
+    It automatically handles downloading, extracting, and loading
+    data into PostgreSQL/PostGIS.
     """
 
     def __init__(
@@ -44,16 +44,16 @@ class ProductLoader(BaseLoader):
         db_manager: DatabaseManager | None = None,
         settings: Settings | None = None,
     ) -> None:
-        """Initialise le loader pour un produit.
+        """Initialize the loader for a product.
 
         Args:
-            product: Produit IGN ou son identifiant.
-            catalog: Catalogue de produits (par défaut: catalogue complet).
-            db_manager: Gestionnaire de base de données.
-            settings: Configuration du module.
+            product: IGN product or its identifier.
+            catalog: Product catalog (default: full catalog).
+            db_manager: Database manager.
+            settings: Module configuration.
 
         Raises:
-            LoaderError: Si le produit n'est pas trouvé dans le catalogue.
+            LoaderError: If the product is not found in the catalog.
         """
         super().__init__(db_manager, settings)
 
@@ -83,22 +83,22 @@ class ProductLoader(BaseLoader):
         cli_table_name: str | None = None,
         **_kwargs: Any,
     ) -> int:
-        """Charge les données du produit dans PostgreSQL.
+        """Load product data into PostgreSQL.
 
         Args:
-            source_path: Chemin vers les données déjà extraites (optionnel).
-            file_format: Format de fichier (SHP ou GPKG).
-            territory: Code du territoire (FRA, FXX, GLP, etc.).
-            year: Année des données.
-            layers: Liste des couches à charger (toutes par défaut).
-            if_exists: Comportement si la table existe.
-            cli_table_name: Nom de table spécifié via CLI (prioritaire).
+            source_path: Path to already extracted data (optional).
+            file_format: File format (SHP or GPKG).
+            territory: Territory code (FRA, FXX, GLP, etc.).
+            year: Data year.
+            layers: List of layers to load (all by default).
+            if_exists: Behavior if the table exists.
+            cli_table_name: Table name specified via CLI (takes priority).
 
         Returns:
-            Nombre total d'enregistrements chargés.
+            Total number of records loaded.
 
         Raises:
-            LoaderError: En cas d'erreur de chargement.
+            LoaderError: If a loading error occurs.
         """
         # Stocker le nom de table CLI pour utilisation ultérieure
         self._cli_table_name = cli_table_name
@@ -146,15 +146,15 @@ class ProductLoader(BaseLoader):
         territory: str,
         year: str,
     ) -> dict[str, Path]:
-        """Télécharge et extrait les données.
+        """Download and extract data.
 
         Args:
-            file_format: Format de fichier.
-            territory: Code du territoire.
-            year: Année des données.
+            file_format: File format.
+            territory: Territory code.
+            year: Data year.
 
         Returns:
-            Dictionnaire {nom_couche: chemin_fichier}.
+            Dictionary {layer_name: file_path}.
         """
         _, data_files = self.data_source.download_product(
             product=self.product,
@@ -166,13 +166,13 @@ class ProductLoader(BaseLoader):
         return data_files
 
     def _get_layers_to_load(self, layers: list[str] | None) -> list[LayerConfig]:
-        """Retourne les configurations de couches à charger.
+        """Return the layer configurations to load.
 
         Args:
-            layers: Liste des noms de couches (toutes si None).
+            layers: List of layer names (all if None).
 
         Returns:
-            Liste des configurations de couches.
+            List of layer configurations.
         """
         if layers is None:
             return self.product.layers
@@ -186,16 +186,16 @@ class ProductLoader(BaseLoader):
         file_format: FileFormat,
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
-        """Charge une couche spécifique.
+        """Load a specific layer.
 
         Args:
-            layer: Configuration de la couche.
-            file_path: Chemin vers le fichier de données.
-            file_format: Format de fichier.
-            if_exists: Comportement si la table existe.
+            layer: Layer configuration.
+            file_path: Path to the data file.
+            file_format: File format.
+            if_exists: Behavior if the table exists.
 
         Returns:
-            Nombre d'enregistrements chargés.
+            Number of records loaded.
         """
         logger.info("Chargement de la couche: %s", layer.name)
 
@@ -239,15 +239,15 @@ class ProductLoader(BaseLoader):
         layer_name: str,
         file_format: FileFormat,
     ) -> gpd.GeoDataFrame:
-        """Lit les données depuis un fichier.
+        """Read data from a file.
 
         Args:
-            file_path: Chemin vers le fichier.
-            layer_name: Nom de la couche (pour GPKG).
-            file_format: Format de fichier.
+            file_path: Path to the file.
+            layer_name: Layer name (for GPKG).
+            file_format: File format.
 
         Returns:
-            GeoDataFrame avec les données.
+            GeoDataFrame with the data.
         """
         if file_format == FileFormat.GPKG:
             gdf = gpd.read_file(file_path, layer=layer_name)
@@ -264,17 +264,17 @@ class ProductLoader(BaseLoader):
         *,
         add_type_produit: bool = False,
     ) -> gpd.GeoDataFrame:
-        """Prépare le GeoDataFrame pour le chargement.
+        """Prepare the GeoDataFrame for loading.
 
-        Renomme les colonnes, ajoute les UIDs et optionnellement type_produit.
+        Renames columns, adds UIDs, and optionally type_produit.
 
         Args:
-            gdf: GeoDataFrame source.
-            layer: Configuration de la couche.
-            add_type_produit: Si True, ajoute la colonne type_produit avec l'ID du produit.
+            gdf: Source GeoDataFrame.
+            layer: Layer configuration.
+            add_type_produit: If True, adds the type_produit column with the product ID.
 
         Returns:
-            GeoDataFrame préparé.
+            Prepared GeoDataFrame.
         """
         table_factory = TableFactory(self.settings.schema_config)
         column_mapping = table_factory.get_column_mapping(layer.name)
@@ -313,14 +313,14 @@ class ProductLoader(BaseLoader):
         gdf: gpd.GeoDataFrame,
         target_type: str,
     ) -> gpd.GeoDataFrame:
-        """Convertit les géométries en type Multi.
+        """Convert geometries to Multi type.
 
         Args:
-            gdf: GeoDataFrame à convertir.
-            target_type: Type cible (MultiPolygon, MultiLineString, etc.).
+            gdf: GeoDataFrame to convert.
+            target_type: Target type (MultiPolygon, MultiLineString, etc.).
 
         Returns:
-            GeoDataFrame avec géométries converties.
+            GeoDataFrame with converted geometries.
         """
         from shapely.geometry import (
             LineString,
@@ -352,15 +352,15 @@ class ProductLoader(BaseLoader):
         return gdf
 
     def _get_table_name(self, layer: LayerConfig) -> str:
-        """Retourne le nom de table pour une couche.
+        """Return the table name for a layer.
 
-        Utilise la priorité: CLI > override couche > override produit > défaut.
+        Uses priority: CLI > layer override > product override > default.
 
         Args:
-            layer: Configuration de la couche.
+            layer: Layer configuration.
 
         Returns:
-            Nom de table complet.
+            Full table name.
         """
         schema_config = self.settings.schema_config
         cli_table = getattr(self, "_cli_table_name", None)
@@ -373,26 +373,26 @@ class ProductLoader(BaseLoader):
         )
 
     def _needs_type_produit(self, table_name: str) -> bool:
-        """Détermine si la colonne type_produit est nécessaire.
+        """Determine if the type_produit column is needed.
 
         Args:
-            table_name: Nom de la table.
+            table_name: Table name.
 
         Returns:
-            True si plusieurs produits partagent cette table.
+            True if multiple products share this table.
         """
         schema_config = self.settings.schema_config
         return schema_config.needs_type_produit(table_name, self.product.id)
 
     def _migrate_type_produit(self, table_name: str, schema_name: str | None) -> None:
-        """Ajoute la colonne type_produit si elle n'existe pas.
+        """Add the type_produit column if it does not exist.
 
-        Cette méthode effectue une migration automatique pour les tables
-        existantes qui n'ont pas encore la colonne type_produit.
+        This method performs an automatic migration for existing tables
+        that do not yet have the type_produit column.
 
         Args:
-            table_name: Nom de la table.
-            schema_name: Nom du schéma.
+            table_name: Table name.
+            schema_name: Schema name.
         """
         full_table = f"{schema_name}.{table_name}" if schema_name else table_name
 
@@ -445,13 +445,13 @@ class ProductLoader(BaseLoader):
             logger.info("Migration terminée pour %s", full_table)
 
     def list_available_layers(self) -> list[str]:
-        """Liste les couches disponibles pour ce produit.
+        """List available layers for this product.
 
         Returns:
-            Liste des noms de couches.
+            List of layer names.
         """
         return self.product.get_layer_names()
 
     def close(self) -> None:
-        """Ferme les ressources."""
+        """Close resources."""
         self.data_source.close()

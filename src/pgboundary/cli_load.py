@@ -1,10 +1,10 @@
-"""Commandes CLI pour le chargement des données.
+"""CLI commands for data loading.
 
-Ce module fournit la commande load améliorée avec :
-- Affichage de la configuration et choix multiple
-- Option --all pour import sans validation
-- Option --product pour import d'un seul produit
-- Sous-commande check pour vérifier les URL de téléchargement
+This module provides the enhanced load command with:
+- Configuration display and multiple selection
+- --all option to import without confirmation
+- --product option to import a single product
+- check subcommand to verify download URLs
 """
 
 from __future__ import annotations
@@ -33,49 +33,49 @@ console = Console()
 
 
 def _get_enabled_layers_count(prod_config: dict[str, Any]) -> tuple[int, int]:
-    """Compte les couches activées dans une configuration de produit.
+    """Count enabled layers in a product configuration.
 
     Args:
-        prod_config: Configuration du produit.
+        prod_config: Product configuration.
 
     Returns:
-        Tuple (nombre activées, nombre total).
+        Tuple (enabled count, total count).
     """
     layers = prod_config.get("layers", {})
     if isinstance(layers, dict):
         total = len(layers)
         enabled = sum(1 for layer in layers.values() if layer.get("enabled", True))
         return enabled, total
-    # Ancienne structure (liste)
+    # Legacy structure (list)
     return len(layers), len(layers) if layers else 0
 
 
 def _get_enabled_layer_names(prod_config: dict[str, Any]) -> list[str]:
-    """Retourne les noms des couches activées.
+    """Return the names of enabled layers.
 
     Args:
-        prod_config: Configuration du produit.
+        prod_config: Product configuration.
 
     Returns:
-        Liste des noms de couches activées.
+        List of enabled layer names.
     """
     layers = prod_config.get("layers", {})
     if isinstance(layers, dict):
         return [name for name, cfg in layers.items() if cfg.get("enabled", True)]
-    # Ancienne structure (liste)
+    # Legacy structure (list)
     return list(layers) if layers else []
 
 
 def show_import_selection(
     imports: dict[str, dict[str, Any]],
 ) -> list[str]:
-    """Affiche les imports et permet la sélection.
+    """Display imports and allow selection.
 
     Args:
-        imports: Configuration des imports.
+        imports: Import configuration.
 
     Returns:
-        Liste des product_ids sélectionnés.
+        List of selected product_ids.
     """
     from pgboundary.cli_widgets import ToggleItem, select_toggle_list
     from pgboundary.products import get_default_catalog
@@ -87,7 +87,7 @@ def show_import_selection(
 
     catalog = get_default_catalog()
 
-    # Construire les items pour le widget
+    # Build items for the widget
     products_list = list(imports.items())
     toggle_items = []
 
@@ -95,7 +95,7 @@ def show_import_selection(
         enabled_count, total_count = _get_enabled_layers_count(config)
         initial_selected = enabled_count > 0
 
-        # Construire la description
+        # Build the description
         years = ", ".join(config.get("years", []))
         hist = config.get("historization", {})
         hist_str = hist.get("method", "combined") if hist.get("enabled", False) else "non"
@@ -114,7 +114,7 @@ def show_import_selection(
             )
         )
 
-    # Afficher le widget interactif
+    # Display the interactive widget
     result = select_toggle_list(toggle_items, title="Produits à importer")
 
     if result.cancelled:
@@ -127,14 +127,14 @@ def _get_effective_layer_config(
     prod_config: dict[str, Any],
     layer_name: str,
 ) -> dict[str, Any]:
-    """Retourne la configuration effective d'une couche (avec héritage).
+    """Return the effective configuration of a layer (with inheritance).
 
     Args:
-        prod_config: Configuration du produit.
-        layer_name: Nom de la couche.
+        prod_config: Product configuration.
+        layer_name: Layer name.
 
     Returns:
-        Configuration effective de la couche.
+        Effective layer configuration.
     """
     layers = prod_config.get("layers", {})
     layer_config = layers.get(layer_name, {}) if isinstance(layers, dict) else {}
@@ -155,19 +155,19 @@ def run_import(
     settings: Settings,
     verbose: bool = False,
 ) -> dict[str, int]:
-    """Exécute l'import des produits sélectionnés.
+    """Execute the import of selected products.
 
-    Itère sur les couches activées de chaque produit et utilise
-    la configuration effective (avec héritage) de chaque couche.
+    Iterates over the enabled layers of each product and uses
+    the effective configuration (with inheritance) of each layer.
 
     Args:
-        product_ids: Liste des IDs de produits à importer.
-        imports: Configuration des imports.
-        settings: Paramètres de l'application.
-        verbose: Mode verbeux.
+        product_ids: List of product IDs to import.
+        imports: Import configuration.
+        settings: Application settings.
+        verbose: Verbose mode.
 
     Returns:
-        Dictionnaire {product_id: count} des enregistrements importés.
+        Dictionary {product_id: count} of imported records.
     """
     from pgboundary.loaders.product_loader import ProductLoader
     from pgboundary.products import FileFormat, get_default_catalog
@@ -183,7 +183,7 @@ def run_import(
             console.print(f"[yellow]Produit inconnu: {product_id}[/yellow]")
             continue
 
-        # Obtenir les couches activées
+        # Get enabled layers
         enabled_layers = _get_enabled_layer_names(config)
         if not enabled_layers:
             console.print(f"[yellow]Aucune couche activée pour {product_id}[/yellow]")
@@ -193,7 +193,7 @@ def run_import(
         console.print(f"  Couches: {', '.join(enabled_layers)}")
 
         try:
-            # Créer le loader
+            # Create the loader
             loader = ProductLoader(
                 product=product,
                 catalog=catalog,
@@ -202,7 +202,7 @@ def run_import(
 
             total = 0
 
-            # Importer chaque couche activée
+            # Import each enabled layer
             for layer_name in enabled_layers:
                 layer_config = _get_effective_layer_config(config, layer_name)
 
@@ -215,11 +215,11 @@ def run_import(
                 territory = layer_config["territory"]
                 years = layer_config["years"]
 
-                # Importer chaque année pour cette couche
+                # Import each year for this layer
                 for year in years:
                     console.print(f"    Année {year}...")
 
-                    # Déterminer le mode d'import
+                    # Determine the import mode
                     hist_config = layer_config.get("historization", {})
                     if_exists = "append" if hist_config.get("enabled", False) else "replace"
 
@@ -227,7 +227,7 @@ def run_import(
                         file_format=file_format,
                         territory=territory,
                         year=year,
-                        layers=[layer_name],  # Une seule couche à la fois
+                        layers=[layer_name],  # One layer at a time
                         if_exists=if_exists,  # type: ignore[arg-type]
                     )
                     total += count
@@ -263,13 +263,13 @@ def load_command(
         typer.Option("--verbose", "-V", help="Mode verbeux."),
     ] = False,
 ) -> None:
-    """Charge les données selon la configuration.
+    """Load data according to the configuration.
 
-    Sans option: affiche la configuration et demande validation.
-    Avec --all: importe sans validation.
-    Avec --product: importe un seul produit.
+    Without options: displays the configuration and asks for confirmation.
+    With --all: imports without confirmation.
+    With --product: imports a single product.
     """
-    # Charger la configuration
+    # Load the configuration
     config_path = config_file or (Path.cwd() / "pgboundary.yml")
 
     if not config_path.exists():
@@ -285,38 +285,38 @@ def load_command(
         console.print("Utilisez [bold]pgboundary config add-data[/bold] pour ajouter des produits.")
         raise typer.Exit(1)
 
-    # Déterminer les produits à importer
+    # Determine which products to import
     if product:
-        # Un seul produit
+        # Single product
         if product not in imports:
             console.print(f"[red]Produit non configuré: {product}[/red]")
             console.print(f"Produits disponibles: {', '.join(imports.keys())}")
             raise typer.Exit(1)
         selected_products = [product]
     elif all_products:
-        # Tous les produits avec au moins une couche activée
+        # All products with at least one enabled layer
         selected_products = [
             pid for pid, cfg in imports.items() if _get_enabled_layers_count(cfg)[0] > 0
         ]
     else:
-        # Sélection interactive
+        # Interactive selection
         selected_products = show_import_selection(imports)
 
     if not selected_products:
         console.print("[yellow]Aucun produit sélectionné.[/yellow]")
         raise typer.Exit(0)
 
-    # Confirmer si pas --all
+    # Confirm if not --all
     if not all_products and not product:
         console.print(f"\n[bold]Produits à importer: {len(selected_products)}[/bold]")
         if not Confirm.ask("Lancer l'import ?"):
             raise typer.Exit(0)
 
-    # Exécuter l'import
+    # Execute the import
     settings = Settings()
     results = run_import(selected_products, imports, settings, verbose)
 
-    # Résumé
+    # Summary
     console.print()
     console.print(Panel.fit("[bold blue]Résumé de l'import[/bold blue]"))
 
@@ -339,16 +339,16 @@ def _try_sqlite_url(
     territory: str,
     date: str | None = None,
 ) -> str | None:
-    """Tente de résoudre une URL de téléchargement depuis la base SQLite.
+    """Attempt to resolve a download URL from the SQLite database.
 
     Args:
-        product: Produit IGN avec api_product.
-        file_format: Format de fichier.
-        territory: Code territoire.
-        date: Date spécifique (optionnel).
+        product: IGN product with api_product.
+        file_format: File format.
+        territory: Territory code.
+        date: Specific date (optional).
 
     Returns:
-        URL depuis SQLite ou None.
+        URL from SQLite or None.
     """
     if not product.api_product:
         return None
@@ -374,14 +374,14 @@ def _try_sqlite_url(
 
 
 def _check_url(client: httpx.Client, url: str) -> tuple[int | None, str]:
-    """Vérifie l'accessibilité d'une URL par requête HEAD.
+    """Check the accessibility of a URL via HEAD request.
 
     Args:
-        client: Client HTTP.
-        url: URL à vérifier.
+        client: HTTP client.
+        url: URL to check.
 
     Returns:
-        Tuple (code HTTP ou None, message).
+        Tuple (HTTP status code or None, message).
     """
     try:
         response = client.head(url)
@@ -420,13 +420,13 @@ def check_urls_command(
     ] = False,
     department: str | None = None,
 ) -> None:
-    """Vérifie l'accessibilité des URL de téléchargement.
+    """Check the accessibility of download URLs.
 
-    Sans option: vérifie les URL des produits configurés.
-    Avec --all: vérifie les URL de tous les produits du catalogue.
-    Avec --product: vérifie les URL d'un produit spécifique (tous territoires et formats).
-    Avec --date: utilise une date spécifique (ex: 2025, 2025-09-15).
-    Avec --department: vérifie les URL par département (nécessite --product).
+    Without options: checks URLs of configured products.
+    With --all: checks URLs of all products in the catalog.
+    With --product: checks URLs of a specific product (all territories and formats).
+    With --date: uses a specific date (e.g., 2025, 2025-09-15).
+    With --department: checks URLs by department (requires --product).
     """
     from pgboundary.products import FileFormat, get_default_catalog
     from pgboundary.products.catalog import FRENCH_DEPARTMENTS, validate_department_code
@@ -435,7 +435,7 @@ def check_urls_command(
     catalog = get_default_catalog()
     source = IGNDataSource()
 
-    # Validation du paramètre --department
+    # Validate the --department parameter
     if department and not product_id:
         console.print("[red]L'option --department nécessite --product.[/red]")
         raise typer.Exit(1)
@@ -443,14 +443,14 @@ def check_urls_command(
     default_year = str(datetime.now().year)
 
     def _resolve_date(prod: IGNProduct) -> str:
-        """Résout la date à utiliser: option CLI > last_date du produit > année courante."""
+        """Resolve the date to use: CLI option > product last_date > current year."""
         if date:
             return date
         if prod.last_date:
             return prod.last_date
         return default_year
 
-    # Construire la liste des (label, url) à vérifier
+    # Build the list of (label, url) to check
     urls_to_check: list[tuple[str, str]] = []
 
     if product_id:
@@ -463,7 +463,7 @@ def check_urls_command(
             console.print(f"[yellow]{product_id}: produit généré, pas d'URL à vérifier.[/yellow]")
             raise typer.Exit(0)
 
-        # Gestion du téléchargement par département
+        # Handle download by department
         if department:
             if not product.supports_department_download:
                 console.print(

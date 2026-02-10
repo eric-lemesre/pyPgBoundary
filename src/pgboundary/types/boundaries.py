@@ -1,4 +1,4 @@
-"""Modèles de données pour les limites administratives françaises."""
+"""Data models for French administrative boundaries."""
 
 from datetime import date
 from enum import StrEnum
@@ -9,7 +9,7 @@ from shapely.geometry import MultiPolygon, Polygon
 
 
 class AdminLevel(StrEnum):
-    """Niveaux administratifs français."""
+    """French administrative levels."""
 
     REGION = "region"
     DEPARTEMENT = "departement"
@@ -20,71 +20,69 @@ class AdminLevel(StrEnum):
 
 
 class BoundaryBase(BaseModel):
-    """Modèle de base pour une limite administrative."""
+    """Base model for an administrative boundary."""
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    id: str = Field(..., description="Identifiant unique")
-    nom: str = Field(..., description="Nom de l'entité")
-    geometry: Polygon | MultiPolygon = Field(..., description="Géométrie de l'entité")
-    date_creation: date | None = Field(default=None, description="Date de création")
-    date_modification: date | None = Field(
-        default=None, description="Date de dernière modification"
-    )
+    id: str = Field(..., description="Unique identifier")
+    nom: str = Field(..., description="Entity name")
+    geometry: Polygon | MultiPolygon = Field(..., description="Entity geometry")
+    date_creation: date | None = Field(default=None, description="Creation date")
+    date_modification: date | None = Field(default=None, description="Last modification date")
 
     def to_dict(self) -> dict[str, Any]:
-        """Convertit le modèle en dictionnaire pour insertion."""
+        """Convert the model to a dictionary for insertion."""
         data = self.model_dump(exclude={"geometry"})
         data["geometry"] = self.geometry.wkt
         return data
 
 
 class Region(BoundaryBase):
-    """Région française."""
+    """French region."""
 
-    code_insee: str = Field(..., description="Code INSEE de la région", pattern=r"^\d{2}$")
-    chef_lieu: str | None = Field(default=None, description="Code INSEE du chef-lieu")
+    code_insee: str = Field(..., description="INSEE code of the region", pattern=r"^\d{2}$")
+    chef_lieu: str | None = Field(default=None, description="INSEE code of the capital")
 
 
 class Departement(BoundaryBase):
-    """Département français."""
+    """French department."""
 
     code_insee: str = Field(
         ...,
-        description="Code INSEE du département",
+        description="INSEE code of the department",
         pattern=r"^(\d{2}|2[AB]|9[78]\d)$",
     )
-    code_region: str = Field(..., description="Code INSEE de la région")
-    chef_lieu: str | None = Field(default=None, description="Code INSEE de la préfecture")
+    code_region: str = Field(..., description="INSEE code of the region")
+    chef_lieu: str | None = Field(default=None, description="INSEE code of the prefecture")
 
 
 class EPCI(BoundaryBase):
-    """Établissement Public de Coopération Intercommunale."""
+    """Public Establishment for Intercommunal Cooperation (EPCI)."""
 
-    code_siren: str = Field(..., description="Code SIREN de l'EPCI", pattern=r"^\d{9}$")
-    nature: str = Field(..., description="Nature juridique (CC, CA, CU, MET)")
-    code_departement: str | None = Field(default=None, description="Code du département principal")
+    code_siren: str = Field(..., description="SIREN code of the EPCI", pattern=r"^\d{9}$")
+    nature: str = Field(..., description="Legal nature (CC, CA, CU, MET)")
+    code_departement: str | None = Field(default=None, description="Main department code")
 
 
 class Commune(BoundaryBase):
-    """Commune française."""
+    """French commune (municipality)."""
 
     code_insee: str = Field(
         ...,
-        description="Code INSEE de la commune",
+        description="INSEE code of the commune",
         pattern=r"^(\d{5}|2[AB]\d{3}|9[78]\d{3})$",
     )
-    code_postal: str | None = Field(default=None, description="Code postal principal")
-    code_departement: str = Field(..., description="Code INSEE du département")
-    code_region: str = Field(..., description="Code INSEE de la région")
-    code_epci: str | None = Field(default=None, description="Code SIREN de l'EPCI")
-    population: int | None = Field(default=None, description="Population municipale")
-    superficie: float | None = Field(default=None, description="Superficie en km²")
+    code_postal: str | None = Field(default=None, description="Main postal code")
+    code_departement: str = Field(..., description="INSEE code of the department")
+    code_region: str = Field(..., description="INSEE code of the region")
+    code_epci: str | None = Field(default=None, description="SIREN code of the EPCI")
+    population: int | None = Field(default=None, description="Municipal population")
+    superficie: float | None = Field(default=None, description="Area in km²")
 
 
 class CommuneAssocieeDeleguee(BoundaryBase):
-    """Commune associée ou déléguée."""
+    """Associated or delegated commune."""
 
-    code_insee: str = Field(..., description="Code INSEE")
-    code_commune_parente: str = Field(..., description="Code INSEE de la commune parente")
-    type_entite: str = Field(..., description="Type: COMA (associée) ou COMD (déléguée)")
+    code_insee: str = Field(..., description="INSEE code")
+    code_commune_parente: str = Field(..., description="INSEE code of the parent commune")
+    type_entite: str = Field(..., description="Type: COMA (associated) or COMD (delegated)")

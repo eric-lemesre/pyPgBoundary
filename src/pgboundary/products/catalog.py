@@ -1,7 +1,7 @@
-"""Modèle de catalogue des produits IGN.
+"""IGN product catalog model.
 
-Ce module définit les structures de données pour décrire les produits
-géographiques disponibles sur le géoportail IGN.
+This module defines the data structures used to describe geographic
+products available on the IGN geoportal.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 class FileFormat(StrEnum):
-    """Formats de fichiers disponibles."""
+    """Available file formats."""
 
     SHP = "shp"
     GPKG = "gpkg"
@@ -24,18 +24,18 @@ class FileFormat(StrEnum):
 
 
 class ProductCategory(StrEnum):
-    """Catégories de produits IGN."""
+    """IGN product categories."""
 
-    ADMIN = "administrative"  # Limites administratives
-    STATS = "statistics"  # Données statistiques (IRIS)
-    ELECTORAL = "electoral"  # Circonscriptions électorales
-    LAND = "landcover"  # Occupation du sol (forêt, BCAE)
-    ADDRESS = "address"  # Adresses
-    CARTO = "cartography"  # Données cartographiques
+    ADMIN = "administrative"  # Administrative boundaries
+    STATS = "statistics"  # Statistical data (IRIS)
+    ELECTORAL = "electoral"  # Electoral districts
+    LAND = "landcover"  # Land cover (forest, BCAE)
+    ADDRESS = "address"  # Addresses
+    CARTO = "cartography"  # Cartographic data
 
 
 class GeometryType(StrEnum):
-    """Types de géométrie supportés."""
+    """Supported geometry types."""
 
     POINT = "Point"
     MULTIPOINT = "MultiPoint"
@@ -46,129 +46,129 @@ class GeometryType(StrEnum):
 
 
 class LayerConfig(BaseModel):
-    """Configuration d'une couche de données.
+    """Data layer configuration.
 
     Attributes:
-        name: Nom technique de la couche (ex: REGION, COMMUNE).
-        table_key: Clé pour le mapping de table dans la configuration.
-        geometry_type: Type de géométrie de la couche.
-        description_fr: Description en français.
-        description_en: Description en anglais.
-        optional: Si True, la couche peut ne pas être présente dans le produit.
+        name: Technical name of the layer (e.g. REGION, COMMUNE).
+        table_key: Key for the table mapping in the configuration.
+        geometry_type: Geometry type of the layer.
+        description_fr: Description in French.
+        description_en: Description in English.
+        optional: If True, the layer may not be present in the product.
     """
 
-    name: str = Field(..., description="Nom technique de la couche")
-    table_key: str = Field(..., description="Clé pour le mapping de table")
+    name: str = Field(..., description="Technical name of the layer")
+    table_key: str = Field(..., description="Key for the table mapping")
     geometry_type: GeometryType = Field(
         default=GeometryType.MULTIPOLYGON,
-        description="Type de géométrie",
+        description="Geometry type",
     )
-    description_fr: str = Field(default="", description="Description en français")
-    description_en: str = Field(default="", description="Description en anglais")
-    optional: bool = Field(default=False, description="Couche optionnelle")
+    description_fr: str = Field(default="", description="Description in French")
+    description_en: str = Field(default="", description="Description in English")
+    optional: bool = Field(default=False, description="Optional layer")
 
 
 class TerritoryCode(StrEnum):
-    """Codes des territoires disponibles.
+    """Available territory codes.
 
-    Ces codes correspondent aux codes IGN utilisés dans les URLs de téléchargement.
+    These codes correspond to the IGN codes used in download URLs.
     """
 
-    FRA = "FRA"  # France entière (métropole + DROM)
-    FXX = "FXX"  # France métropolitaine uniquement
+    FRA = "FRA"  # All of France (metropolitan + overseas)
+    FXX = "FXX"  # Metropolitan France only
     GLP = "GLP"  # Guadeloupe
     MTQ = "MTQ"  # Martinique
-    GUF = "GUF"  # Guyane française
-    REU = "REU"  # La Réunion
+    GUF = "GUF"  # French Guiana
+    REU = "REU"  # Reunion
     MYT = "MYT"  # Mayotte
 
 
 FRENCH_DEPARTMENTS: list[str] = [
     *(f"{i:02d}" for i in range(1, 20)),  # 01-19
     "2A",
-    "2B",  # Corse
+    "2B",  # Corsica
     *(f"{i}" for i in range(21, 96)),  # 21-95
     "971",
     "972",
     "973",
     "974",
-    "976",  # DROM (hors 975 Saint-Pierre-et-Miquelon)
+    "976",  # Overseas departments (excluding 975 Saint-Pierre-et-Miquelon)
 ]
-"""Liste des 101 codes départements français."""
+"""List of the 101 French department codes."""
 
 
 def validate_department_code(code: str) -> bool:
-    """Vérifie si un code département est valide.
+    """Check whether a department code is valid.
 
     Args:
-        code: Code département à vérifier.
+        code: Department code to check.
 
     Returns:
-        True si le code est valide.
+        True if the code is valid.
     """
     return code in FRENCH_DEPARTMENTS
 
 
 class IGNProduct(BaseModel):
-    """Définition d'un produit IGN.
+    """Definition of an IGN product.
 
     Attributes:
-        id: Identifiant unique du produit (ex: admin-express-cog).
-        name: Nom officiel du produit.
-        description_fr: Description en français.
-        description_en: Description en anglais.
-        category: Catégorie du produit.
-        formats: Liste des formats de fichiers disponibles.
-        territories: Liste des territoires disponibles.
-        layers: Liste des couches de données disponibles.
-        url_template: Template d'URL pour le téléchargement.
-        version_pattern: Pattern de version (ex: "3-2", "{year}").
-        archive_extension: Extension de l'archive (7z par défaut).
-        size_mb: Taille approximative en Mo (pour France entière, format SHP).
+        id: Unique product identifier (e.g. admin-express-cog).
+        name: Official product name.
+        description_fr: Description in French.
+        description_en: Description in English.
+        category: Product category.
+        formats: List of available file formats.
+        territories: List of available territories.
+        layers: List of available data layers.
+        url_template: URL template for downloading.
+        version_pattern: Version pattern (e.g. "3-2", "{year}").
+        archive_extension: Archive extension (7z by default).
+        size_mb: Approximate size in MB (for all of France, SHP format).
     """
 
-    id: str = Field(..., description="Identifiant unique du produit")
-    name: str = Field(..., description="Nom officiel du produit")
-    api_product: str | None = Field(default=None, description="Nom API Atom IGN")
-    provider: str = Field(default="IGN", description="Fournisseur (IGN, data.gouv.fr, etc.)")
-    description_fr: str = Field(..., description="Description en français")
-    description_en: str = Field(..., description="Description en anglais")
-    category: ProductCategory = Field(..., description="Catégorie du produit")
-    formats: list[FileFormat] = Field(..., description="Formats disponibles")
-    territories: list[TerritoryCode] = Field(..., description="Territoires disponibles")
-    layers: list[LayerConfig] = Field(..., description="Couches disponibles")
-    url_template: str = Field(..., description="Template URL pour le téléchargement")
-    version_pattern: str = Field(..., description="Pattern de version")
-    archive_extension: str = Field(default="7z", description="Extension de l'archive")
+    id: str = Field(..., description="Unique product identifier")
+    name: str = Field(..., description="Official product name")
+    api_product: str | None = Field(default=None, description="IGN Atom API name")
+    provider: str = Field(default="IGN", description="Provider (IGN, data.gouv.fr, etc.)")
+    description_fr: str = Field(..., description="Description in French")
+    description_en: str = Field(..., description="Description in English")
+    category: ProductCategory = Field(..., description="Product category")
+    formats: list[FileFormat] = Field(..., description="Available formats")
+    territories: list[TerritoryCode] = Field(..., description="Available territories")
+    layers: list[LayerConfig] = Field(..., description="Available layers")
+    url_template: str = Field(..., description="URL template for downloading")
+    version_pattern: str = Field(..., description="Version pattern")
+    archive_extension: str = Field(default="7z", description="Archive extension")
     last_date: str | None = Field(
         default=None,
-        description="Dernière date de publication connue (YYYY-MM-DD ou YYYY)",
+        description="Latest known publication date (YYYY-MM-DD or YYYY)",
     )
     available_dates: list[str] = Field(
         default_factory=list,
-        description="Liste des dates de publication connues (YYYY-MM-DD ou YYYY)",
+        description="List of known publication dates (YYYY-MM-DD or YYYY)",
     )
     size_mb: float | None = Field(
-        default=None, description="Taille approximative en Mo (France entière, SHP)"
+        default=None, description="Approximate size in MB (all of France, SHP)"
     )
     department_url_template: str | None = Field(
         default=None,
-        description="Template URL pour le téléchargement par département (avec placeholder {department})",
+        description="URL template for per-department download (with {department} placeholder)",
     )
 
     @property
     def supports_department_download(self) -> bool:
-        """Indique si le produit supporte le téléchargement par département."""
+        """Indicate whether the product supports per-department download."""
         return self.department_url_template is not None
 
     def get_layer(self, name: str) -> LayerConfig | None:
-        """Retourne la configuration d'une couche par son nom.
+        """Return the configuration of a layer by its name.
 
         Args:
-            name: Nom de la couche.
+            name: Name of the layer.
 
         Returns:
-            Configuration de la couche ou None si non trouvée.
+            Layer configuration, or None if not found.
         """
         for layer in self.layers:
             if layer.name == name:
@@ -176,40 +176,40 @@ class IGNProduct(BaseModel):
         return None
 
     def get_layer_names(self) -> list[str]:
-        """Retourne la liste des noms de couches.
+        """Return the list of layer names.
 
         Returns:
-            Liste des noms de couches.
+            List of layer names.
         """
         return [layer.name for layer in self.layers]
 
     def supports_format(self, format: FileFormat) -> bool:
-        """Vérifie si le produit supporte un format donné.
+        """Check whether the product supports a given format.
 
         Args:
-            format: Format à vérifier.
+            format: Format to check.
 
         Returns:
-            True si le format est supporté.
+            True if the format is supported.
         """
         return format in self.formats
 
     def supports_territory(self, territory: TerritoryCode) -> bool:
-        """Vérifie si le produit supporte un territoire donné.
+        """Check whether the product supports a given territory.
 
         Args:
-            territory: Territoire à vérifier.
+            territory: Territory to check.
 
         Returns:
-            True si le territoire est supporté.
+            True if the territory is supported.
         """
         return territory in self.territories
 
     def get_size_formatted(self) -> str:
-        """Retourne la taille formatée avec l'unité appropriée.
+        """Return the size formatted with the appropriate unit.
 
         Returns:
-            Taille formatée (ex: "500 Mo", "1.2 Go", "50 Ko") ou "?" si inconnue.
+            Formatted size (e.g. "500 Mo", "1.2 Go", "50 Ko") or "?" if unknown.
         """
         if self.size_mb is None:
             return "?"
@@ -223,92 +223,92 @@ class IGNProduct(BaseModel):
 
 
 class ProductCatalog:
-    """Catalogue des produits IGN disponibles.
+    """Catalog of available IGN products.
 
-    Cette classe gère l'enregistrement et la recherche de produits IGN.
-    Elle est utilisée comme point d'entrée pour découvrir les produits disponibles.
+    This class manages the registration and lookup of IGN products.
+    It serves as the entry point for discovering available products.
     """
 
     def __init__(self) -> None:
-        """Initialise un catalogue vide."""
+        """Initialize an empty catalog."""
         self._products: dict[str, IGNProduct] = {}
 
     def register(self, product: IGNProduct) -> None:
-        """Enregistre un produit dans le catalogue.
+        """Register a product in the catalog.
 
         Args:
-            product: Produit à enregistrer.
+            product: Product to register.
         """
         self._products[product.id] = product
 
     def register_many(self, products: list[IGNProduct]) -> None:
-        """Enregistre plusieurs produits dans le catalogue.
+        """Register multiple products in the catalog.
 
         Args:
-            products: Liste de produits à enregistrer.
+            products: List of products to register.
         """
         for product in products:
             self.register(product)
 
     def get(self, product_id: str) -> IGNProduct | None:
-        """Retourne un produit par son identifiant.
+        """Return a product by its identifier.
 
         Args:
-            product_id: Identifiant du produit.
+            product_id: Product identifier.
 
         Returns:
-            Produit ou None si non trouvé.
+            Product, or None if not found.
         """
         return self._products.get(product_id)
 
     def list_by_category(self, category: ProductCategory) -> list[IGNProduct]:
-        """Liste les produits d'une catégorie donnée.
+        """List products belonging to a given category.
 
         Args:
-            category: Catégorie de produits.
+            category: Product category.
 
         Returns:
-            Liste des produits de cette catégorie.
+            List of products in that category.
         """
         return [p for p in self._products.values() if p.category == category]
 
     def list_all(self) -> list[IGNProduct]:
-        """Liste tous les produits enregistrés.
+        """List all registered products.
 
         Returns:
-            Liste de tous les produits.
+            List of all products.
         """
         return list(self._products.values())
 
     def list_ids(self) -> list[str]:
-        """Liste les identifiants de tous les produits.
+        """List the identifiers of all products.
 
         Returns:
-            Liste des identifiants.
+            List of identifiers.
         """
         return list(self._products.keys())
 
     def __iter__(self) -> Iterator[IGNProduct]:
-        """Itère sur les produits du catalogue."""
+        """Iterate over the products in the catalog."""
         return iter(self._products.values())
 
     def __len__(self) -> int:
-        """Retourne le nombre de produits."""
+        """Return the number of products."""
         return len(self._products)
 
     def __contains__(self, product_id: str) -> bool:
-        """Vérifie si un produit existe dans le catalogue."""
+        """Check whether a product exists in the catalog."""
         return product_id in self._products
 
 
 def get_default_catalog() -> ProductCatalog:
-    """Retourne le catalogue par défaut avec tous les produits.
+    """Return the default catalog with all products.
 
-    Charge les définitions depuis les fichiers YAML dans sources/,
-    puis enrichit les produits IGN avec les données SQLite si disponibles.
+    Loads definitions from YAML files in sources/, then enriches
+    IGN products with SQLite data if available.
 
     Returns:
-        Catalogue initialisé avec tous les produits.
+        Catalog initialized with all products.
     """
     from pgboundary.sources.loader import load_sources
 
@@ -318,14 +318,14 @@ def get_default_catalog() -> ProductCatalog:
 
 
 def _enrich_from_sqlite(catalog: ProductCatalog) -> None:
-    """Enrichit les produits du catalogue avec les données SQLite.
+    """Enrich catalog products with SQLite data.
 
-    Pour chaque produit ayant un `api_product`, cherche dans la base
-    SQLite les dates disponibles et la dernière date, puis met à jour
-    le produit en conséquence. Dégradation gracieuse si la base n'existe pas.
+    For each product that has an `api_product`, looks up available dates
+    and the latest date in the SQLite database, then updates the product
+    accordingly. Degrades gracefully if the database does not exist.
 
     Args:
-        catalog: Catalogue à enrichir (modifié sur place).
+        catalog: Catalog to enrich (modified in place).
     """
     import logging
 
@@ -361,18 +361,18 @@ def _enrich_from_sqlite(catalog: ProductCatalog) -> None:
 
 
 def get_admin_express_product(variant: str = "cog") -> IGNProduct | None:
-    """Retourne un produit Admin Express par sa variante.
+    """Return an Admin Express product by its variant.
 
     Args:
-        variant: Variante du produit:
-            - "base" ou "express": ADMIN EXPRESS
-            - "cog": ADMIN EXPRESS COG (défaut)
+        variant: Product variant:
+            - "base" or "express": ADMIN EXPRESS
+            - "cog": ADMIN EXPRESS COG (default)
             - "carto": ADMIN EXPRESS COG CARTO
             - "pe": ADMIN EXPRESS COG CARTO PE
-            - "plus" ou "plus-pe": ADMIN EXPRESS COG CARTO PLUS PE
+            - "plus" or "plus-pe": ADMIN EXPRESS COG CARTO PLUS PE
 
     Returns:
-        Produit correspondant ou None si non trouvé.
+        Matching product, or None if not found.
     """
     variant_mapping = {
         "base": "admin-express",
@@ -393,17 +393,17 @@ def get_admin_express_product(variant: str = "cog") -> IGNProduct | None:
 
 
 def get_codes_postaux_product(variant: str = "ban") -> IGNProduct | None:
-    """Retourne un produit codes postaux par sa variante.
+    """Return a postal codes product by its variant.
 
     Args:
-        variant: Variante du produit:
-            - "ban" ou "contours": Contours calculés BAN (défaut)
-            - "laposte", "hexaposte" ou "official": Base officielle La Poste
-            - "geoclip" ou "fond": Fond de carte Géoclip
-            - "generated", "voronoi" ou "computed": Génération Voronoï
+        variant: Product variant:
+            - "ban" or "contours": BAN computed contours (default)
+            - "laposte", "hexaposte" or "official": Official La Poste database
+            - "geoclip" or "fond": Geoclip basemap
+            - "generated", "voronoi" or "computed": Voronoi generation
 
     Returns:
-        Produit correspondant ou None si non trouvé.
+        Matching product, or None if not found.
     """
     variant_mapping = {
         "ban": "codes-postaux-ban",

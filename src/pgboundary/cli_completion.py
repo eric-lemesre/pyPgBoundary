@@ -1,4 +1,4 @@
-"""Commandes CLI pour la gestion de la complétion shell."""
+"""CLI commands for shell completion management."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ console = Console()
 
 
 class Shell(StrEnum):
-    """Shells supportés pour la complétion."""
+    """Supported shells for completion."""
 
     BASH = "bash"
     ZSH = "zsh"
@@ -26,7 +26,7 @@ class Shell(StrEnum):
     POWERSHELL = "powershell"
 
 
-# Fichiers de configuration par shell
+# Configuration files per shell
 SHELL_CONFIG_FILES: dict[Shell, list[str]] = {
     Shell.BASH: ["~/.bashrc", "~/.bash_profile"],
     Shell.ZSH: ["~/.zshrc"],
@@ -34,7 +34,7 @@ SHELL_CONFIG_FILES: dict[Shell, list[str]] = {
     Shell.POWERSHELL: ["$PROFILE"],
 }
 
-# Instructions d'installation par shell (Typer 0.21+)
+# Installation instructions per shell (Typer 0.21+)
 INSTALL_INSTRUCTIONS: dict[Shell, str] = {
     Shell.BASH: 'eval "$(pgboundary --show-completion bash)"',
     Shell.ZSH: 'eval "$(pgboundary --show-completion zsh)"',
@@ -50,7 +50,7 @@ completion_app = typer.Typer(
 
 
 def _detect_shell() -> Shell | None:
-    """Détecte le shell actuel."""
+    """Detect the current shell."""
     import os
 
     shell_path = os.environ.get("SHELL", "")
@@ -65,7 +65,7 @@ def _detect_shell() -> Shell | None:
     elif "pwsh" in shell_name or "powershell" in shell_name:
         return Shell.POWERSHELL
 
-    # Fallback pour Windows
+    # Fallback for Windows
     if sys.platform == "win32":
         return Shell.POWERSHELL
 
@@ -73,7 +73,7 @@ def _detect_shell() -> Shell | None:
 
 
 def _get_completion_script(shell: Shell) -> str:
-    """Génère le script de complétion pour un shell."""
+    """Generate the completion script for a shell."""
     env_var_name = "_PGBOUNDARY_COMPLETE"
     env_var_value = f"{shell.value}_source"
     try:
@@ -98,7 +98,7 @@ def completion_show(
         ),
     ] = None,
 ) -> None:
-    """Affiche le script de complétion pour le shell spécifié."""
+    """Display the completion script for the specified shell."""
     if shell is None:
         shell = _detect_shell()
         if shell is None:
@@ -133,7 +133,7 @@ def completion_install(
         ),
     ] = None,
 ) -> None:
-    """Installe la complétion automatique pour le shell spécifié."""
+    """Install auto-completion for the specified shell."""
     if shell is None:
         shell = _detect_shell()
         if shell is None:
@@ -147,7 +147,7 @@ def completion_install(
     instruction = INSTALL_INSTRUCTIONS[shell]
     config_files = SHELL_CONFIG_FILES[shell]
 
-    # Trouver le fichier de configuration existant
+    # Find the existing configuration file
     target_file: Path | None = None
     for config_file in config_files:
         expanded = Path(config_file).expanduser()
@@ -156,23 +156,23 @@ def completion_install(
             break
 
     if target_file is None:
-        # Utiliser le premier fichier par défaut
+        # Use the first file as default
         target_file = Path(config_files[0]).expanduser()
 
-    # Vérifier si déjà installé
+    # Check if already installed
     if target_file.exists():
         content = target_file.read_text()
         if "_PGBOUNDARY_COMPLETE" in content:
             console.print(f"[yellow]La complétion est déjà configurée dans {target_file}[/yellow]")
             raise typer.Exit(0)
 
-    # Installer
+    # Install
     console.print(f"Installation de la complétion dans [bold]{target_file}[/bold]...")
 
-    # Créer le répertoire parent si nécessaire (pour fish)
+    # Create the parent directory if needed (for fish)
     target_file.parent.mkdir(parents=True, exist_ok=True)
 
-    # Ajouter le script
+    # Append the script
     with target_file.open("a") as f:
         f.write(f"\n# pgboundary shell completion\n{instruction}\n")
 
@@ -183,7 +183,7 @@ def completion_install(
 
 @completion_app.command("status")
 def completion_status() -> None:
-    """Affiche le statut de la complétion pour tous les shells."""
+    """Display the completion status for all shells."""
     table = Table(title="Statut de la complétion shell")
     table.add_column("Shell", style="cyan")
     table.add_column("Fichier config", style="dim")
@@ -208,7 +208,7 @@ def completion_status() -> None:
 
     console.print(table)
 
-    # Détecter le shell actuel
+    # Detect the current shell
     current_shell = _detect_shell()
     if current_shell:
         console.print(f"\n[dim]Shell actuel détecté : {current_shell.value}[/dim]")

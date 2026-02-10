@@ -1,9 +1,9 @@
-"""Commandes CLI pour le catalogue des produits IGN.
+"""CLI commands for the IGN product catalog.
 
-Sous-groupe `pgboundary catalog` :
-- catalog update : scrape l'API Atom, met à jour SQLite
-- catalog list   : liste les produits connus
-- catalog show   : détails d'un produit
+Subgroup `pgboundary catalog`:
+- catalog update : scrape the Atom API, update SQLite
+- catalog list   : list known products
+- catalog show   : product details
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ def catalog_update(
         typer.Option("--force", "-f", help="Force le scan même si les données sont fraîches."),
     ] = False,
 ) -> None:
-    """Scrape l'API Atom IGN et met à jour la base SQLite locale."""
+    """Scrape the IGN Atom API and update the local SQLite database."""
     from pgboundary.sources.explorer import CatalogExplorer
 
     settings = Settings()
@@ -70,7 +70,7 @@ def catalog_update(
 
             result = explorer.scan_all(force=force, progress_callback=on_progress)
 
-    # Afficher le résultat
+    # Display the result
     console.print()
     table = Table(title="Résultat du scan")
     table.add_column("Métrique", style="cyan")
@@ -99,19 +99,19 @@ def catalog_list(
         typer.Option("--category", "-c", help="Filtrer par catégorie."),
     ] = None,
 ) -> None:
-    """Liste les produits connus (SQLite + YAML)."""
+    """List known products (SQLite + YAML)."""
     from pgboundary.products import get_default_catalog
     from pgboundary.products.catalog_db import CatalogDatabase
 
     settings = Settings()
     catalog = get_default_catalog()
 
-    # Produits YAML
+    # YAML products
     yaml_products = catalog.list_all()
     if category:
         yaml_products = [p for p in yaml_products if p.category.value == category]
 
-    # Produits SQLite (pour info supplémentaire)
+    # SQLite products (for additional info)
     db_products: dict[str, dict[str, Any]] = {}
     if settings.catalog_db.exists():
         try:
@@ -157,7 +157,7 @@ def catalog_list(
             last_date,
         )
 
-    # Ajouter les produits SQLite non présents dans les YAML
+    # Add SQLite products not present in YAML definitions
     yaml_api_names = {p.api_product for p in catalog.list_all() if p.api_product}
     for name, info in db_products.items():
         if name not in yaml_api_names:
@@ -201,20 +201,20 @@ def catalog_show(
         typer.Argument(help="Nom API du produit (ex: ADMIN-EXPRESS-COG) ou ID YAML."),
     ],
 ) -> None:
-    """Affiche les détails d'un produit : éditions, dates, formats, zones."""
+    """Display product details: editions, dates, formats, zones."""
     from pgboundary.products import get_default_catalog
     from pgboundary.products.catalog_db import CatalogDatabase
 
     settings = Settings()
     catalog = get_default_catalog()
 
-    # Résoudre le nom : soit un ID YAML, soit un nom API
+    # Resolve the name: either a YAML ID or an API name
     yaml_product = catalog.get(product_name)
     api_name = product_name.upper()
     if yaml_product:
         api_name = yaml_product.api_product or product_name.upper()
 
-    # Afficher les infos YAML si disponibles
+    # Display YAML info if available
     if yaml_product:
         console.print(f"\n[bold]{yaml_product.name}[/bold] ({yaml_product.id})")
         console.print(f"  Fournisseur : {yaml_product.provider}")
@@ -226,7 +226,7 @@ def catalog_show(
     else:
         console.print(f"\n[bold]{api_name}[/bold] [dim](pas de définition YAML)[/dim]")
 
-    # Afficher les éditions SQLite
+    # Display SQLite editions
     if not settings.catalog_db.exists():
         console.print(
             "\n[yellow]Base SQLite non trouvée. "
@@ -246,13 +246,13 @@ def catalog_show(
                 console.print(f"\n[yellow]Aucune édition trouvée pour {api_name}.[/yellow]")
                 return
 
-            # Résumé
+            # Summary
             dates = db.get_available_dates(api_name)
             console.print(f"\n  [cyan]Dates disponibles[/cyan] : {', '.join(dates[:10])}")
             if len(dates) > 10:
                 console.print(f"    ... et {len(dates) - 10} de plus")
 
-            # Tableau des éditions
+            # Editions table
             console.print()
             table = Table(title=f"Éditions de {api_name} ({len(editions)} total)")
             table.add_column("Titre", style="cyan", overflow="fold")
@@ -261,7 +261,7 @@ def catalog_show(
             table.add_column("Zone")
             table.add_column("CRS")
 
-            # Limiter l'affichage à 50 éditions
+            # Limit display to 50 editions
             display_editions = editions[:50]
             for ed in display_editions:
                 table.add_row(

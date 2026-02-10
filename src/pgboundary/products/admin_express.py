@@ -1,7 +1,7 @@
-"""Rétrocompatibilité: définitions Admin Express.
+"""Backward compatibility: Admin Express definitions.
 
-Les produits sont désormais définis dans les fichiers YAML sous sources/.
-Ce module fournit les mêmes exports pour la rétrocompatibilité.
+Products are now defined in YAML files under sources/.
+This module provides the same exports for backward compatibility.
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from pgboundary.products.catalog import (
 
 
 def _get_admin_express_products() -> list[IGNProduct]:
-    """Retourne tous les produits Admin Express depuis le catalogue YAML."""
+    """Return all Admin Express products from the YAML catalog."""
     catalog = get_default_catalog()
     return catalog.list_by_category(ProductCategory.ADMIN)
 
