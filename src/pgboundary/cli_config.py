@@ -29,6 +29,7 @@ from pgboundary.config import (
     Settings,
     build_database_url,
     has_database_url_configured,
+    save_data_dir_to_env,
     save_database_url_to_env,
 )
 from pgboundary.products import get_default_catalog
@@ -99,6 +100,13 @@ def config_main(ctx: typer.Context) -> None:
         db_url = "[non configurée]"
 
     console.print(f"[bold]Base de données:[/bold] {db_url}")
+
+    # Répertoire de stockage
+    try:
+        data_dir = str(settings.data_dir)
+    except Exception:
+        data_dir = str(Settings.model_fields["data_dir"].default)
+    console.print(f"[bold]Données:[/bold] {data_dir}")
 
     # Mode de stockage
     if config.storage.mode == StorageMode.SCHEMA:
@@ -234,6 +242,26 @@ def config_init(
         default=str(existing_config.srid),
     )
 
+    # 3. Répertoire de données
+    console.print()
+    console.print("[bold]3. Répertoire de stockage des données[/bold]")
+    console.print("  Les archives téléchargées seront stockées dans ce répertoire.")
+    console.print()
+
+    default_data_dir = str(Path.home() / ".pgboundary" / "data")
+    try:
+        current_settings = Settings()
+        default_data_dir = str(current_settings.data_dir)
+    except Exception:
+        pass
+
+    data_dir = Prompt.ask("Répertoire de données", default=default_data_dir)
+    resolved_data_dir = Path(data_dir).expanduser().resolve()
+
+    if str(resolved_data_dir) != str(Path(default_data_dir).expanduser().resolve()):
+        save_data_dir_to_env(str(resolved_data_dir))
+        console.print(f"[green]✓ Répertoire configuré: {resolved_data_dir}[/green]")
+
     # Créer la configuration
     config = SchemaConfig(
         storage=storage,
@@ -244,7 +272,7 @@ def config_init(
         imports=existing_config.imports,
     )
 
-    # 3. Ajouter des produits ?
+    # 4. Ajouter des produits ?
     console.print()
     if Confirm.ask("Voulez-vous configurer des produits à importer ?"):
         _add_products_interactive(config, config_path)
@@ -275,6 +303,7 @@ def config_update() -> None:
             MenuOption("2", "SRID", "système de projection"),
             MenuOption("3", "Produits à importer", "IGN Admin Express, etc."),
             MenuOption("4", "Préfixes des colonnes", "cd_, lb_, dt_"),
+            MenuOption("5", "Répertoire de données", "emplacement des téléchargements"),
         ]
         result = select_menu(
             options,
@@ -293,6 +322,8 @@ def config_update() -> None:
             _update_imports(config)
         elif result.key == "4":
             _update_prefixes(config)
+        elif result.key == "5":
+            _update_data_dir()
 
     save_config(config, config_path)
     console.print(f"[green]Configuration sauvegardée: {config_path}[/green]")
@@ -342,6 +373,34 @@ def _update_prefixes(config: SchemaConfig) -> None:
         "Préfixe des dates",
         default=config.field_prefixes.date,
     )
+
+
+def _update_data_dir() -> None:
+    """Met à jour le répertoire de stockage des données."""
+    console.print()
+
+    try:
+        settings = Settings()
+        current_dir = str(settings.data_dir)
+    except Exception:
+        current_dir = str(Path.home() / ".pgboundary" / "data")
+
+    console.print(f"[bold]Répertoire actuel:[/bold] {current_dir}")
+    console.print("[dim]Les données téléchargées (archives IGN, etc.) sont stockées ici.[/dim]")
+    console.print()
+
+    new_dir = Prompt.ask("Nouveau répertoire", default=current_dir)
+
+    # Résoudre le chemin (expansion ~ etc.)
+    resolved = Path(new_dir).expanduser().resolve()
+
+    if str(resolved) != str(Path(current_dir).expanduser().resolve()):
+        console.print(f"[cyan]Répertoire:[/cyan] {resolved}")
+        if Confirm.ask("Sauvegarder dans le fichier .env ?", default=True):
+            save_data_dir_to_env(str(resolved))
+            console.print("[green]✓ Répertoire de données mis à jour[/green]")
+    else:
+        console.print("[dim]Aucune modification[/dim]")
 
 
 def _get_enabled_layers_count(prod_config: dict[str, Any]) -> tuple[int, int]:

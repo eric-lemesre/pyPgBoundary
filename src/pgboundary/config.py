@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 ENV_FILE = Path.cwd() / ".env"
 ENV_VAR_DATABASE_URL = "PGBOUNDARY_DATABASE_URL"
+ENV_VAR_DATA_DIR = "PGBOUNDARY_DATA_DIR"
 
 
 class Settings(BaseSettings):
@@ -203,6 +204,50 @@ PGBOUNDARY_LOG_LEVEL=INFO
         env_path.write_text(content, encoding="utf-8")
 
     logger.info("Configuration sauvegardée dans: %s", env_path)
+
+
+def save_data_dir_to_env(
+    data_dir: str,
+    env_file: Path | None = None,
+) -> None:
+    """Sauvegarde le répertoire de données dans le fichier .env.
+
+    Si le fichier existe, met à jour la ligne PGBOUNDARY_DATA_DIR.
+    Sinon, ajoute la variable à la fin du fichier.
+
+    Args:
+        data_dir: Chemin du répertoire de données.
+        env_file: Chemin vers le fichier .env (par défaut: ./.env)
+    """
+    env_path = env_file or ENV_FILE
+    env_line = f"{ENV_VAR_DATA_DIR}={data_dir}"
+
+    if env_path.exists():
+        content = env_path.read_text(encoding="utf-8")
+        lines = content.splitlines()
+        updated = False
+
+        for i, line in enumerate(lines):
+            stripped = line.strip()
+            if stripped.startswith(f"{ENV_VAR_DATA_DIR}=") or stripped.startswith(
+                f"# {ENV_VAR_DATA_DIR}="
+            ):
+                lines[i] = env_line
+                updated = True
+                break
+
+        if not updated:
+            # Ajouter avec un commentaire
+            lines.append("")
+            lines.append("# Répertoire de stockage des données téléchargées")
+            lines.append(env_line)
+
+        env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    else:
+        logger.warning("Fichier .env non trouvé: %s", env_path)
+        return
+
+    logger.info("Répertoire de données sauvegardé dans: %s", env_path)
 
 
 def parse_database_url(url: str) -> dict[str, str | int]:
