@@ -63,6 +63,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Layers: checkbox list with descriptions
   - New dependency: `readchar>=4.0.0`
 
+- **Per-department download support**
+  - New optional field `department_url_template` on `IGNProduct` for products supporting per-department download
+  - `FRENCH_DEPARTMENTS` constant: list of 101 valid French department codes (01-95, 2A, 2B, 971-976)
+  - `validate_department_code()` helper function
+  - `IGNDataSource.build_department_url()` static method to build per-department URLs
+  - `--department` / `--dept` option on `load check` command (single code or `all` for 101 departments)
+  - `--department` / `--dept` option on `load-product` command
+  - Product `ban-plus` configured with department URL template
+
+- **Download URL verification** (`pgboundary load check`)
+  - `--product` / `-p`: check a specific product (all territories and formats)
+  - `--date` / `-d`: use a specific date for URL resolution
+  - `--all` / `-a`: check all products in the catalog
+  - `--verbose` / `-V`: display full URLs in output table
+
 ## [0.4.0] - 2026-02-08
 
 ### Added

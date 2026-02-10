@@ -260,7 +260,25 @@ pgboundary load-product admin-express-cog --format gpkg # GeoPackage format
 pgboundary load-product admin-express-cog --year 2023
 pgboundary load-product admin-express-cog --layers "REGION,DEPARTEMENT"
 pgboundary load-product admin-express-cog --replace     # Replace tables
+pgboundary load-product ban-plus --department 75        # Load single department
 ```
+
+### Checking Download URLs (`pgboundary load check`)
+
+Verify accessibility of download URLs before loading data:
+
+```bash
+pgboundary load check --all                                # Check all products
+pgboundary load check --product ban-plus                   # Check specific product
+pgboundary load check --product ban-plus --department 75   # Single department
+pgboundary load check --product ban-plus --department all  # All 101 departments
+pgboundary load check --product ban-plus --date 2024       # Specific date
+pgboundary load check --verbose                            # Show full URLs
+```
+
+Products with `department_url_template` in their YAML definition support per-department
+download (e.g. `ban-plus`). Use `--department` with a valid French department code
+(01-19, 2A, 2B, 21-95, 971-976) or `all` to check all 101 departments.
 
 ### Global Options
 

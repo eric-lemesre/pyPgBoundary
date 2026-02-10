@@ -316,7 +316,26 @@ pgboundary load-product admin-express-cog --layers "REGION,DEPARTEMENT"
 pgboundary load-product admin-express-cog --replace     # Remplacer les tables
 pgboundary load-product admin-express-cog --database-url "..."
 pgboundary load-product admin-express-cog --verbose
+pgboundary load-product ban-plus --department 75        # Charger un seul département
 ```
+
+### Vérification des URL de téléchargement (`pgboundary load check`)
+
+Vérifie l'accessibilité des URL de téléchargement avant le chargement :
+
+```bash
+pgboundary load check --all                                # Vérifier tous les produits
+pgboundary load check --product ban-plus                   # Vérifier un produit
+pgboundary load check --product ban-plus --department 75   # Un seul département
+pgboundary load check --product ban-plus --department all  # Les 101 départements
+pgboundary load check --product ban-plus --date 2024       # Date spécifique
+pgboundary load check --verbose                            # Afficher les URL complètes
+```
+
+Les produits ayant un `department_url_template` dans leur définition YAML supportent le
+téléchargement par département (ex: `ban-plus`). Utilisez `--department` avec un code
+département français valide (01-19, 2A, 2B, 21-95, 971-976) ou `all` pour vérifier
+les 101 départements.
 
 ### Options globales
 

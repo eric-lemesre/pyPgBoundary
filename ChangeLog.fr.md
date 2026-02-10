@@ -63,6 +63,21 @@ et ce projet adhère au [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   - Couches : liste à cocher avec descriptions
   - Nouvelle dépendance : `readchar>=4.0.0`
 
+- **Téléchargement par département**
+  - Nouveau champ optionnel `department_url_template` sur `IGNProduct` pour les produits supportant le téléchargement par département
+  - Constante `FRENCH_DEPARTMENTS` : liste des 101 codes départements français valides (01-95, 2A, 2B, 971-976)
+  - Fonction utilitaire `validate_department_code()`
+  - Méthode statique `IGNDataSource.build_department_url()` pour construire les URL par département
+  - Option `--department` / `--dept` sur la commande `load check` (code unique ou `all` pour les 101 départements)
+  - Option `--department` / `--dept` sur la commande `load-product`
+  - Produit `ban-plus` configuré avec le template d'URL par département
+
+- **Vérification des URL de téléchargement** (`pgboundary load check`)
+  - `--product` / `-p` : vérifier un produit spécifique (tous territoires et formats)
+  - `--date` / `-d` : utiliser une date spécifique pour la résolution des URL
+  - `--all` / `-a` : vérifier tous les produits du catalogue
+  - `--verbose` / `-V` : afficher les URL complètes dans le tableau de résultats
+
 ## [0.4.0] - 2026-02-08
 
 ### Ajouté
