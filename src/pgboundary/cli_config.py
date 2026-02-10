@@ -553,14 +553,14 @@ def _modify_product_defaults(
     console.print("\n[bold]Modification des valeurs par défaut[/bold]")
 
     # Years
-    current_years = prod_config.get("years", ["2024"])
-    years_result = select_years(
-        available_years=_get_product_years(product), preselected=current_years
-    )
-    if years_result.cancelled:
-        console.print("[yellow]Modification annulée[/yellow]")
-        return
-    prod_config["years"] = years_result.selected_values
+    product_years = _get_product_years(product)
+    if product_years:
+        current_years = prod_config.get("years", [])
+        years_result = select_years(available_years=product_years, preselected=current_years)
+        if years_result.cancelled:
+            console.print("[yellow]Modification annulée[/yellow]")
+            return
+        prod_config["years"] = years_result.selected_values
 
     # Territory
     if product:
@@ -727,17 +727,20 @@ def _modify_layer_config(
             del layer_cfg["table_name"]
 
         # Override years?
-        if Confirm.ask(
-            "Surcharger les années pour cette couche ?", default=bool(layer_cfg.get("years"))
-        ):
-            current_years = layer_cfg.get("years") or prod_config.get("years", ["2024"])
-            years_result = select_years(
-                available_years=_get_product_years(product), preselected=current_years
-            )
-            if not years_result.cancelled:
-                layer_cfg["years"] = years_result.selected_values
-        elif "years" in layer_cfg:
-            del layer_cfg["years"]
+        product_years = _get_product_years(product)
+        if product_years:
+            if Confirm.ask(
+                "Surcharger les années pour cette couche ?",
+                default=bool(layer_cfg.get("years")),
+            ):
+                current_years = layer_cfg.get("years") or prod_config.get("years", [])
+                years_result = select_years(
+                    available_years=product_years, preselected=current_years
+                )
+                if not years_result.cancelled:
+                    layer_cfg["years"] = years_result.selected_values
+            elif "years" in layer_cfg:
+                del layer_cfg["years"]
 
         # Override territory?
         if Confirm.ask(
@@ -1274,12 +1277,15 @@ def _configure_product(config: SchemaConfig, product: IGNProduct) -> None:
     selected_layer_names = layers_result.selected_values
 
     # Select default vintages/years (interactive checkbox)
-    years_result = select_years(available_years=_get_product_years(product))
-    if years_result.cancelled:
-        console.print("[yellow]Configuration annulée[/yellow]")
-        return
-
-    years = years_result.selected_values
+    product_years = _get_product_years(product)
+    if product_years:
+        years_result = select_years(available_years=product_years)
+        if years_result.cancelled:
+            console.print("[yellow]Configuration annulée[/yellow]")
+            return
+        years = years_result.selected_values
+    else:
+        years = []
 
     # Default territory (interactive selection)
     territories = [t.value for t in product.territories]
