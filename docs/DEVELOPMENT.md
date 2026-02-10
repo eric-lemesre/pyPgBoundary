@@ -239,10 +239,10 @@ def create_new_layer_table(metadata: MetaData, config: SchemaConfig) -> Table:
     )
 ```
 
-2. Add to `TableFactory` class
-3. Add column mapping in `get_column_mapping()`
-4. Add to `LAYER_TO_TABLE_KEY` in loader
-5. Update `TableNames` in `schema_config.py`
+1. Add to `TableFactory` class
+2. Add column mapping in `get_column_mapping()`
+3. Add to `LAYER_TO_TABLE_KEY` in loader
+4. Update `TableNames` in `schema_config.py`
 
 ### Adding a New Data Source
 
@@ -259,7 +259,7 @@ class NewDataSource:
         pass
 ```
 
-2. Create corresponding loader in `loaders/`
+1. Create corresponding loader in `loaders/`
 
 ## Release Process
 
