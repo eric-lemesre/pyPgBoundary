@@ -5,14 +5,11 @@ Ce module teste les commandes CLI avec le CliRunner de Typer.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 from typer.testing import CliRunner
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 from pgboundary.cli import (
     _display_db_status,
@@ -213,17 +210,6 @@ class TestInitCommand:
             assert result.exit_code == 1
 
 
-class TestCheckCommand:
-    """Tests pour la commande check (si elle existe)."""
-
-    def test_check_help(self, runner: CliRunner) -> None:
-        """Test aide de la commande check."""
-        result = runner.invoke(app, ["check", "--help"])
-        # La commande peut exister ou non
-        if result.exit_code == 0:
-            assert "check" in result.output.lower() or "connexion" in result.output.lower()
-
-
 class TestConfigSubcommands:
     """Tests pour les sous-commandes config."""
 
@@ -249,6 +235,51 @@ class TestDownloadCommand:
         assert result.exit_code == 0
         assert "download" in result.output.lower() or "territoire" in result.output.lower()
 
+    def test_download_success(self, runner: CliRunner) -> None:
+        """Test téléchargement réussi."""
+        with (
+            patch("pgboundary.cli._display_db_status"),
+            patch("pgboundary.cli.Settings"),
+            patch("pgboundary.cli.IGNDataSource") as mock_source,
+        ):
+            mock_instance = MagicMock()
+            mock_instance.download_legacy.return_value = Path("/tmp/archive.7z")
+            mock_instance.extract.return_value = Path("/tmp/extracted")
+            mock_instance.find_shapefiles.return_value = {
+                "COMMUNE": Path("/tmp/extracted/COMMUNE.shp"),
+            }
+            mock_source.return_value = mock_instance
+
+            result = runner.invoke(
+                app,
+                [
+                    "--quiet",
+                    "download",
+                    "--territory",
+                    "france_metropolitaine",
+                    "--edition",
+                    "2024",
+                ],
+            )
+            assert result.exit_code == 0
+
+    def test_download_error(self, runner: CliRunner) -> None:
+        """Test erreur de téléchargement."""
+        with (
+            patch("pgboundary.cli._display_db_status"),
+            patch("pgboundary.cli.Settings"),
+            patch("pgboundary.cli.IGNDataSource") as mock_source,
+        ):
+            mock_instance = MagicMock()
+            mock_instance.download_legacy.side_effect = Exception("Network error")
+            mock_source.return_value = mock_instance
+
+            result = runner.invoke(
+                app,
+                ["--quiet", "download", "--edition", "2024"],
+            )
+            assert result.exit_code == 1
+
 
 class TestLoadCommand:
     """Tests pour la commande load."""
@@ -258,6 +289,73 @@ class TestLoadCommand:
         result = runner.invoke(app, ["load", "--help"])
         assert result.exit_code == 0
 
+    def test_load_no_config(self, runner: CliRunner, tmp_path: Path) -> None:
+        """Test load sans fichier de configuration."""
+        config = tmp_path / "nonexistent.yml"
+        with patch("pgboundary.cli._display_db_status"):
+            result = runner.invoke(
+                app,
+                ["--quiet", "load", "--config", str(config)],
+            )
+            assert result.exit_code == 1
+
+    def test_load_check_help(self, runner: CliRunner) -> None:
+        """Test aide de load check."""
+        result = runner.invoke(app, ["load", "check", "--help"])
+        assert result.exit_code == 0
+
+
+class TestLoadLegacyCommand:
+    """Tests pour la commande load-legacy."""
+
+    def test_load_legacy_help(self, runner: CliRunner) -> None:
+        """Test aide de load-legacy."""
+        result = runner.invoke(app, ["load-legacy", "--help"])
+        assert result.exit_code == 0
+
+    def test_load_legacy_success(self, runner: CliRunner, temp_config_file: Path) -> None:
+        """Test chargement legacy réussi."""
+        with (
+            patch("pgboundary.cli._display_db_status"),
+            patch("pgboundary.cli.AdminExpressLoader") as mock_loader,
+        ):
+            mock_loader.return_value.load.return_value = 500
+
+            result = runner.invoke(
+                app,
+                [
+                    "--quiet",
+                    "load-legacy",
+                    "--config",
+                    str(temp_config_file),
+                    "--edition",
+                    "2024",
+                ],
+            )
+            assert result.exit_code == 0
+            assert "500" in result.output
+
+    def test_load_legacy_error(self, runner: CliRunner, temp_config_file: Path) -> None:
+        """Test erreur de chargement legacy."""
+        with (
+            patch("pgboundary.cli._display_db_status"),
+            patch("pgboundary.cli.AdminExpressLoader") as mock_loader,
+        ):
+            mock_loader.return_value.load.side_effect = Exception("DB error")
+
+            result = runner.invoke(
+                app,
+                [
+                    "--quiet",
+                    "load-legacy",
+                    "--config",
+                    str(temp_config_file),
+                    "--edition",
+                    "2024",
+                ],
+            )
+            assert result.exit_code == 1
+
 
 class TestInfoCommand:
     """Tests pour la commande info."""
@@ -265,9 +363,77 @@ class TestInfoCommand:
     def test_info_help(self, runner: CliRunner) -> None:
         """Test aide de info."""
         result = runner.invoke(app, ["info", "--help"])
-        # info peut exister ou non
         if result.exit_code == 0:
             assert "info" in result.output.lower() or result.output
+
+    def test_info_display(self, runner: CliRunner, temp_config_file: Path) -> None:
+        """Test affichage info."""
+        with patch("pgboundary.cli._display_db_status"):
+            result = runner.invoke(app, ["--quiet", "info", "--config", str(temp_config_file)])
+            assert result.exit_code == 0
+            assert "pgboundary" in result.output.lower() or "version" in result.output.lower()
+
+
+class TestCheckCommand:
+    """Tests pour la commande check."""
+
+    def test_check_help(self, runner: CliRunner) -> None:
+        """Test aide de la commande check."""
+        result = runner.invoke(app, ["check", "--help"])
+        if result.exit_code == 0:
+            assert "check" in result.output.lower() or "connexion" in result.output.lower()
+
+    def test_check_success(self, runner: CliRunner, temp_config_file: Path) -> None:
+        """Test vérification réussie."""
+        with (
+            patch("pgboundary.cli._display_db_status"),
+            patch("pgboundary.cli.DatabaseManager") as mock_db,
+        ):
+            mock_db.return_value.check_connection = MagicMock()
+            mock_db.return_value.check_postgis = MagicMock()
+
+            result = runner.invoke(
+                app,
+                ["--quiet", "check", "--config", str(temp_config_file)],
+            )
+            assert result.exit_code == 0
+
+    def test_check_connection_error(self, runner: CliRunner, temp_config_file: Path) -> None:
+        """Test erreur de connexion."""
+        with (
+            patch("pgboundary.cli._display_db_status"),
+            patch("pgboundary.cli.DatabaseManager") as mock_db,
+        ):
+            mock_db.return_value.check_connection.side_effect = Exception("Connection refused")
+
+            result = runner.invoke(
+                app,
+                ["--quiet", "check", "--config", str(temp_config_file)],
+            )
+            assert result.exit_code == 1
+
+
+class TestInspectCommand:
+    """Tests pour la commande inspect."""
+
+    def test_inspect_help(self, runner: CliRunner) -> None:
+        """Test aide de inspect."""
+        result = runner.invoke(app, ["inspect", "--help"])
+        assert result.exit_code == 0
+
+    def test_inspect_error(self, runner: CliRunner, temp_config_file: Path) -> None:
+        """Test inspect avec erreur de connexion."""
+        with (
+            patch("pgboundary.cli._display_db_status"),
+            patch("pgboundary.cli.DatabaseManager") as mock_db,
+        ):
+            mock_db.return_value.session.side_effect = Exception("No connection")
+
+            result = runner.invoke(
+                app,
+                ["--quiet", "inspect", "--config", str(temp_config_file)],
+            )
+            assert result.exit_code == 1
 
 
 class TestProductsCommand:
@@ -278,6 +444,119 @@ class TestProductsCommand:
         result = runner.invoke(app, ["products", "--help"])
         if result.exit_code == 0:
             assert "produit" in result.output.lower() or "product" in result.output.lower()
+
+    def test_products_list(self, runner: CliRunner) -> None:
+        """Test listage des produits."""
+        with patch("pgboundary.cli._display_db_status"):
+            result = runner.invoke(app, ["--quiet", "products"])
+            assert result.exit_code == 0
+
+    def test_products_with_category(self, runner: CliRunner) -> None:
+        """Test listage par catégorie."""
+        with patch("pgboundary.cli._display_db_status"):
+            result = runner.invoke(app, ["--quiet", "products", "--category", "admin"])
+            assert result.exit_code == 0
+
+    def test_products_unknown_category(self, runner: CliRunner) -> None:
+        """Test catégorie inconnue."""
+        with patch("pgboundary.cli._display_db_status"):
+            result = runner.invoke(app, ["--quiet", "products", "--category", "unknown"])
+            assert result.exit_code == 1
+
+    def test_products_verbose(self, runner: CliRunner) -> None:
+        """Test mode verbeux."""
+        with patch("pgboundary.cli._display_db_status"):
+            result = runner.invoke(app, ["--quiet", "products", "--verbose"])
+            assert result.exit_code == 0
+
+
+class TestProductInfoCommand:
+    """Tests pour la commande product-info."""
+
+    def test_product_info_help(self, runner: CliRunner) -> None:
+        """Test aide de product-info."""
+        result = runner.invoke(app, ["product-info", "--help"])
+        assert result.exit_code == 0
+
+    def test_product_info_existing(self, runner: CliRunner) -> None:
+        """Test info d'un produit existant."""
+        with patch("pgboundary.cli._display_db_status"):
+            result = runner.invoke(app, ["--quiet", "product-info", "admin-express-cog"])
+            assert result.exit_code == 0
+
+    def test_product_info_not_found(self, runner: CliRunner) -> None:
+        """Test info d'un produit inexistant."""
+        with patch("pgboundary.cli._display_db_status"):
+            result = runner.invoke(app, ["--quiet", "product-info", "nonexistent-product"])
+            assert result.exit_code == 1
+
+
+class TestLoadProductCommand:
+    """Tests pour la commande load-product."""
+
+    def test_load_product_help(self, runner: CliRunner) -> None:
+        """Test aide de load-product."""
+        result = runner.invoke(app, ["load-product", "--help"])
+        assert result.exit_code == 0
+
+    def test_load_product_not_found(self, runner: CliRunner, temp_config_file: Path) -> None:
+        """Test chargement d'un produit inexistant."""
+        with patch("pgboundary.cli._display_db_status"):
+            result = runner.invoke(
+                app,
+                [
+                    "--quiet",
+                    "load-product",
+                    "nonexistent-product",
+                    "--config",
+                    str(temp_config_file),
+                ],
+            )
+            assert result.exit_code == 1
+
+    def test_load_product_success(self, runner: CliRunner, temp_config_file: Path) -> None:
+        """Test chargement d'un produit réussi."""
+        with (
+            patch("pgboundary.cli._display_db_status"),
+            patch("pgboundary.cli.ProductLoader") as mock_loader,
+        ):
+            mock_loader.return_value.load.return_value = 200
+
+            result = runner.invoke(
+                app,
+                [
+                    "--quiet",
+                    "load-product",
+                    "admin-express-cog",
+                    "--config",
+                    str(temp_config_file),
+                    "--edition",
+                    "2024",
+                ],
+            )
+            assert result.exit_code == 0
+
+    def test_load_product_error(self, runner: CliRunner, temp_config_file: Path) -> None:
+        """Test chargement avec erreur."""
+        with (
+            patch("pgboundary.cli._display_db_status"),
+            patch("pgboundary.cli.ProductLoader") as mock_loader,
+        ):
+            mock_loader.return_value.load.side_effect = Exception("Load failed")
+
+            result = runner.invoke(
+                app,
+                [
+                    "--quiet",
+                    "load-product",
+                    "admin-express-cog",
+                    "--config",
+                    str(temp_config_file),
+                    "--edition",
+                    "2024",
+                ],
+            )
+            assert result.exit_code == 1
 
 
 class TestCompletionSubcommands:

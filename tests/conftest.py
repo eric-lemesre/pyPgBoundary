@@ -24,6 +24,7 @@ import responses
 from shapely.geometry import MultiPolygon, Point, Polygon
 
 from pgboundary.config import Settings
+from pgboundary.import_config import ProductImportConfig
 from pgboundary.schema_config import SchemaConfig
 
 # =============================================================================
@@ -222,6 +223,16 @@ def mock_ign_download(mock_http_responses: responses.RequestsMock) -> responses.
 # =============================================================================
 # Fixtures CLI (mocks pour widgets interactifs)
 # =============================================================================
+
+
+@pytest.fixture
+def sample_import_config() -> ProductImportConfig:
+    """Fixture pour une configuration d'import de test."""
+    return ProductImportConfig(
+        territory="FRA",
+        format="shp",
+        editions=["2024"],
+    )
 
 
 @pytest.fixture
