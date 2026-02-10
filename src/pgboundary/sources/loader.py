@@ -139,7 +139,7 @@ def _parse_product(data: dict[str, Any]) -> IGNProduct:
         description_en = description.get("en", "")
 
     # Nettoyage du url_template (les blocs YAML multi-lignes ajoutent des espaces)
-    url_template = data["url_template"].replace("\n", "").replace("  ", "").strip()
+    url_template = data["url_template"].replace(" ", "").strip()
 
     category_str = data.get("category", "")
     category = CATEGORY_MAPPING.get(category_str)
