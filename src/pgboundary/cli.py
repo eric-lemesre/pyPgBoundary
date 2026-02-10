@@ -487,7 +487,7 @@ def load_check_cmd(
         typer.Option(
             "--date",
             "-d",
-            help="Date pour les URL (YYYY ou YYYY-MM-DD). Défaut: année courante.",
+            help="Date pour les URL (YYYY ou YYYY-MM-DD). Défaut: année précédente.",
         ),
     ] = None,
     config_file: Annotated[

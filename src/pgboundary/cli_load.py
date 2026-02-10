@@ -407,7 +407,7 @@ def check_urls_command(
         typer.Option(
             "--date",
             "-d",
-            help="Date pour les URL (YYYY ou YYYY-MM-DD). Défaut: année courante.",
+            help="Date pour les URL (YYYY ou YYYY-MM-DD). Défaut: année précédente.",
         ),
     ] = None,
     config_file: Annotated[
@@ -440,7 +440,8 @@ def check_urls_command(
         console.print("[red]L'option --department nécessite --product.[/red]")
         raise typer.Exit(1)
 
-    default_year = str(datetime.now().year)
+    # Current year data is typically not yet available, default to previous year
+    default_year = str(datetime.now().year - 1)
 
     def _resolve_date(prod: IGNProduct) -> str:
         """Resolve the date to use: CLI option > product last_date > current year."""

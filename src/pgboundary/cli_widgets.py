@@ -413,7 +413,8 @@ def select_years(
 
     if available_years is None:
         current_year = datetime.now().year
-        available_years = [str(year) for year in range(current_year, current_year - 5, -1)]
+        # Current year data is typically not yet available, start from previous year
+        available_years = [str(year) for year in range(current_year - 1, current_year - 6, -1)]
 
     if preselected is None:
         preselected = [available_years[0]] if available_years else []
