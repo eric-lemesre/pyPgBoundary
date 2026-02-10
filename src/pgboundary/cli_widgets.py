@@ -411,7 +411,7 @@ def select_years(
     """
     from datetime import datetime
 
-    if available_years is None:
+    if not available_years:
         current_year = datetime.now().year
         # Current year data is typically not yet available, start from previous year
         available_years = [str(year) for year in range(current_year - 1, current_year - 6, -1)]

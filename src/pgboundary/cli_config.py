@@ -45,6 +45,15 @@ from pgboundary.schema_config import (
 if TYPE_CHECKING:
     from pgboundary.products.catalog import IGNProduct
 
+
+def _get_product_years(product: IGNProduct | None) -> list[str] | None:
+    """Extract unique years from a product's available_dates."""
+    if not product or not product.available_dates:
+        return None
+    years = sorted({d[:4] for d in product.available_dates}, reverse=True)
+    return years if years else None
+
+
 console = Console()
 config_app = typer.Typer(help="Gestion de la configuration pgBoundary")
 data_app = typer.Typer(help="Gestion des produits à importer")
@@ -545,7 +554,9 @@ def _modify_product_defaults(
 
     # Years
     current_years = prod_config.get("years", ["2024"])
-    years_result = select_years(preselected=current_years)
+    years_result = select_years(
+        available_years=_get_product_years(product), preselected=current_years
+    )
     if years_result.cancelled:
         console.print("[yellow]Modification annulée[/yellow]")
         return
@@ -720,7 +731,9 @@ def _modify_layer_config(
             "Surcharger les années pour cette couche ?", default=bool(layer_cfg.get("years"))
         ):
             current_years = layer_cfg.get("years") or prod_config.get("years", ["2024"])
-            years_result = select_years(preselected=current_years)
+            years_result = select_years(
+                available_years=_get_product_years(product), preselected=current_years
+            )
             if not years_result.cancelled:
                 layer_cfg["years"] = years_result.selected_values
         elif "years" in layer_cfg:
@@ -1261,7 +1274,7 @@ def _configure_product(config: SchemaConfig, product: IGNProduct) -> None:
     selected_layer_names = layers_result.selected_values
 
     # Select default vintages/years (interactive checkbox)
-    years_result = select_years()
+    years_result = select_years(available_years=_get_product_years(product))
     if years_result.cancelled:
         console.print("[yellow]Configuration annulée[/yellow]")
         return
