@@ -41,6 +41,7 @@ CATEGORY_MAPPING: dict[str, ProductCategory] = {
 FORMAT_MAPPING: dict[str, FileFormat] = {
     "shp": FileFormat.SHP,
     "gpkg": FileFormat.GPKG,
+    "csv": FileFormat.CSV,
 }
 
 # Mapping geometry type string → enum
@@ -141,6 +142,11 @@ def _parse_product(data: dict[str, Any]) -> IGNProduct:
     # Nettoyage du url_template (les blocs YAML multi-lignes ajoutent des espaces)
     url_template = data["url_template"].replace(" ", "").strip()
 
+    # Nettoyage du department_url_template (même traitement)
+    department_url_template = data.get("department_url_template")
+    if department_url_template:
+        department_url_template = department_url_template.replace(" ", "").strip()
+
     category_str = data.get("category", "")
     category = CATEGORY_MAPPING.get(category_str)
     if category is None:
@@ -153,6 +159,8 @@ def _parse_product(data: dict[str, Any]) -> IGNProduct:
     return IGNProduct(
         id=data["id"],
         name=data["name"],
+        api_product=data.get("api_product"),
+        provider=data.get("provider", "IGN"),
         description_fr=description_fr,
         description_en=description_en,
         category=category,
@@ -162,7 +170,10 @@ def _parse_product(data: dict[str, Any]) -> IGNProduct:
         url_template=url_template,
         version_pattern=str(data.get("version", "")),
         archive_extension=data.get("archive_extension", "7z"),
+        last_date=data.get("last_date"),
+        available_dates=[str(d) for d in data.get("available_dates", [])],
         size_mb=data.get("size_mb"),
+        department_url_template=department_url_template,
     )
 
 

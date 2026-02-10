@@ -50,9 +50,11 @@ app = typer.Typer(
 )
 
 # Importer et ajouter les sous-commandes
+from pgboundary.cli_catalog import catalog_app  # noqa: E402
 from pgboundary.cli_completion import completion_app  # noqa: E402
 from pgboundary.cli_config import config_app  # noqa: E402
 
+app.add_typer(catalog_app, name="catalog", rich_help_panel="Produits & Données")
 app.add_typer(config_app, name="config", rich_help_panel="Configuration")
 app.add_typer(completion_app, name="completion", rich_help_panel="Utilitaires")
 console = Console()
@@ -468,6 +470,26 @@ def load_check_cmd(
         bool,
         typer.Option("--all", "-a", help="Vérifie tous les produits du catalogue."),
     ] = False,
+    product: Annotated[
+        str | None,
+        typer.Option("--product", "-p", help="ID d'un produit spécifique à vérifier."),
+    ] = None,
+    department: Annotated[
+        str | None,
+        typer.Option(
+            "--department",
+            "--dept",
+            help="Code département (ex: 75, 2A, 974) ou 'all' pour tous. Nécessite --product.",
+        ),
+    ] = None,
+    date: Annotated[
+        str | None,
+        typer.Option(
+            "--date",
+            "-d",
+            help="Date pour les URL (YYYY ou YYYY-MM-DD). Défaut: année courante.",
+        ),
+    ] = None,
     config_file: Annotated[
         Path | None,
         typer.Option("--config", "-c", help="Fichier de configuration."),
@@ -480,7 +502,7 @@ def load_check_cmd(
     """Vérifie l'accessibilité des URL de téléchargement."""
     from pgboundary.cli_load import check_urls_command
 
-    check_urls_command(all_products, config_file, verbose)
+    check_urls_command(all_products, product, date, config_file, verbose, department)
 
 
 app.add_typer(load_app, name="load", rich_help_panel="Produits & Données")
@@ -947,6 +969,14 @@ def load_product(
         str,
         typer.Option("--territory", "-t", help="Territoire (FRA, FXX, GLP, MTQ, GUF, REU, MYT)."),
     ] = "FRA",
+    department: Annotated[
+        str | None,
+        typer.Option(
+            "--department",
+            "--dept",
+            help="Code département pour téléchargement par département (ex: 75, 2A, 974).",
+        ),
+    ] = None,
     year: Annotated[
         str,
         typer.Option("--year", "-y", help="Année des données."),
@@ -992,6 +1022,20 @@ def load_product(
         console.print(f"Produits disponibles: {', '.join(catalog.list_ids())}")
         raise typer.Exit(1)
 
+    # Validation du département
+    if department:
+        if not product.supports_department_download:
+            console.print(
+                f"[red]Le produit '{product_id}' ne supporte pas le téléchargement par département.[/red]"
+            )
+            raise typer.Exit(1)
+        from pgboundary.products.catalog import validate_department_code
+
+        if not validate_department_code(department):
+            console.print(f"[red]Code département invalide: '{department}'[/red]")
+            console.print("[dim]Codes valides: 01-19, 2A, 2B, 21-95, 971-976[/dim]")
+            raise typer.Exit(1)
+
     # Configuration
     config_path = config_file or Path.cwd() / DEFAULT_CONFIG_FILENAME
     settings = Settings(config_file=config_path)
@@ -1006,7 +1050,10 @@ def load_product(
     if_exists_lit: Literal["replace", "append", "fail"] = "replace" if replace else "fail"
 
     console.print(f"[bold blue]Chargement du produit {product.name}...[/bold blue]")
-    console.print(f"  Territoire: {territory}")
+    if department:
+        console.print(f"  Département: {department}")
+    else:
+        console.print(f"  Territoire: {territory}")
     console.print(f"  Année: {year}")
     console.print(f"  Format: {file_format}")
     if table_name:

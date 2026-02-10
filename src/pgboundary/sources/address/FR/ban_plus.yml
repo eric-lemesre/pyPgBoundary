@@ -1,0 +1,33 @@
+id: ban-plus
+name: Base Adresse Nationale (BAN)
+description:
+  fr: >-
+    Base Adresse Nationale (BAN) contenant l'ensemble des adresses géolocalisées du territoire français.
+    Données produites par l'IGN et la DINUM.
+  en: >-
+    National Address Database (BAN) containing all geolocated addresses of the French territory.
+    Data produced by IGN and DINUM.
+
+provider: data.gouv.fr
+category: address
+version: "current"
+url_template: >-
+  https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-france.csv.gz
+department_url_template: >-
+  https://adresse.data.gouv.fr/data/ban/adresses/latest/csv/adresses-{department}.csv.gz
+archive_extension: gz
+size_mb: 2000
+
+formats:
+  - csv
+
+territories:
+  - FRA
+
+layers:
+  - name: ADRESSES
+    table_key: adresse
+    geometry_type: Point
+    description:
+      fr: Points d'adresse géolocalisés
+      en: Geolocated address points

@@ -20,6 +20,7 @@ class FileFormat(StrEnum):
 
     SHP = "shp"
     GPKG = "gpkg"
+    CSV = "csv"
 
 
 class ProductCategory(StrEnum):
@@ -82,6 +83,32 @@ class TerritoryCode(StrEnum):
     MYT = "MYT"  # Mayotte
 
 
+FRENCH_DEPARTMENTS: list[str] = [
+    *(f"{i:02d}" for i in range(1, 20)),  # 01-19
+    "2A",
+    "2B",  # Corse
+    *(f"{i}" for i in range(21, 96)),  # 21-95
+    "971",
+    "972",
+    "973",
+    "974",
+    "976",  # DROM (hors 975 Saint-Pierre-et-Miquelon)
+]
+"""Liste des 101 codes départements français."""
+
+
+def validate_department_code(code: str) -> bool:
+    """Vérifie si un code département est valide.
+
+    Args:
+        code: Code département à vérifier.
+
+    Returns:
+        True si le code est valide.
+    """
+    return code in FRENCH_DEPARTMENTS
+
+
 class IGNProduct(BaseModel):
     """Définition d'un produit IGN.
 
@@ -102,6 +129,8 @@ class IGNProduct(BaseModel):
 
     id: str = Field(..., description="Identifiant unique du produit")
     name: str = Field(..., description="Nom officiel du produit")
+    api_product: str | None = Field(default=None, description="Nom API Atom IGN")
+    provider: str = Field(default="IGN", description="Fournisseur (IGN, data.gouv.fr, etc.)")
     description_fr: str = Field(..., description="Description en français")
     description_en: str = Field(..., description="Description en anglais")
     category: ProductCategory = Field(..., description="Catégorie du produit")
@@ -111,9 +140,26 @@ class IGNProduct(BaseModel):
     url_template: str = Field(..., description="Template URL pour le téléchargement")
     version_pattern: str = Field(..., description="Pattern de version")
     archive_extension: str = Field(default="7z", description="Extension de l'archive")
+    last_date: str | None = Field(
+        default=None,
+        description="Dernière date de publication connue (YYYY-MM-DD ou YYYY)",
+    )
+    available_dates: list[str] = Field(
+        default_factory=list,
+        description="Liste des dates de publication connues (YYYY-MM-DD ou YYYY)",
+    )
     size_mb: float | None = Field(
         default=None, description="Taille approximative en Mo (France entière, SHP)"
     )
+    department_url_template: str | None = Field(
+        default=None,
+        description="Template URL pour le téléchargement par département (avec placeholder {department})",
+    )
+
+    @property
+    def supports_department_download(self) -> bool:
+        """Indique si le produit supporte le téléchargement par département."""
+        return self.department_url_template is not None
 
     def get_layer(self, name: str) -> LayerConfig | None:
         """Retourne la configuration d'une couche par son nom.
@@ -258,14 +304,60 @@ class ProductCatalog:
 def get_default_catalog() -> ProductCatalog:
     """Retourne le catalogue par défaut avec tous les produits.
 
-    Charge les définitions depuis les fichiers YAML dans sources/.
+    Charge les définitions depuis les fichiers YAML dans sources/,
+    puis enrichit les produits IGN avec les données SQLite si disponibles.
 
     Returns:
         Catalogue initialisé avec tous les produits.
     """
     from pgboundary.sources.loader import load_sources
 
-    return load_sources()
+    catalog = load_sources()
+    _enrich_from_sqlite(catalog)
+    return catalog
+
+
+def _enrich_from_sqlite(catalog: ProductCatalog) -> None:
+    """Enrichit les produits du catalogue avec les données SQLite.
+
+    Pour chaque produit ayant un `api_product`, cherche dans la base
+    SQLite les dates disponibles et la dernière date, puis met à jour
+    le produit en conséquence. Dégradation gracieuse si la base n'existe pas.
+
+    Args:
+        catalog: Catalogue à enrichir (modifié sur place).
+    """
+    import logging
+
+    from pgboundary.config import Settings
+
+    logger = logging.getLogger(__name__)
+
+    try:
+        settings = Settings()
+        db_path = settings.catalog_db
+    except Exception:
+        return
+
+    if not db_path.exists():
+        return
+
+    try:
+        from pgboundary.products.catalog_db import CatalogDatabase
+
+        with CatalogDatabase(db_path) as db:
+            for product in catalog:
+                if not product.api_product:
+                    continue
+
+                dates = db.get_available_dates(product.api_product)
+                if dates:
+                    product.available_dates = dates
+                    latest = db.get_latest_date(product.api_product)
+                    if latest:
+                        product.last_date = latest
+    except Exception:
+        logger.debug("Impossible d'enrichir le catalogue depuis SQLite", exc_info=True)
 
 
 def get_admin_express_product(variant: str = "cog") -> IGNProduct | None:

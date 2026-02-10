@@ -22,7 +22,7 @@ from rich.progress import (
 )
 
 from pgboundary.exceptions import DownloadError
-from pgboundary.products.catalog import FileFormat, TerritoryCode
+from pgboundary.products.catalog import FileFormat, TerritoryCode, validate_department_code
 from pgboundary.sources.base import DataSource
 from pgboundary.sources.loader import load_territory_crs
 
@@ -155,6 +155,33 @@ class IGNDataSource(DataSource):
             territory=territory,
             date=date_str,
         )
+
+    @staticmethod
+    def build_department_url(product: IGNProduct, department: str) -> str:
+        """Construit l'URL de téléchargement par département.
+
+        Args:
+            product: Produit IGN avec department_url_template.
+            department: Code département (ex: "75", "2A", "974").
+
+        Returns:
+            URL de téléchargement pour le département.
+
+        Raises:
+            ValueError: Si le code département est invalide ou le produit
+                ne supporte pas le téléchargement par département.
+        """
+        if not product.supports_department_download:
+            raise ValueError(
+                f"Le produit '{product.id}' ne supporte pas le téléchargement par département."
+            )
+        if not validate_department_code(department):
+            raise ValueError(
+                f"Code département invalide: '{department}'. "
+                f"Codes valides: 01-19, 2A, 2B, 21-95, 971-976."
+            )
+        assert product.department_url_template is not None  # garanti par le check ci-dessus
+        return product.department_url_template.format(department=department)
 
     def download(
         self,

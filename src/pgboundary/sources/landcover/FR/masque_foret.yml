@@ -9,20 +9,22 @@ description:
     Derived from BD FORÊT for small-scale visualization.
 
 provider: IGN
+api_product: IGNF_MASQUE-FORET
 category: landcover
 version: "1-0"
 url_template: >-
   https://data.geopf.fr/telechargement/download/IGNF_MASQUE-FORET/
-  IGNF_MASQUE-FORET_{version}__{format}_{crs}_{territory}_{date}/
-  IGNF_MASQUE-FORET_{version}__{format}_{crs}_{territory}_{date}.7z
+  MASQUE-FORET_{version}_2021-2023_{format}_{crs}_{territory}_{date}/
+  MASQUE-FORET_{version}_2021-2023_{format}_{crs}_{territory}_{date}.7z
 archive_extension: "7z"
+last_date: "2025-09-25"
+available_dates: ["2025-09-25"]
 size_mb: 300
 
 formats:
   - gpkg
 
 territories:
-  - FRA
   - FXX
 
 layers:

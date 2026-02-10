@@ -17,8 +17,8 @@ category: electoral
 version: "2024"
 url_template: >-
   https://static.data.gouv.fr/resources/
-  contours-des-circonscriptions-legislatives-2012-et-2024/
-  20250123-145923/circonscriptions-legislatives-030125.zip
+  contours-geographiques-des-circonscriptions-legislatives/
+  20240613-191449/circonscriptions-legislatives-shp.zip
 archive_extension: zip
 size_mb: 10
 

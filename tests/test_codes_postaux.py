@@ -18,7 +18,7 @@ class TestCodesPostauxProducts:
 
     def test_products_list_not_empty(self):
         """Vérifie que la liste des produits n'est pas vide."""
-        assert len(CODES_POSTAUX_PRODUCTS) == 4
+        assert len(CODES_POSTAUX_PRODUCTS) == 5
 
     def test_all_products_have_required_fields(self):
         """Vérifie que tous les produits ont les champs requis."""

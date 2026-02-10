@@ -1,5 +1,5 @@
 id: admin-express-cog-carto-plus-pe
-name: ADMIN EXPRESS COG CARTO PLUS PE
+name: ADMIN EXPRESS COG CARTOPLUS
 description:
   fr: >-
     Version enrichie petite échelle avec cantons et collectivités territoriales.
@@ -9,26 +9,23 @@ description:
     Contains maximum administrative data.
 
 provider: IGN
+api_product: ADMIN-EXPRESS-COG-CARTOPLUS
 category: administrative
 version: "4-0"
 url_template: >-
-  https://data.geopf.fr/telechargement/download/ADMIN-EXPRESS-COG-CARTO-PLUS-PE/
-  ADMIN-EXPRESS-COG-CARTO-PLUS-PE_{version}__{format}_{crs}_{territory}_{date}/
-  ADMIN-EXPRESS-COG-CARTO-PLUS-PE_{version}__{format}_{crs}_{territory}_{date}.7z
+  https://data.geopf.fr/telechargement/download/ADMIN-EXPRESS-COG-CARTOPLUS/
+  ADMIN-EXPRESS-COG-CARTOPLUS_{version}__{format}_{crs}_{territory}_{date}/
+  ADMIN-EXPRESS-COG-CARTOPLUS_{version}__{format}_{crs}_{territory}_{date}.7z
 archive_extension: "7z"
+last_date: "2025"
+available_dates: ["2025", "2024", "2023", "2022"]
 size_mb: 250
 
 formats:
   - gpkg
 
 territories:
-  - FRA
   - FXX
-  - GLP
-  - MTQ
-  - GUF
-  - REU
-  - MYT
 
 layers:
   - name: REGION

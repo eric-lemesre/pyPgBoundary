@@ -9,6 +9,7 @@ description:
     Basic version without Official Geographic Code.
 
 provider: IGN
+api_product: ADMIN-EXPRESS
 category: administrative
 version: "4-0"
 url_template: >-
@@ -16,6 +17,12 @@ url_template: >-
   ADMIN-EXPRESS_{version}__{format}_{crs}_{territory}_{date}/
   ADMIN-EXPRESS_{version}__{format}_{crs}_{territory}_{date}.7z
 archive_extension: "7z"
+last_date: "2025-02-15"
+available_dates:
+  - "2025-10-15"
+  - "2025-08-15"
+  - "2025-07-15"
+  - "2025-02-15"
 size_mb: 400
 
 formats:

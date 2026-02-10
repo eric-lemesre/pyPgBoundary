@@ -12,7 +12,10 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
+
+if TYPE_CHECKING:
+    from pgboundary.products.catalog import FileFormat, IGNProduct
 
 import httpx
 import typer
@@ -330,6 +333,46 @@ def load_command(
     console.print(table)
 
 
+def _try_sqlite_url(
+    product: IGNProduct,
+    file_format: FileFormat,
+    territory: str,
+    date: str | None = None,
+) -> str | None:
+    """Tente de résoudre une URL de téléchargement depuis la base SQLite.
+
+    Args:
+        product: Produit IGN avec api_product.
+        file_format: Format de fichier.
+        territory: Code territoire.
+        date: Date spécifique (optionnel).
+
+    Returns:
+        URL depuis SQLite ou None.
+    """
+    if not product.api_product:
+        return None
+
+    try:
+        from pgboundary.config import Settings
+        from pgboundary.products.catalog_db import CatalogDatabase
+
+        settings = Settings()
+        if not settings.catalog_db.exists():
+            return None
+
+        format_str = file_format.value.upper()
+        with CatalogDatabase(settings.catalog_db) as db:
+            return db.get_download_url(
+                product.api_product,
+                format_str,
+                territory,
+                date,
+            )
+    except Exception:
+        return None
+
+
 def _check_url(client: httpx.Client, url: str) -> tuple[int | None, str]:
     """Vérifie l'accessibilité d'une URL par requête HEAD.
 
@@ -355,6 +398,18 @@ def check_urls_command(
         bool,
         typer.Option("--all", "-a", help="Vérifie tous les produits du catalogue."),
     ] = False,
+    product_id: Annotated[
+        str | None,
+        typer.Option("--product", "-p", help="ID d'un produit spécifique à vérifier."),
+    ] = None,
+    date: Annotated[
+        str | None,
+        typer.Option(
+            "--date",
+            "-d",
+            help="Date pour les URL (YYYY ou YYYY-MM-DD). Défaut: année courante.",
+        ),
+    ] = None,
     config_file: Annotated[
         Path | None,
         typer.Option("--config", "-c", help="Fichier de configuration."),
@@ -363,33 +418,99 @@ def check_urls_command(
         bool,
         typer.Option("--verbose", "-V", help="Affiche les URL complètes."),
     ] = False,
+    department: str | None = None,
 ) -> None:
     """Vérifie l'accessibilité des URL de téléchargement.
 
     Sans option: vérifie les URL des produits configurés.
     Avec --all: vérifie les URL de tous les produits du catalogue.
+    Avec --product: vérifie les URL d'un produit spécifique (tous territoires et formats).
+    Avec --date: utilise une date spécifique (ex: 2025, 2025-09-15).
+    Avec --department: vérifie les URL par département (nécessite --product).
     """
     from pgboundary.products import FileFormat, get_default_catalog
+    from pgboundary.products.catalog import FRENCH_DEPARTMENTS, validate_department_code
     from pgboundary.sources.ign import IGNDataSource
 
     catalog = get_default_catalog()
     source = IGNDataSource()
 
-    # Construire la liste des (product_id, format, territory, year) à vérifier
+    # Validation du paramètre --department
+    if department and not product_id:
+        console.print("[red]L'option --department nécessite --product.[/red]")
+        raise typer.Exit(1)
+
+    default_year = str(datetime.now().year)
+
+    def _resolve_date(prod: IGNProduct) -> str:
+        """Résout la date à utiliser: option CLI > last_date du produit > année courante."""
+        if date:
+            return date
+        if prod.last_date:
+            return prod.last_date
+        return default_year
+
+    # Construire la liste des (label, url) à vérifier
     urls_to_check: list[tuple[str, str]] = []
 
-    if all_products:
-        current_year = str(datetime.now().year)
-        for product in catalog.list_all():
-            if product.url_template.startswith("generated://"):
+    if product_id:
+        product = catalog.get(product_id)
+        if product is None:
+            console.print(f"[red]Produit inconnu: {product_id}[/red]")
+            console.print("[dim]Produits disponibles: " + ", ".join(catalog.list_ids()) + "[/dim]")
+            raise typer.Exit(1)
+        if product.url_template.startswith("generated://"):
+            console.print(f"[yellow]{product_id}: produit généré, pas d'URL à vérifier.[/yellow]")
+            raise typer.Exit(0)
+
+        # Gestion du téléchargement par département
+        if department:
+            if not product.supports_department_download:
+                console.print(
+                    f"[red]Le produit '{product_id}' ne supporte pas "
+                    f"le téléchargement par département.[/red]"
+                )
+                raise typer.Exit(1)
+
+            if department.lower() == "all":
+                dept_codes = FRENCH_DEPARTMENTS
+            else:
+                if not validate_department_code(department):
+                    console.print(f"[red]Code département invalide: '{department}'[/red]")
+                    console.print("[dim]Codes valides: 01-19, 2A, 2B, 21-95, 971-976[/dim]")
+                    raise typer.Exit(1)
+                dept_codes = [department]
+
+            for dept in dept_codes:
+                url = source.build_department_url(product, dept)
+                label = f"{product_id} (dept {dept})"
+                urls_to_check.append((label, url))
+        else:
+            check_year = _resolve_date(product)
+            for fmt in product.formats:
+                for terr in product.territories:
+                    url = _try_sqlite_url(product, fmt, terr.value, check_year) or ""
+                    if not url:
+                        try:
+                            url = source.build_url(product, fmt, terr.value, check_year)
+                        except (KeyError, IndexError):
+                            url = product.url_template
+                    label = f"{product_id} ({fmt.value}/{terr.value})"
+                    urls_to_check.append((label, url))
+    elif all_products:
+        for prod in catalog.list_all():
+            if prod.url_template.startswith("generated://"):
                 continue
-            file_format = product.formats[0] if product.formats else FileFormat.GPKG
-            territory = product.territories[0].value if product.territories else "FRA"
-            try:
-                url = source.build_url(product, file_format, territory, current_year)
-            except (KeyError, IndexError):
-                url = product.url_template
-            urls_to_check.append((product.id, url))
+            fmt = prod.formats[0] if prod.formats else FileFormat.GPKG
+            terr_str = prod.territories[0].value if prod.territories else "FRA"
+            check_year = _resolve_date(prod)
+            url = _try_sqlite_url(prod, fmt, terr_str, check_year) or ""
+            if not url:
+                try:
+                    url = source.build_url(prod, fmt, terr_str, check_year)
+                except (KeyError, IndexError):
+                    url = prod.url_template
+            urls_to_check.append((prod.id, url))
     else:
         config_path = config_file or (Path.cwd() / "pgboundary.yml")
         if not config_path.exists():
@@ -403,32 +524,39 @@ def check_urls_command(
             console.print("[yellow]Aucun produit configuré.[/yellow]")
             raise typer.Exit(1)
 
-        for product_id, config in imports.items():
-            configured_product = catalog.get(product_id)
+        for pid, cfg in imports.items():
+            configured_product = catalog.get(pid)
             if configured_product is None:
-                urls_to_check.append((product_id, ""))
+                urls_to_check.append((pid, ""))
                 continue
             if configured_product.url_template.startswith("generated://"):
                 continue
 
-            territory = config.get("territory", "FRA")
-            format_str = config.get("format", "gpkg")
-            file_format = FileFormat(format_str)
-            years = config.get("years", [str(datetime.now().year)])
+            terr_str = cfg.get("territory", "FRA")
+            format_str = cfg.get("format", "gpkg")
+            fmt = FileFormat(format_str)
+            years = cfg.get("years", [_resolve_date(configured_product)])
 
             for year in years:
-                try:
-                    url = source.build_url(configured_product, file_format, territory, year)
-                except (KeyError, IndexError):
-                    url = configured_product.url_template
-                label = f"{product_id} ({year})" if len(years) > 1 else product_id
+                url = _try_sqlite_url(configured_product, fmt, terr_str, year) or ""
+                if not url:
+                    try:
+                        url = source.build_url(configured_product, fmt, terr_str, year)
+                    except (KeyError, IndexError):
+                        url = configured_product.url_template
+                label = f"{pid} ({year})" if len(years) > 1 else pid
                 urls_to_check.append((label, url))
 
     if not urls_to_check:
         console.print("[yellow]Aucune URL à vérifier.[/yellow]")
         raise typer.Exit(0)
 
-    console.print(f"[bold blue]Vérification de {len(urls_to_check)} URL...[/bold blue]\n")
+    console.print(
+        f"[bold blue]Vérification de {len(urls_to_check)} URL"
+        + (f" (date: {date})" if date else "")
+        + (f" (département: {department})" if department else "")
+        + "...[/bold blue]\n"
+    )
 
     table = Table(title="Vérification des URL", show_lines=verbose)
     table.add_column("Produit", style="cyan", no_wrap=True)

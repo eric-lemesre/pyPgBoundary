@@ -9,6 +9,7 @@ description:
     Includes representative points for municipalities.
 
 provider: IGN
+api_product: ADMIN-EXPRESS-COG-CARTO
 category: administrative
 version: "4-0"
 url_template: >-
@@ -16,6 +17,8 @@ url_template: >-
   ADMIN-EXPRESS-COG-CARTO_{version}__{format}_{crs}_{territory}_{date}/
   ADMIN-EXPRESS-COG-CARTO_{version}__{format}_{crs}_{territory}_{date}.7z
 archive_extension: "7z"
+last_date: "2025"
+available_dates: ["2025", "2024", "2023", "2022"]
 size_mb: 550
 
 formats:

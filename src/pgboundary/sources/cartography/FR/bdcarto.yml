@@ -9,13 +9,16 @@ description:
     Contains administrative boundaries, activity zones, facilities.
 
 provider: IGN
+api_product: BDCARTO
 category: cartography
 version: "5-0"
 url_template: >-
   https://data.geopf.fr/telechargement/download/BDCARTO/
-  BDCARTO_{version}__TOUSTHEMES_{format}_{crs}_{territory}_{date}/
-  BDCARTO_{version}__TOUSTHEMES_{format}_{crs}_{territory}_{date}.7z
+  BDCARTO_{version}_TOUSTHEMES_{format}_{crs}_{territory}_{date}/
+  BDCARTO_{version}_TOUSTHEMES_{format}_{crs}_{territory}_{date}.7z
 archive_extension: "7z"
+last_date: "2025-09-15"
+available_dates: ["2025-09-15"]
 size_mb: 1200
 
 formats:

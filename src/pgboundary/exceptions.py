@@ -35,3 +35,7 @@ class ValidationError(PyPgBoundaryError):
 
 class LoaderError(PyPgBoundaryError):
     """Erreur lors du chargement des données."""
+
+
+class AtomApiError(DataSourceError):
+    """Erreur de communication avec l'API Atom."""

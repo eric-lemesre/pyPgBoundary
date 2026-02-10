@@ -9,6 +9,7 @@ description:
     from INSEE for municipalities with more than 10,000 inhabitants.
 
 provider: IGN
+api_product: CONTOURS-IRIS
 category: statistics
 version: "3-0"
 url_template: >-
@@ -16,14 +17,20 @@ url_template: >-
   CONTOURS-IRIS_3-0__{format}_{crs}_{territory}_{date}/
   CONTOURS-IRIS_3-0__{format}_{crs}_{territory}_{date}.7z
 archive_extension: "7z"
+last_date: "2025"
+available_dates: ["2025", "2024", "2023"]
 size_mb: 150
 
 formats:
   - gpkg
 
 territories:
-  - FRA
   - FXX
+  - GLP
+  - MTQ
+  - GUF
+  - REU
+  - MYT
 
 layers:
   - name: IRIS_GE

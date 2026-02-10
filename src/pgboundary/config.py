@@ -51,6 +51,11 @@ class Settings(BaseSettings):
         description="Répertoire de stockage des données téléchargées",
     )
 
+    catalog_db: Path = Field(
+        default=Path.home() / ".pgboundary" / "catalog.db",
+        description="Base SQLite du catalogue API",
+    )
+
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
         default="INFO",
         description="Niveau de journalisation",
@@ -63,7 +68,7 @@ class Settings(BaseSettings):
 
     _schema_config: SchemaConfig | None = None
 
-    @field_validator("data_dir", "config_file", mode="before")
+    @field_validator("data_dir", "config_file", "catalog_db", mode="before")
     @classmethod
     def ensure_path(cls, v: str | Path) -> Path:
         """Convertit la valeur en Path si nécessaire."""
