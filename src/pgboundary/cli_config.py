@@ -46,7 +46,7 @@ if TYPE_CHECKING:
     from pgboundary.products.catalog import IGNProduct
 
 
-def _get_product_years(product: IGNProduct | None) -> list[str] | None:
+def _get_product_editions(product: IGNProduct | None) -> list[str] | None:
     """Return a product's available_dates for selection.
 
     Returns the full dates (YYYY or YYYY-MM-DD) as they appear in the
@@ -451,7 +451,7 @@ def _update_imports(config: SchemaConfig) -> None:
     table.add_column("#", style="dim")
     table.add_column("Produit", style="cyan")
     table.add_column("Couches")
-    table.add_column("Années")
+    table.add_column("Millésimes")
     table.add_column("Territoire")
 
     products_list = list(config.imports.items())
@@ -466,9 +466,9 @@ def _update_imports(config: SchemaConfig) -> None:
         else:
             layers_str = "[dim]aucune[/dim]"
 
-        years = ", ".join(prod_config.get("years", []))
+        editions = ", ".join(prod_config.get("editions", []))
         territory = prod_config.get("territory", "FRA")
-        table.add_row(str(i), product_id, layers_str, years, territory)
+        table.add_row(str(i), product_id, layers_str, editions, territory)
 
     console.print(table)
     console.print()
@@ -516,7 +516,7 @@ def _modify_product_config(config: SchemaConfig, product_id: str) -> None:
 
     while True:
         options = [
-            MenuOption("1", "Paramètres par défaut", "territoire, format, années"),
+            MenuOption("1", "Paramètres par défaut", "territoire, format, millésimes"),
             MenuOption("2", "Historisation"),
             MenuOption("3", "Activer/désactiver des couches"),
             MenuOption("4", "Configurer une couche spécifique"),
@@ -549,22 +549,24 @@ def _modify_product_defaults(
 ) -> None:
     """Modify the default parameters of a product."""
     from pgboundary.cli_widgets import (
+        select_editions,
         select_format,
         select_territory,
-        select_years,
     )
 
     console.print("\n[bold]Modification des valeurs par défaut[/bold]")
 
-    # Years
-    product_years = _get_product_years(product)
-    if product_years:
-        current_years = prod_config.get("years", [])
-        years_result = select_years(available_years=product_years, preselected=current_years)
-        if years_result.cancelled:
+    # Editions
+    product_editions = _get_product_editions(product)
+    if product_editions:
+        current_editions = prod_config.get("editions", [])
+        editions_result = select_editions(
+            available_editions=product_editions, preselected=current_editions
+        )
+        if editions_result.cancelled:
             console.print("[yellow]Modification annulée[/yellow]")
             return
-        prod_config["years"] = years_result.selected_values
+        prod_config["editions"] = editions_result.selected_values
 
     # Territory
     if product:
@@ -684,9 +686,9 @@ def _modify_layer_config(
     """Modify the configuration of a specific layer."""
     from pgboundary.cli_widgets import (
         SelectItem,
+        select_editions,
         select_single,
         select_territory,
-        select_years,
     )
 
     layers = prod_config.setdefault("layers", {})
@@ -730,21 +732,21 @@ def _modify_layer_config(
         elif "table_name" in layer_cfg:
             del layer_cfg["table_name"]
 
-        # Override years?
-        product_years = _get_product_years(product)
-        if product_years:
+        # Override editions?
+        product_editions = _get_product_editions(product)
+        if product_editions:
             if Confirm.ask(
-                "Surcharger les années pour cette couche ?",
-                default=bool(layer_cfg.get("years")),
+                "Surcharger les millésimes pour cette couche ?",
+                default=bool(layer_cfg.get("editions")),
             ):
-                current_years = layer_cfg.get("years") or prod_config.get("years", [])
-                years_result = select_years(
-                    available_years=product_years, preselected=current_years
+                current_editions = layer_cfg.get("editions") or prod_config.get("editions", [])
+                editions_result = select_editions(
+                    available_editions=product_editions, preselected=current_editions
                 )
-                if not years_result.cancelled:
-                    layer_cfg["years"] = years_result.selected_values
-            elif "years" in layer_cfg:
-                del layer_cfg["years"]
+                if not editions_result.cancelled:
+                    layer_cfg["editions"] = editions_result.selected_values
+            elif "editions" in layer_cfg:
+                del layer_cfg["editions"]
 
         # Override territory?
         if Confirm.ask(
@@ -910,8 +912,8 @@ def _display_products_tree(config: SchemaConfig, catalog: Any) -> None:
                     status = f"[yellow]○ {enabled_count}/{total_count} couches[/yellow]"
 
                 # Additional info
-                years = prod_config.get("years", [])
-                years_str = f" ({', '.join(years)})" if years else ""
+                editions = prod_config.get("editions", [])
+                editions_str = f" ({', '.join(editions)})" if editions else ""
 
                 injection = prod_config.get("injection", {})
                 if injection.get("injected"):
@@ -920,7 +922,7 @@ def _display_products_tree(config: SchemaConfig, catalog: Any) -> None:
                 else:
                     inject_str = ""
 
-                label = f"[cyan]{product_counter:2}[/cyan] {product.name} {status}{years_str}{inject_str}"
+                label = f"[cyan]{product_counter:2}[/cyan] {product.name} {status}{editions_str}{inject_str}"
             else:
                 # Unconfigured product
                 size_str = _format_size(product.size_mb)
@@ -992,9 +994,9 @@ def _select_product_by_number(config: SchemaConfig, catalog: Any, num: int) -> N
                 table_name = layer_cfg.get("table_name", "[dim]défaut[/dim]")
                 console.print(f"  {marker} {layer_name} → {table_name}")
 
-        years = prod_config.get("years", [])
-        if years:
-            console.print(f"\nAnnées par défaut: {', '.join(years)}")
+        editions = prod_config.get("editions", [])
+        if editions:
+            console.print(f"\nMillésimes par défaut: {', '.join(editions)}")
 
         territory = prod_config.get("territory", "FRA")
         console.print(f"Territoire par défaut: {territory}")
@@ -1126,8 +1128,8 @@ def config_sync_product(
                         pid,
                         injected=True,
                         count=total_count,
-                        year=prod_config.get("years", [""])[0]
-                        if prod_config.get("years")
+                        edition=prod_config.get("editions", [""])[0]
+                        if prod_config.get("editions")
                         else None,
                         layers=list(found_tables),
                     )
@@ -1170,7 +1172,7 @@ def _remove_products_interactive(config: SchemaConfig) -> None:
             SelectItem(
                 label=product_id,
                 value=product_id,
-                description=", ".join(prod_config.get("years", [])),
+                description=", ".join(prod_config.get("editions", [])),
             )
             for product_id, prod_config in products_list
         ]
@@ -1259,10 +1261,10 @@ def _select_product_from_category(
 def _configure_product(config: SchemaConfig, product: IGNProduct) -> None:
     """Configure a product for import (new layer-based structure)."""
     from pgboundary.cli_widgets import (
+        select_editions,
         select_format,
         select_layers,
         select_territory,
-        select_years,
     )
 
     console.print()
@@ -1280,16 +1282,16 @@ def _configure_product(config: SchemaConfig, product: IGNProduct) -> None:
 
     selected_layer_names = layers_result.selected_values
 
-    # Select default vintages/years (interactive checkbox)
-    product_years = _get_product_years(product)
-    if product_years:
-        years_result = select_years(available_years=product_years)
-        if years_result.cancelled:
+    # Select default vintages/editions (interactive checkbox)
+    product_editions = _get_product_editions(product)
+    if product_editions:
+        editions_result = select_editions(available_editions=product_editions)
+        if editions_result.cancelled:
             console.print("[yellow]Configuration annulée[/yellow]")
             return
-        years = years_result.selected_values
+        editions = editions_result.selected_values
     else:
-        years = []
+        editions = []
 
     # Default territory (interactive selection)
     territories = [t.value for t in product.territories]
@@ -1344,7 +1346,7 @@ def _configure_product(config: SchemaConfig, product: IGNProduct) -> None:
     config.imports[product.id] = {
         "territory": territory,
         "format": file_format,
-        "years": years,
+        "editions": editions,
         "historization": hist_config,
         "layers": layers_config,
     }

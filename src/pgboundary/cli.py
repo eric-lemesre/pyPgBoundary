@@ -376,9 +376,9 @@ def download(
             "--territory", "-t", help="Territoire (france_metropolitaine, france_entiere)."
         ),
     ] = "france_metropolitaine",
-    year: Annotated[
+    edition: Annotated[
         str,
-        typer.Option("--year", "-y", help="Année des données."),
+        typer.Option("--edition", "-e", help="Millésime des données."),
     ] = "2024",
     force: Annotated[
         bool,
@@ -395,11 +395,11 @@ def download(
     settings = Settings()
     source = IGNDataSource(settings)
 
-    console.print(f"[bold blue]Téléchargement des données {territory} {year}...[/bold blue]")
+    console.print(f"[bold blue]Téléchargement des données {territory} {edition}...[/bold blue]")
 
     try:
         territory_lit = cast("Literal['france_metropolitaine', 'france_entiere']", territory)
-        archive_path = source.download_legacy(territory=territory_lit, year=year, force=force)
+        archive_path = source.download_legacy(territory=territory_lit, edition=edition, force=force)
         console.print(f"[green]Archive téléchargée: {archive_path}[/green]")
 
         extract_path = source.extract(archive_path, force=force)
@@ -518,9 +518,9 @@ def load_legacy(
         str,
         typer.Option("--territory", "-t", help="Territoire à télécharger si source non fournie."),
     ] = "france_metropolitaine",
-    year: Annotated[
+    edition: Annotated[
         str,
-        typer.Option("--year", "-y", help="Année des données."),
+        typer.Option("--edition", "-e", help="Millésime des données."),
     ] = "2024",
     layers: Annotated[
         str | None,
@@ -563,7 +563,7 @@ def load_legacy(
         count = loader.load(
             source_path=source_path,
             territory=territory_lit,
-            year=year,
+            edition=edition,
             layers=layers_list,
             if_exists=if_exists_lit,
         )
@@ -977,9 +977,9 @@ def load_product(
             help="Code département pour téléchargement par département (ex: 75, 2A, 974).",
         ),
     ] = None,
-    year: Annotated[
+    edition: Annotated[
         str,
-        typer.Option("--year", "-y", help="Année des données."),
+        typer.Option("--edition", "-e", help="Millésime des données."),
     ] = "2024",
     layers: Annotated[
         str | None,
@@ -1054,7 +1054,7 @@ def load_product(
         console.print(f"  Département: {department}")
     else:
         console.print(f"  Territoire: {territory}")
-    console.print(f"  Année: {year}")
+    console.print(f"  Millésime: {edition}")
     console.print(f"  Format: {file_format}")
     if table_name:
         console.print(f"  Table: {table_name}")
@@ -1069,7 +1069,7 @@ def load_product(
         count = loader.load(
             file_format=format_enum,
             territory=territory,
-            year=year,
+            edition=edition,
             layers=layers_list,
             if_exists=if_exists_lit,
             cli_table_name=table_name,

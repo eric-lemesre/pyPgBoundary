@@ -96,14 +96,14 @@ def show_import_selection(
         initial_selected = enabled_count > 0
 
         # Build the description
-        years = ", ".join(config.get("years", []))
+        editions = ", ".join(config.get("editions", []))
         hist = config.get("historization", {})
         hist_str = hist.get("method", "combined") if hist.get("enabled", False) else "non"
         layers_info = f"{enabled_count}/{total_count}" if total_count > 0 else "aucune"
 
         product = catalog.get(product_id)
         size_str = product.get_size_formatted() if product else "?"
-        description = f"{layers_info} couches, {years}, ~{size_str}, hist: {hist_str}"
+        description = f"{layers_info} couches, {editions}, ~{size_str}, hist: {hist_str}"
 
         toggle_items.append(
             ToggleItem(
@@ -144,7 +144,7 @@ def _get_effective_layer_config(
         "table_name": layer_config.get("table_name"),
         "territory": layer_config.get("territory") or prod_config.get("territory", "FRA"),
         "format": layer_config.get("format") or prod_config.get("format", "shp"),
-        "years": layer_config.get("years") or prod_config.get("years", []),
+        "editions": layer_config.get("editions") or prod_config.get("editions", []),
         "historization": layer_config.get("historization") or prod_config.get("historization", {}),
     }
 
@@ -213,16 +213,16 @@ def run_import(
 
                 file_format = FileFormat(layer_config["format"])
                 territory = layer_config["territory"]
-                years = layer_config["years"]
+                editions = layer_config["editions"]
 
-                # If no years configured, use last_date or a single
+                # If no editions configured, use last_date or a single
                 # pass (for products with fixed/latest URLs)
-                if not years:
-                    years = [product.last_date or "latest"]
+                if not editions:
+                    editions = [product.last_date or "latest"]
 
-                # Import each year for this layer
-                for year in years:
-                    console.print(f"    Année {year}...")
+                # Import each edition for this layer
+                for edition in editions:
+                    console.print(f"    Millésime {edition}...")
 
                     # Determine the import mode
                     hist_config = layer_config.get("historization", {})
@@ -231,7 +231,7 @@ def run_import(
                     count = loader.load(
                         file_format=file_format,
                         territory=territory,
-                        year=year,
+                        edition=edition,
                         layers=[layer_name],  # One layer at a time
                         if_exists=if_exists,  # type: ignore[arg-type]
                     )
@@ -412,7 +412,7 @@ def check_urls_command(
         typer.Option(
             "--date",
             "-d",
-            help="Date pour les URL (YYYY ou YYYY-MM-DD). Défaut: année précédente.",
+            help="Date pour les URL (YYYY ou YYYY-MM-DD). Défaut: millésime précédent.",
         ),
     ] = None,
     config_file: Annotated[
@@ -445,16 +445,16 @@ def check_urls_command(
         console.print("[red]L'option --department nécessite --product.[/red]")
         raise typer.Exit(1)
 
-    # Current year data is typically not yet available, default to previous year
-    default_year = str(datetime.now().year - 1)
+    # Current year data is typically not yet available, default to previous edition
+    default_edition = str(datetime.now().year - 1)
 
     def _resolve_date(prod: IGNProduct) -> str:
-        """Resolve the date to use: CLI option > product last_date > current year."""
+        """Resolve the date to use: CLI option > product last_date > default edition."""
         if date:
             return date
         if prod.last_date:
             return prod.last_date
-        return default_year
+        return default_edition
 
     # Build the list of (label, url) to check
     urls_to_check: list[tuple[str, str]] = []
@@ -492,13 +492,13 @@ def check_urls_command(
                 label = f"{product_id} (dept {dept})"
                 urls_to_check.append((label, url))
         else:
-            check_year = _resolve_date(product)
+            check_edition = _resolve_date(product)
             for fmt in product.formats:
                 for terr in product.territories:
-                    url = _try_sqlite_url(product, fmt, terr.value, check_year) or ""
+                    url = _try_sqlite_url(product, fmt, terr.value, check_edition) or ""
                     if not url:
                         try:
-                            url = source.build_url(product, fmt, terr.value, check_year)
+                            url = source.build_url(product, fmt, terr.value, check_edition)
                         except (KeyError, IndexError):
                             url = product.url_template
                     label = f"{product_id} ({fmt.value}/{terr.value})"
@@ -509,11 +509,11 @@ def check_urls_command(
                 continue
             fmt = prod.formats[0] if prod.formats else FileFormat.GPKG
             terr_str = prod.territories[0].value if prod.territories else "FRA"
-            check_year = _resolve_date(prod)
-            url = _try_sqlite_url(prod, fmt, terr_str, check_year) or ""
+            check_edition = _resolve_date(prod)
+            url = _try_sqlite_url(prod, fmt, terr_str, check_edition) or ""
             if not url:
                 try:
-                    url = source.build_url(prod, fmt, terr_str, check_year)
+                    url = source.build_url(prod, fmt, terr_str, check_edition)
                 except (KeyError, IndexError):
                     url = prod.url_template
             urls_to_check.append((prod.id, url))
@@ -541,16 +541,16 @@ def check_urls_command(
             terr_str = cfg.get("territory", "FRA")
             format_str = cfg.get("format", "gpkg")
             fmt = FileFormat(format_str)
-            years = cfg.get("years", [_resolve_date(configured_product)])
+            editions = cfg.get("editions", [_resolve_date(configured_product)])
 
-            for year in years:
-                url = _try_sqlite_url(configured_product, fmt, terr_str, year) or ""
+            for edition in editions:
+                url = _try_sqlite_url(configured_product, fmt, terr_str, edition) or ""
                 if not url:
                     try:
-                        url = source.build_url(configured_product, fmt, terr_str, year)
+                        url = source.build_url(configured_product, fmt, terr_str, edition)
                     except (KeyError, IndexError):
                         url = configured_product.url_template
-                label = f"{pid} ({year})" if len(years) > 1 else pid
+                label = f"{pid} ({edition})" if len(editions) > 1 else pid
                 urls_to_check.append((label, url))
 
     if not urls_to_check:

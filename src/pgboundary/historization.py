@@ -51,18 +51,18 @@ def get_year_end_date(year: str) -> date:
     return date(int(year), 12, 31)
 
 
-def add_historization_columns(gdf: gpd.GeoDataFrame, year: str) -> gpd.GeoDataFrame:
+def add_historization_columns(gdf: gpd.GeoDataFrame, edition: str) -> gpd.GeoDataFrame:
     """Add historization columns to a GeoDataFrame.
 
     Args:
         gdf: GeoDataFrame to modify.
-        year: Vintage year.
+        edition: Data edition.
 
     Returns:
         GeoDataFrame with dt_debut and dt_fin columns.
     """
     gdf = gdf.copy()
-    gdf["dt_debut"] = get_year_start_date(year)
+    gdf["dt_debut"] = get_year_start_date(edition)
     gdf["dt_fin"] = None  # NULL = enregistrement courant
     return gdf
 
@@ -232,7 +232,7 @@ class HistorizationManager:
     def prepare_import(
         self,
         new_data: gpd.GeoDataFrame,
-        year: str,
+        edition: str,
     ) -> tuple[gpd.GeoDataFrame, list[Any]]:
         """Prepare data for import with historization.
 
@@ -242,13 +242,13 @@ class HistorizationManager:
 
         Args:
             new_data: New data to import.
-            year: Vintage year.
+            edition: Data edition.
 
         Returns:
             Tuple (data to insert, keys to close).
         """
         # Ajouter les colonnes d'historisation
-        new_data = add_historization_columns(new_data, year)
+        new_data = add_historization_columns(new_data, edition)
 
         # Récupérer les clés existantes
         existing_keys = get_existing_keys(self.engine, self.schema, self.table, self.key_field)
@@ -276,12 +276,12 @@ class HistorizationManager:
 
         return new_data, keys_to_close
 
-    def close_records(self, keys_to_close: list[Any], year: str) -> int:
+    def close_records(self, keys_to_close: list[Any], edition: str) -> int:
         """Close obsolete records.
 
         Args:
             keys_to_close: Keys of records to close.
-            year: New vintage year.
+            edition: New data edition.
 
         Returns:
             Number of records closed.
@@ -290,7 +290,7 @@ class HistorizationManager:
             return 0
 
         # La date de fin est le 31 décembre de l'année précédente
-        previous_year = str(int(year) - 1)
+        previous_year = str(int(edition) - 1)
         end_date = get_year_end_date(previous_year)
 
         count = close_old_records(
@@ -308,22 +308,22 @@ class HistorizationManager:
     def import_with_historization(
         self,
         new_data: gpd.GeoDataFrame,
-        year: str,
+        edition: str,
     ) -> int:
         """Import data with historization management.
 
         Args:
             new_data: Data to import.
-            year: Vintage year.
+            edition: Data edition.
 
         Returns:
             Number of records inserted.
         """
         # Préparer l'import
-        data_to_insert, keys_to_close = self.prepare_import(new_data, year)
+        data_to_insert, keys_to_close = self.prepare_import(new_data, edition)
 
         # Fermer les anciens enregistrements
-        self.close_records(keys_to_close, year)
+        self.close_records(keys_to_close, edition)
 
         # Insérer les nouvelles données (append)
         full_table = self.table

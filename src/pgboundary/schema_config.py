@@ -414,7 +414,7 @@ class SchemaConfig(BaseModel):
         *,
         injected: bool,
         count: int | None = None,
-        year: str | None = None,
+        edition: str | None = None,
         layers: list[str] | None = None,
     ) -> None:
         """Update the injection status of a product.
@@ -423,7 +423,7 @@ class SchemaConfig(BaseModel):
             product_id: Product identifier.
             injected: True if the product was injected.
             count: Number of injected entities.
-            year: Injected vintage year.
+            edition: Injected data edition.
             layers: Injected layers.
         """
         if product_id not in self.imports:
@@ -437,8 +437,8 @@ class SchemaConfig(BaseModel):
         if injected:
             if count is not None:
                 injection_info["entity_count"] = count
-            if year is not None:
-                injection_info["injected_year"] = year
+            if edition is not None:
+                injection_info["injected_edition"] = edition
             if layers is not None:
                 injection_info["injected_layers"] = layers
 
@@ -552,7 +552,7 @@ imports:
   #   # Valeurs par défaut pour toutes les couches
   #   territory: FRA
   #   format: shp
-  #   years: ["2024"]
+  #   editions: ["2024"]
   #   historization:
   #     enabled: true
   #     method: combined   # md5 | jaccard | hausdorff | combined
@@ -574,7 +574,7 @@ imports:
   #     COMMUNE:
   #       enabled: true
   #       table_name: commune
-  #       years: ["2023", "2024"]  # Surcharge locale
+  #       editions: ["2023", "2024"]  # Surcharge locale
   #     EPCI:
   #       enabled: false
   #       table_name: epci
@@ -583,7 +583,7 @@ imports:
   #     injected: true
   #     injected_at: "2024-01-15T10:30:00"
   #     entity_count: 34500
-  #     injected_year: "2024"
+  #     injected_edition: "2024"
   #     injected_layers: [REGION, DEPARTEMENT, COMMUNE]
 """
 

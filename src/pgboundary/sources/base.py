@@ -31,7 +31,7 @@ class DataSource(ABC):
         product: IGNProduct,
         file_format: FileFormat,
         territory: str,
-        year: str,
+        edition: str,
     ) -> str:
         """Build the download URL for a product.
 
@@ -39,7 +39,7 @@ class DataSource(ABC):
             product: IGN product to download.
             file_format: Desired file format (SHP, GPKG).
             territory: Territory code (FRA, FXX, etc.).
-            year: Data year.
+            edition: Data edition.
 
         Returns:
             Complete download URL.
@@ -110,7 +110,7 @@ class DataSource(ABC):
         product: IGNProduct,
         file_format: FileFormat,
         territory: str,
-        year: str,
+        edition: str,
         dest_dir: Path,
         force: bool = False,
     ) -> tuple[Path, dict[str, Path]]:
@@ -123,14 +123,14 @@ class DataSource(ABC):
             product: IGN product to download.
             file_format: Desired file format.
             territory: Territory code.
-            year: Data year.
+            edition: Data edition.
             dest_dir: Destination directory.
             force: Force re-download/extraction.
 
         Returns:
             Tuple (extracted_directory, files_dict).
         """
-        url = self.build_url(product, file_format, territory, year)
+        url = self.build_url(product, file_format, territory, edition)
         logger.info("Téléchargement depuis: %s", url)
 
         archive_path = self.download(url, dest_dir, force=force)

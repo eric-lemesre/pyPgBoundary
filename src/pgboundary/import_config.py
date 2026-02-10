@@ -184,7 +184,7 @@ class LayerImportConfig(BaseModel):
         table_name: Target table name (optional, uses default if None).
         territory: Territory code (inherits from product if None).
         format: File format (inherits from product if None).
-        years: Years to import (inherits from product if None).
+        editions: Editions to import (inherits from product if None).
         historization: Historization configuration (inherits from product if None).
     """
 
@@ -201,9 +201,9 @@ class LayerImportConfig(BaseModel):
         default=None,
         description="Format de fichier (hérite du produit si None)",
     )
-    years: list[str] | None = Field(
+    editions: list[str] | None = Field(
         default=None,
-        description="Années à importer (hérite du produit si None)",
+        description="Millésimes à importer (hérite du produit si None)",
     )
     historization: HistorizationConfig | None = Field(
         default=None,
@@ -224,7 +224,7 @@ class EffectiveLayerConfig:
         table_name: Target table name.
         territory: Territory code.
         format: File format.
-        years: Years to import.
+        editions: Editions to import.
         historization: Historization configuration.
     """
 
@@ -233,7 +233,7 @@ class EffectiveLayerConfig:
     table_name: str | None
     territory: str
     format: str
-    years: list[str]
+    editions: list[str]
     historization: HistorizationConfig
 
 
@@ -246,16 +246,16 @@ class ProductImportConfig(BaseModel):
     Attributes:
         territory: Default territory code (FRA, FXX, GLP, etc.).
         format: Default file format (shp, gpkg).
-        years: Default years/vintages to import.
+        editions: Default editions/vintages to import.
         historization: Default historization configuration.
         layers: Per-layer configuration.
     """
 
     territory: str = Field(default="FRA", description="Code territoire par défaut")
     format: str = Field(default="shp", description="Format de fichier par défaut")
-    years: list[str] = Field(
+    editions: list[str] = Field(
         default_factory=lambda: ["2024"],
-        description="Années/millésimes par défaut",
+        description="Millésimes par défaut",
     )
     historization: HistorizationConfig = Field(
         default_factory=HistorizationConfig,
@@ -286,7 +286,7 @@ class ProductImportConfig(BaseModel):
             table_name=layer_config.table_name,
             territory=layer_config.territory if layer_config.territory else self.territory,
             format=layer_config.format if layer_config.format else self.format,
-            years=layer_config.years if layer_config.years else self.years,
+            editions=layer_config.editions if layer_config.editions else self.editions,
             historization=(
                 layer_config.historization if layer_config.historization else self.historization
             ),
@@ -300,15 +300,15 @@ class ProductImportConfig(BaseModel):
         """
         return [name for name, cfg in self.layers.items() if cfg.enabled]
 
-    def get_latest_year(self) -> str | None:
-        """Return the latest configured year (at product level).
+    def get_latest_edition(self) -> str | None:
+        """Return the latest configured edition (at product level).
 
         Returns:
-            Latest year or None if none.
+            Latest edition or None if none.
         """
-        if not self.years:
+        if not self.editions:
             return None
-        return sorted(self.years)[-1]
+        return sorted(self.editions)[-1]
 
     def get_layers_display(self) -> str:
         """Return a display of enabled layers.
@@ -420,7 +420,7 @@ DEFAULT_PRODUCT_CONFIGS: dict[str, ProductImportConfig] = {
     "admin-express-cog": ProductImportConfig(
         territory="FRA",
         format="shp",
-        years=["2024"],
+        editions=["2024"],
         historization=HistorizationConfig(
             enabled=True,
             method=SimilarityMethod.COMBINED,
@@ -442,7 +442,7 @@ DEFAULT_PRODUCT_CONFIGS: dict[str, ProductImportConfig] = {
     "contours-iris": ProductImportConfig(
         territory="FRA",
         format="shp",
-        years=["2024"],
+        editions=["2024"],
         historization=HistorizationConfig(
             enabled=True,
             method=SimilarityMethod.COMBINED,
@@ -461,7 +461,7 @@ DEFAULT_PRODUCT_CONFIGS: dict[str, ProductImportConfig] = {
     "codes-postaux-ban": ProductImportConfig(
         territory="FRA",
         format="geojson",
-        years=["2021"],
+        editions=["2021"],
         historization=HistorizationConfig(enabled=False),
         layers={},
     ),

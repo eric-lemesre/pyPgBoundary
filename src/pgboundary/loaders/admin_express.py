@@ -53,7 +53,7 @@ class AdminExpressLoader(ProductLoader):
 
     Example:
         >>> loader = AdminExpressLoader()
-        >>> loader.load(territory="france_metropolitaine", year="2024")
+        >>> loader.load(territory="france_metropolitaine", edition="2024")
 
         >>> # Or with a specific variant
         >>> loader = AdminExpressLoader(variant="carto")
@@ -100,7 +100,7 @@ class AdminExpressLoader(ProductLoader):
         source_path: Path | None = None,
         layers: list[str] | None = None,
         territory: Territory = "france_metropolitaine",
-        year: str = "2024",
+        edition: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
         file_format: FileFormat = FileFormat.SHP,
         **kwargs: Any,
@@ -114,7 +114,7 @@ class AdminExpressLoader(ProductLoader):
             source_path: Path to the extracted directory (optional).
             layers: List of layers to load (all by default).
             territory: Territory to download if source_path not provided.
-            year: Data year.
+            edition: Data edition.
             if_exists: Behavior if the table exists.
             file_format: File format (SHP by default).
 
@@ -128,7 +128,7 @@ class AdminExpressLoader(ProductLoader):
             source_path=source_path,
             file_format=file_format,
             territory=territory_code,
-            year=year,
+            edition=edition,
             layers=layers,
             if_exists=if_exists,
             **kwargs,
@@ -142,7 +142,7 @@ class AdminExpressLoader(ProductLoader):
         self,
         source_path: Path | None = None,
         territory: Territory = "france_metropolitaine",
-        year: str = "2024",
+        edition: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
         """Load only regions.
@@ -150,7 +150,7 @@ class AdminExpressLoader(ProductLoader):
         Args:
             source_path: Path to the data.
             territory: Territory to use.
-            year: Data year.
+            edition: Data edition.
             if_exists: Behavior if the table exists.
 
         Returns:
@@ -160,7 +160,7 @@ class AdminExpressLoader(ProductLoader):
             source_path=source_path,
             layers=["REGION"],
             territory=territory,
-            year=year,
+            edition=edition,
             if_exists=if_exists,
         )
 
@@ -168,7 +168,7 @@ class AdminExpressLoader(ProductLoader):
         self,
         source_path: Path | None = None,
         territory: Territory = "france_metropolitaine",
-        year: str = "2024",
+        edition: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
         """Load only departments.
@@ -176,7 +176,7 @@ class AdminExpressLoader(ProductLoader):
         Args:
             source_path: Path to the data.
             territory: Territory to use.
-            year: Data year.
+            edition: Data edition.
             if_exists: Behavior if the table exists.
 
         Returns:
@@ -186,7 +186,7 @@ class AdminExpressLoader(ProductLoader):
             source_path=source_path,
             layers=["DEPARTEMENT"],
             territory=territory,
-            year=year,
+            edition=edition,
             if_exists=if_exists,
         )
 
@@ -194,7 +194,7 @@ class AdminExpressLoader(ProductLoader):
         self,
         source_path: Path | None = None,
         territory: Territory = "france_metropolitaine",
-        year: str = "2024",
+        edition: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
         """Load only communes.
@@ -202,7 +202,7 @@ class AdminExpressLoader(ProductLoader):
         Args:
             source_path: Path to the data.
             territory: Territory to use.
-            year: Data year.
+            edition: Data edition.
             if_exists: Behavior if the table exists.
 
         Returns:
@@ -212,7 +212,7 @@ class AdminExpressLoader(ProductLoader):
             source_path=source_path,
             layers=["COMMUNE"],
             territory=territory,
-            year=year,
+            edition=edition,
             if_exists=if_exists,
         )
 
@@ -220,7 +220,7 @@ class AdminExpressLoader(ProductLoader):
         self,
         source_path: Path | None = None,
         territory: Territory = "france_metropolitaine",
-        year: str = "2024",
+        edition: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
         """Load only EPCI.
@@ -228,7 +228,7 @@ class AdminExpressLoader(ProductLoader):
         Args:
             source_path: Path to the data.
             territory: Territory to use.
-            year: Data year.
+            edition: Data edition.
             if_exists: Behavior if the table exists.
 
         Returns:
@@ -238,7 +238,7 @@ class AdminExpressLoader(ProductLoader):
             source_path=source_path,
             layers=["EPCI"],
             territory=territory,
-            year=year,
+            edition=edition,
             if_exists=if_exists,
         )
 
@@ -246,7 +246,7 @@ class AdminExpressLoader(ProductLoader):
         self,
         source_path: Path | None = None,
         territory: Territory = "france_metropolitaine",
-        year: str = "2024",
+        edition: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
         """Load only arrondissements.
@@ -254,7 +254,7 @@ class AdminExpressLoader(ProductLoader):
         Args:
             source_path: Path to the data.
             territory: Territory to use.
-            year: Data year.
+            edition: Data edition.
             if_exists: Behavior if the table exists.
 
         Returns:
@@ -264,7 +264,7 @@ class AdminExpressLoader(ProductLoader):
             source_path=source_path,
             layers=["ARRONDISSEMENT"],
             territory=territory,
-            year=year,
+            edition=edition,
             if_exists=if_exists,
         )
 
@@ -272,7 +272,7 @@ class AdminExpressLoader(ProductLoader):
         self,
         source_path: Path | None = None,
         territory: Territory = "france_metropolitaine",
-        year: str = "2024",
+        edition: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
         """Load only associated or delegated communes.
@@ -280,7 +280,7 @@ class AdminExpressLoader(ProductLoader):
         Args:
             source_path: Path to the data.
             territory: Territory to use.
-            year: Data year.
+            edition: Data edition.
             if_exists: Behavior if the table exists.
 
         Returns:
@@ -290,7 +290,7 @@ class AdminExpressLoader(ProductLoader):
             source_path=source_path,
             layers=["COMMUNE_ASSOCIEE_OU_DELEGUEE"],
             territory=territory,
-            year=year,
+            edition=edition,
             if_exists=if_exists,
         )
 
@@ -298,7 +298,7 @@ class AdminExpressLoader(ProductLoader):
         self,
         source_path: Path | None = None,
         territory: Territory = "france_metropolitaine",
-        year: str = "2024",
+        edition: str = "2024",
         if_exists: Literal["replace", "append", "fail"] = "replace",
     ) -> int:
         """Load all base administrative layers.
@@ -309,7 +309,7 @@ class AdminExpressLoader(ProductLoader):
         Args:
             source_path: Path to the data.
             territory: Territory to use.
-            year: Data year.
+            edition: Data edition.
             if_exists: Behavior if the table exists.
 
         Returns:
@@ -327,6 +327,6 @@ class AdminExpressLoader(ProductLoader):
             source_path=source_path,
             layers=layers,
             territory=territory,
-            year=year,
+            edition=edition,
             if_exists=if_exists,
         )

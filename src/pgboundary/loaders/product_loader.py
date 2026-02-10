@@ -77,7 +77,7 @@ class ProductLoader(BaseLoader):
         source_path: Path | None = None,
         file_format: FileFormat = FileFormat.SHP,
         territory: str = "FRA",
-        year: str = "2024",
+        edition: str = "2024",
         layers: list[str] | None = None,
         if_exists: Literal["replace", "append", "fail"] = "replace",
         cli_table_name: str | None = None,
@@ -89,7 +89,7 @@ class ProductLoader(BaseLoader):
             source_path: Path to already extracted data (optional).
             file_format: File format (SHP or GPKG).
             territory: Territory code (FRA, FXX, GLP, etc.).
-            year: Data year.
+            edition: Data edition.
             layers: List of layers to load (all by default).
             if_exists: Behavior if the table exists.
             cli_table_name: Table name specified via CLI (takes priority).
@@ -105,7 +105,7 @@ class ProductLoader(BaseLoader):
 
         # Obtenir les fichiers de données
         if source_path is None:
-            data_files = self._download_and_extract(file_format, territory, year)
+            data_files = self._download_and_extract(file_format, territory, edition)
         else:
             data_files = self.data_source.find_data_files(source_path, self.product, file_format)
 
@@ -144,14 +144,14 @@ class ProductLoader(BaseLoader):
         self,
         file_format: FileFormat,
         territory: str,
-        year: str,
+        edition: str,
     ) -> dict[str, Path]:
         """Download and extract data.
 
         Args:
             file_format: File format.
             territory: Territory code.
-            year: Data year.
+            edition: Data edition.
 
         Returns:
             Dictionary {layer_name: file_path}.
@@ -160,7 +160,7 @@ class ProductLoader(BaseLoader):
             product=self.product,
             file_format=file_format,
             territory=territory,
-            year=year,
+            edition=edition,
             dest_dir=self.settings.ensure_data_dir(),
         )
         return data_files

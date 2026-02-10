@@ -122,7 +122,7 @@ class IGNDataSource(DataSource):
         product: IGNProduct,
         file_format: FileFormat,
         territory: str,
-        year: str,
+        edition: str,
     ) -> str:
         """Build the download URL from the product template.
 
@@ -130,7 +130,7 @@ class IGNDataSource(DataSource):
             product: IGN product to download.
             file_format: File format (SHP or GPKG).
             territory: Territory code.
-            year: Data year (YYYY or YYYY-MM-DD).
+            edition: Data edition (YYYY or YYYY-MM-DD).
 
         Returns:
             Download URL.
@@ -143,9 +143,9 @@ class IGNDataSource(DataSource):
         crs = crs_mapping.get(territory, "WGS84G")
 
         # Normalize the date: YYYY → YYYY-01-01
-        date_str = year
-        if len(year) == 4 and year.isdigit():
-            date_str = f"{year}-01-01"
+        date_str = edition
+        if len(edition) == 4 and edition.isdigit():
+            date_str = f"{edition}-01-01"
 
         # Use the product template
         return product.url_template.format(
@@ -345,31 +345,31 @@ class IGNDataSource(DataSource):
     def get_download_url(
         self,
         territory: Territory = "france_metropolitaine",
-        year: str = "2024",
+        edition: str = "2024",
     ) -> str:
         """Build the download URL (legacy method).
 
         Args:
             territory: Territory to download.
-            year: Data year.
+            edition: Data edition.
 
         Returns:
             Download URL.
         """
         template = ADMIN_EXPRESS_URLS[territory]
-        return template.format(year=year)
+        return template.format(year=edition)
 
     def download_legacy(
         self,
         territory: Territory = "france_metropolitaine",
-        year: str = "2024",
+        edition: str = "2024",
         force: bool = False,
     ) -> Path:
         """Download Admin Express data (legacy method).
 
         Args:
             territory: Territory to download.
-            year: Data year.
+            edition: Data edition.
             force: Force re-download even if the file already exists.
 
         Returns:
@@ -379,8 +379,8 @@ class IGNDataSource(DataSource):
             DownloadError: If a download error occurs.
         """
         data_dir = self.settings.ensure_data_dir()
-        filename = f"admin_express_{territory}_{year}.7z"
-        url = self.get_download_url(territory, year)
+        filename = f"admin_express_{territory}_{edition}.7z"
+        url = self.get_download_url(territory, edition)
 
         return self.download(url, data_dir, filename, force)
 

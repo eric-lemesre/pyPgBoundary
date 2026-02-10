@@ -4,7 +4,7 @@ This module provides reusable user interface components:
 - checkbox_select: multiple selection with checkboxes
 - select_single: single selection from a list
 - select_layers: layer selection
-- select_years: vintage/year selection
+- select_editions: vintage/edition selection
 """
 
 from __future__ import annotations
@@ -396,36 +396,36 @@ def select_layers(
     return checkbox_select(items, title="Couches à importer", min_selected=1)
 
 
-def select_years(
-    available_years: list[str] | None = None,
+def select_editions(
+    available_editions: list[str] | None = None,
     preselected: list[str] | None = None,
 ) -> CheckboxResult:
-    """Interactive vintage/year selection.
+    """Interactive vintage/edition selection.
 
     Args:
-        available_years: List of available years from the catalog.
-        preselected: List of preselected years.
+        available_editions: List of available editions from the catalog.
+        preselected: List of preselected editions.
 
     Returns:
-        CheckboxResult with the selected years (cancelled if none available).
+        CheckboxResult with the selected editions (cancelled if none available).
     """
-    if not available_years:
+    if not available_editions:
         console.print(
             "[yellow]Aucun millésime disponible pour ce produit dans le catalogue.[/yellow]"
         )
         return CheckboxResult([], cancelled=True)
 
     if preselected is None:
-        preselected = [available_years[0]] if available_years else []
+        preselected = [available_editions[0]] if available_editions else []
 
     items = [
         CheckboxItem(
-            label=year,
-            value=year,
-            selected=year in preselected,
+            label=edition,
+            value=edition,
+            selected=edition in preselected,
             description="dernière version" if i == 0 else None,
         )
-        for i, year in enumerate(available_years)
+        for i, edition in enumerate(available_editions)
     ]
 
     return checkbox_select(items, title="Millésimes à importer", min_selected=1)
