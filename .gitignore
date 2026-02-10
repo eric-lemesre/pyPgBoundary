@@ -87,3 +87,5 @@ data/
 
 # IA working directory
 IA/
+/.continue/
+/.claude/
