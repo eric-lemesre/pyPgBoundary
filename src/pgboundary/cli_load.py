@@ -144,7 +144,7 @@ def _get_effective_layer_config(
         "table_name": layer_config.get("table_name"),
         "territory": layer_config.get("territory") or prod_config.get("territory", "FRA"),
         "format": layer_config.get("format") or prod_config.get("format", "shp"),
-        "years": layer_config.get("years") or prod_config.get("years", ["2024"]),
+        "years": layer_config.get("years") or prod_config.get("years", []),
         "historization": layer_config.get("historization") or prod_config.get("historization", {}),
     }
 
@@ -214,6 +214,11 @@ def run_import(
                 file_format = FileFormat(layer_config["format"])
                 territory = layer_config["territory"]
                 years = layer_config["years"]
+
+                # If no years configured, use last_date or a single
+                # pass (for products with fixed/latest URLs)
+                if not years:
+                    years = [product.last_date or "latest"]
 
                 # Import each year for this layer
                 for year in years:

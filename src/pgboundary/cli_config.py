@@ -47,11 +47,15 @@ if TYPE_CHECKING:
 
 
 def _get_product_years(product: IGNProduct | None) -> list[str] | None:
-    """Extract unique years from a product's available_dates."""
+    """Return a product's available_dates for selection.
+
+    Returns the full dates (YYYY or YYYY-MM-DD) as they appear in the
+    catalog, without truncation. This ensures the URL builder receives
+    the exact date needed (e.g. '2025-09-15' instead of '2025').
+    """
     if not product or not product.available_dates:
         return None
-    years = sorted({d[:4] for d in product.available_dates}, reverse=True)
-    return years if years else None
+    return list(product.available_dates) or None
 
 
 console = Console()
