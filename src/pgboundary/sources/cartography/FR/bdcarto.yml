@@ -1,0 +1,94 @@
+id: bd-carto
+name: BD CARTO
+description:
+  fr: >-
+    Base cartographique multi-thèmes pour cartes moyennes échelles.
+    Contient les limites administratives, zones d'activité, équipements.
+  en: >-
+    Multi-theme cartographic database for medium-scale maps.
+    Contains administrative boundaries, activity zones, facilities.
+
+provider: IGN
+category: cartography
+version: "5-0"
+url_template: >-
+  https://data.geopf.fr/telechargement/download/BDCARTO/
+  BDCARTO_{version}__TOUSTHEMES_{format}_{crs}_{territory}_{date}/
+  BDCARTO_{version}__TOUSTHEMES_{format}_{crs}_{territory}_{date}.7z
+archive_extension: "7z"
+size_mb: 1200
+
+formats:
+  - gpkg
+
+territories:
+  - FRA
+  - FXX
+  - GLP
+  - MTQ
+  - GUF
+  - REU
+  - MYT
+
+layers:
+  - name: COMMUNE
+    table_key: commune_carto
+    geometry_type: MultiPolygon
+    description:
+      fr: Communes (BD CARTO)
+      en: Municipalities (BD CARTO)
+
+  - name: LIMITE_ADMINISTRATIVE
+    table_key: limite_administrative
+    geometry_type: MultiLineString
+    description:
+      fr: Limites administratives linéaires
+      en: Linear administrative boundaries
+
+  - name: ZONE_D_ACTIVITE
+    table_key: zone_activite
+    geometry_type: MultiPolygon
+    optional: true
+    description:
+      fr: Zones d'activité
+      en: Activity zones
+
+  - name: ZONE_D_HABITATION
+    table_key: zone_habitation
+    geometry_type: MultiPolygon
+    optional: true
+    description:
+      fr: Zones d'habitation
+      en: Residential zones
+
+  - name: AERODROME
+    table_key: aerodrome
+    geometry_type: MultiPolygon
+    optional: true
+    description:
+      fr: Aérodromes
+      en: Airfields
+
+  - name: CIMETIERE
+    table_key: cimetiere
+    geometry_type: MultiPolygon
+    optional: true
+    description:
+      fr: Cimetières
+      en: Cemeteries
+
+  - name: CONSTRUCTION_SURFACIQUE
+    table_key: construction_surfacique
+    geometry_type: MultiPolygon
+    optional: true
+    description:
+      fr: Constructions surfaciques
+      en: Surface constructions
+
+  - name: TERRAIN_DE_SPORT
+    table_key: terrain_sport
+    geometry_type: MultiPolygon
+    optional: true
+    description:
+      fr: Terrains de sport
+      en: Sports fields

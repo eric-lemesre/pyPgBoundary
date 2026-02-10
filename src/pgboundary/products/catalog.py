@@ -258,15 +258,77 @@ class ProductCatalog:
 def get_default_catalog() -> ProductCatalog:
     """Retourne le catalogue par défaut avec tous les produits.
 
+    Charge les définitions depuis les fichiers YAML dans sources/.
+
     Returns:
         Catalogue initialisé avec tous les produits.
     """
-    from pgboundary.products.admin_express import ADMIN_EXPRESS_PRODUCTS
-    from pgboundary.products.codes_postaux import CODES_POSTAUX_PRODUCTS
-    from pgboundary.products.other import OTHER_PRODUCTS
+    from pgboundary.sources.loader import load_sources
 
-    catalog = ProductCatalog()
-    catalog.register_many(ADMIN_EXPRESS_PRODUCTS)
-    catalog.register_many(OTHER_PRODUCTS)
-    catalog.register_many(CODES_POSTAUX_PRODUCTS)
-    return catalog
+    return load_sources()
+
+
+def get_admin_express_product(variant: str = "cog") -> IGNProduct | None:
+    """Retourne un produit Admin Express par sa variante.
+
+    Args:
+        variant: Variante du produit:
+            - "base" ou "express": ADMIN EXPRESS
+            - "cog": ADMIN EXPRESS COG (défaut)
+            - "carto": ADMIN EXPRESS COG CARTO
+            - "pe": ADMIN EXPRESS COG CARTO PE
+            - "plus" ou "plus-pe": ADMIN EXPRESS COG CARTO PLUS PE
+
+    Returns:
+        Produit correspondant ou None si non trouvé.
+    """
+    variant_mapping = {
+        "base": "admin-express",
+        "express": "admin-express",
+        "cog": "admin-express-cog",
+        "carto": "admin-express-cog-carto",
+        "pe": "admin-express-cog-carto-pe",
+        "plus": "admin-express-cog-carto-plus-pe",
+        "plus-pe": "admin-express-cog-carto-plus-pe",
+    }
+
+    product_id = variant_mapping.get(variant.lower())
+    if product_id is None:
+        return None
+
+    catalog = get_default_catalog()
+    return catalog.get(product_id)
+
+
+def get_codes_postaux_product(variant: str = "ban") -> IGNProduct | None:
+    """Retourne un produit codes postaux par sa variante.
+
+    Args:
+        variant: Variante du produit:
+            - "ban" ou "contours": Contours calculés BAN (défaut)
+            - "laposte", "hexaposte" ou "official": Base officielle La Poste
+            - "geoclip" ou "fond": Fond de carte Géoclip
+            - "generated", "voronoi" ou "computed": Génération Voronoï
+
+    Returns:
+        Produit correspondant ou None si non trouvé.
+    """
+    variant_mapping = {
+        "ban": "codes-postaux-ban",
+        "contours": "codes-postaux-ban",
+        "laposte": "codes-postaux-laposte",
+        "hexaposte": "codes-postaux-laposte",
+        "official": "codes-postaux-laposte",
+        "geoclip": "codes-postaux-geoclip",
+        "fond": "codes-postaux-geoclip",
+        "generated": "codes-postaux-generated",
+        "voronoi": "codes-postaux-generated",
+        "computed": "codes-postaux-generated",
+    }
+
+    product_id = variant_mapping.get(variant.lower())
+    if product_id is None:
+        return None
+
+    catalog = get_default_catalog()
+    return catalog.get(product_id)

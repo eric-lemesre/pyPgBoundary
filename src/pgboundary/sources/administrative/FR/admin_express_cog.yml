@@ -1,0 +1,74 @@
+id: admin-express-cog
+name: ADMIN EXPRESS COG
+description:
+  fr: >-
+    Limites administratives avec Code Officiel Géographique (COG).
+    Référentiel officiel des codes communes et régions.
+  en: >-
+    Administrative boundaries with Official Geographic Code (COG).
+    Official reference for municipality and region codes.
+
+provider: IGN
+category: administrative
+version: "4-0"
+url_template: >-
+  https://data.geopf.fr/telechargement/download/ADMIN-EXPRESS-COG/
+  ADMIN-EXPRESS-COG_{version}__{format}_{crs}_{territory}_{date}/
+  ADMIN-EXPRESS-COG_{version}__{format}_{crs}_{territory}_{date}.7z
+archive_extension: "7z"
+size_mb: 582
+
+formats:
+  - gpkg
+
+territories:
+  - FRA
+  - FXX
+  - GLP
+  - MTQ
+  - GUF
+  - REU
+  - MYT
+
+layers:
+  - name: REGION
+    table_key: region
+    geometry_type: MultiPolygon
+    description:
+      fr: Régions administratives
+      en: Administrative regions
+
+  - name: DEPARTEMENT
+    table_key: departement
+    geometry_type: MultiPolygon
+    description:
+      fr: Départements
+      en: Departments
+
+  - name: ARRONDISSEMENT
+    table_key: arrondissement
+    geometry_type: MultiPolygon
+    description:
+      fr: Arrondissements départementaux
+      en: Departmental districts
+
+  - name: EPCI
+    table_key: epci
+    geometry_type: MultiPolygon
+    description:
+      fr: Établissements Publics de Coopération Intercommunale
+      en: Public Establishments for Intercommunal Cooperation
+
+  - name: COMMUNE
+    table_key: commune
+    geometry_type: MultiPolygon
+    description:
+      fr: Communes
+      en: Municipalities
+
+  - name: COMMUNE_ASSOCIEE_OU_DELEGUEE
+    table_key: commune_associee_deleguee
+    geometry_type: MultiPolygon
+    description:
+      fr: Communes associées ou déléguées
+      en: Associated or delegated municipalities

@@ -1,0 +1,24 @@
+# Mapping des codes territoire IGN vers leurs CRS
+# Utilisé pour construire les URLs de téléchargement
+territories:
+  FRA:
+    name: France entière
+    crs: WGS84G
+  FXX:
+    name: France métropolitaine
+    crs: LAMB93
+  GLP:
+    name: Guadeloupe
+    crs: RGAF09UTM20
+  MTQ:
+    name: Martinique
+    crs: RGAF09UTM20
+  GUF:
+    name: Guyane française
+    crs: UTM22RGFG95
+  REU:
+    name: La Réunion
+    crs: RGR92UTM40S
+  MYT:
+    name: Mayotte
+    crs: RGM04UTM38S

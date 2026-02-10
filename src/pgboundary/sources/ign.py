@@ -24,6 +24,7 @@ from rich.progress import (
 from pgboundary.exceptions import DownloadError
 from pgboundary.products.catalog import FileFormat, TerritoryCode
 from pgboundary.sources.base import DataSource
+from pgboundary.sources.loader import load_territory_crs
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -33,17 +34,29 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Mapping territoire → CRS chargé depuis YAML
+_territory_crs: dict[str, str] | None = None
+
+
+def _get_territory_crs() -> dict[str, str]:
+    """Retourne le mapping territoire → CRS, chargé paresseusement."""
+    global _territory_crs
+    if _territory_crs is None:
+        _territory_crs = load_territory_crs()
+    return _territory_crs
+
+
 # URLs des données Admin Express sur data.geopf.fr (rétrocompatibilité)
 ADMIN_EXPRESS_URLS = {
     "france_metropolitaine": (
         "https://data.geopf.fr/telechargement/download/ADMIN-EXPRESS-COG/"
-        "ADMIN-EXPRESS-COG_3-2__SHP_WGS84G_FRA_{year}/"
-        "ADMIN-EXPRESS-COG_3-2__SHP_WGS84G_FRA_{year}.7z"
+        "ADMIN-EXPRESS-COG_4-0__GPKG_LAMB93_FXX_{year}/"
+        "ADMIN-EXPRESS-COG_4-0__GPKG_LAMB93_FXX_{year}.7z"
     ),
     "france_entiere": (
         "https://data.geopf.fr/telechargement/download/ADMIN-EXPRESS-COG/"
-        "ADMIN-EXPRESS-COG_3-2__SHP_WGS84G_FXX_{year}/"
-        "ADMIN-EXPRESS-COG_3-2__SHP_WGS84G_FXX_{year}.7z"
+        "ADMIN-EXPRESS-COG_4-0__GPKG_WGS84G_FRA_{year}/"
+        "ADMIN-EXPRESS-COG_4-0__GPKG_WGS84G_FRA_{year}.7z"
     ),
 }
 
@@ -117,21 +130,30 @@ class IGNDataSource(DataSource):
             product: Produit IGN à télécharger.
             file_format: Format de fichier (SHP ou GPKG).
             territory: Code du territoire.
-            year: Année des données.
+            year: Année des données (YYYY ou YYYY-MM-DD).
 
         Returns:
             URL de téléchargement.
         """
-        # Conversion du format en string IGN
+        # Conversion du format en string IGN (sans CRS)
         format_str = self._format_to_ign_string(file_format)
+
+        # Résoudre le CRS depuis le mapping territorial
+        crs_mapping = _get_territory_crs()
+        crs = crs_mapping.get(territory, "WGS84G")
+
+        # Normaliser la date : YYYY → YYYY-01-01
+        date_str = year
+        if len(year) == 4 and year.isdigit():
+            date_str = f"{year}-01-01"
 
         # Utiliser le template du produit
         return product.url_template.format(
             version=product.version_pattern,
             format=format_str,
-            crs="WGS84G",
+            crs=crs,
             territory=territory,
-            date=year,
+            date=date_str,
         )
 
     def download(
@@ -363,15 +385,18 @@ class IGNDataSource(DataSource):
     def _format_to_ign_string(file_format: FileFormat) -> str:
         """Convertit un FileFormat en string IGN.
 
+        Le CRS est désormais géré séparément dans build_url() via le mapping
+        territorial, donc ce format ne contient plus le suffixe CRS.
+
         Args:
             file_format: Format de fichier.
 
         Returns:
-            String pour l'URL IGN (ex: "SHP_WGS84G").
+            String pour l'URL IGN (ex: "SHP", "GPKG").
         """
         if file_format == FileFormat.SHP:
-            return "SHP_WGS84G"
-        return "GPKG_WGS84G"
+            return "SHP"
+        return "GPKG"
 
     @staticmethod
     def territory_to_code(territory: Territory) -> TerritoryCode:

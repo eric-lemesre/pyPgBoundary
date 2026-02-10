@@ -12,9 +12,10 @@ from pgboundary.products import (
     ProductCatalog,
     ProductCategory,
     TerritoryCode,
+    get_admin_express_product,
     get_default_catalog,
 )
-from pgboundary.products.admin_express import get_admin_express_product
+from pgboundary.sources.loader import load_products, load_territory_crs
 
 
 class TestLayerConfig:
@@ -241,7 +242,7 @@ class TestDefaultCatalog:
         catalog = get_default_catalog()
 
         assert "contours-iris" in catalog
-        assert "bd-foret" in catalog
+        assert "masque-foret" in catalog
 
     def test_admin_express_categories(self):
         """Test des catégories de produits."""
@@ -273,9 +274,9 @@ class TestAdminExpressProducts:
 
         for product in ADMIN_EXPRESS_PRODUCTS:
             layer_names = set(product.get_layer_names())
-            assert base_layers.issubset(layer_names), (
-                f"{product.id} manque des couches de base: {base_layers - layer_names}"
-            )
+            assert base_layers.issubset(
+                layer_names
+            ), f"{product.id} manque des couches de base: {base_layers - layer_names}"
 
     def test_carto_has_chef_lieu(self):
         """Test que les versions CARTO ont les chefs-lieux."""
@@ -306,7 +307,9 @@ class TestOtherProducts:
 
     def test_other_products_count(self):
         """Test du nombre d'autres produits."""
-        assert len(OTHER_PRODUCTS) >= 7
+        # Produits non-ADMIN et non-ADDRESS: IRIS, masque-foret, bd-carto,
+        # circo. legislatives, bureaux de vote = 5
+        assert len(OTHER_PRODUCTS) >= 4
 
     def test_iris_product(self):
         """Test du produit IRIS."""
@@ -315,15 +318,128 @@ class TestOtherProducts:
         assert iris.category == ProductCategory.STATS
         assert "IRIS_GE" in iris.get_layer_names()
 
-    def test_bd_foret_product(self):
-        """Test du produit BD FORÊT."""
-        foret = next((p for p in OTHER_PRODUCTS if p.id == "bd-foret"), None)
+    def test_masque_foret_product(self):
+        """Test du produit MASQUE FORÊT."""
+        foret = next((p for p in OTHER_PRODUCTS if p.id == "masque-foret"), None)
         assert foret is not None
         assert foret.category == ProductCategory.LAND
-        assert "FORMATION_VEGETALE" in foret.get_layer_names()
+        assert "MASQUE_FORET" in foret.get_layer_names()
 
-    def test_bcae_product(self):
-        """Test du produit BCAE."""
-        bcae = next((p for p in OTHER_PRODUCTS if p.id == "bcae"), None)
-        assert bcae is not None
-        assert bcae.category == ProductCategory.LAND
+
+class TestYAMLLoader:
+    """Tests pour le chargeur YAML."""
+
+    def test_load_products_returns_list(self):
+        """Test que load_products retourne une liste non vide."""
+        products = load_products()
+        assert isinstance(products, list)
+        assert len(products) > 0
+
+    def test_load_products_all_have_id(self):
+        """Test que tous les produits ont un ID."""
+        products = load_products()
+        for product in products:
+            assert product.id is not None
+            assert len(product.id) > 0
+
+    def test_load_products_all_have_layers(self):
+        """Test que tous les produits ont au moins une couche."""
+        products = load_products()
+        for product in products:
+            assert len(product.layers) > 0, f"{product.id} n'a pas de couches"
+
+    def test_load_territory_crs(self):
+        """Test du chargement des mappings CRS territoriaux."""
+        crs = load_territory_crs()
+        assert "FRA" in crs
+        assert "FXX" in crs
+        assert crs["FRA"] == "WGS84G"
+        assert crs["FXX"] == "LAMB93"
+        assert crs["GLP"] == "RGAF09UTM20"
+        assert crs["REU"] == "RGR92UTM40S"
+
+    def test_load_sources_returns_catalog(self):
+        """Test que load_sources retourne un ProductCatalog."""
+        from pgboundary.sources.loader import load_sources
+
+        catalog = load_sources()
+        assert isinstance(catalog, ProductCatalog)
+        assert len(catalog) > 0
+
+
+class TestURLBuilding:
+    """Tests pour la construction d'URLs avec CRS territorial."""
+
+    def test_build_url_fra_wgs84g(self):
+        """Test de construction URL pour FRA (WGS84G)."""
+        from pgboundary.sources.ign import IGNDataSource
+
+        catalog = get_default_catalog()
+        product = catalog.get("admin-express-cog")
+        assert product is not None
+
+        source = IGNDataSource()
+        url = source.build_url(product, FileFormat.GPKG, "FRA", "2024")
+
+        assert "WGS84G" in url
+        assert "GPKG" in url
+        assert "FRA" in url
+        assert "2024-01-01" in url
+        assert "4-0" in url
+
+    def test_build_url_fxx_lamb93(self):
+        """Test de construction URL pour FXX (LAMB93)."""
+        from pgboundary.sources.ign import IGNDataSource
+
+        catalog = get_default_catalog()
+        product = catalog.get("admin-express-cog")
+        assert product is not None
+
+        source = IGNDataSource()
+        url = source.build_url(product, FileFormat.GPKG, "FXX", "2024")
+
+        assert "LAMB93" in url
+        assert "FXX" in url
+
+    def test_build_url_drom_crs(self):
+        """Test de construction URL pour DROM avec CRS spécifique."""
+        from pgboundary.sources.ign import IGNDataSource
+
+        catalog = get_default_catalog()
+        product = catalog.get("admin-express-cog")
+        assert product is not None
+
+        source = IGNDataSource()
+
+        # Guadeloupe
+        url = source.build_url(product, FileFormat.GPKG, "GLP", "2024")
+        assert "RGAF09UTM20" in url
+
+        # Réunion
+        url = source.build_url(product, FileFormat.GPKG, "REU", "2024")
+        assert "RGR92UTM40S" in url
+
+    def test_build_url_date_normalization(self):
+        """Test de la normalisation de date YYYY → YYYY-01-01."""
+        from pgboundary.sources.ign import IGNDataSource
+
+        catalog = get_default_catalog()
+        product = catalog.get("admin-express-cog")
+        assert product is not None
+
+        source = IGNDataSource()
+
+        # YYYY doit devenir YYYY-01-01
+        url = source.build_url(product, FileFormat.GPKG, "FRA", "2024")
+        assert "2024-01-01" in url
+
+        # YYYY-MM-DD doit rester tel quel
+        url = source.build_url(product, FileFormat.GPKG, "FRA", "2024-06-15")
+        assert "2024-06-15" in url
+
+    def test_format_string_no_crs(self):
+        """Test que le format IGN ne contient plus le CRS."""
+        from pgboundary.sources.ign import IGNDataSource
+
+        assert IGNDataSource._format_to_ign_string(FileFormat.SHP) == "SHP"
+        assert IGNDataSource._format_to_ign_string(FileFormat.GPKG) == "GPKG"

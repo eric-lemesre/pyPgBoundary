@@ -1,0 +1,36 @@
+id: bureaux-de-vote
+name: Bureaux de Vote
+description:
+  fr: >-
+    Contours approximatifs des bureaux de vote français générés par diagrammes
+    de Voronoï à partir des adresses du Répertoire Électoral Unique (REU).
+    Source: data.gouv.fr / Etalab. Version unique (latest), non mise à jour.
+    Environ 69 000 bureaux de vote couvrant la France entière.
+  en: >-
+    Approximate boundaries of French polling stations generated using Voronoi
+    diagrams from addresses in the Single Electoral Register (REU).
+    Source: data.gouv.fr / Etalab. Single version (latest), not updated.
+    Approximately 69,000 polling stations covering all of France.
+
+provider: data.gouv.fr
+category: electoral
+version: "latest"
+url_template: >-
+  https://object.files.data.gouv.fr/data-pipeline-open/reu/
+  contours-france-entiere-latest-v2.geojson
+archive_extension: geojson
+size_mb: 645
+
+formats:
+  - gpkg
+
+territories:
+  - FRA
+
+layers:
+  - name: BUREAU_DE_VOTE
+    table_key: bureau_vote
+    geometry_type: MultiPolygon
+    description:
+      fr: Contours des bureaux de vote (environ 69 000 en France)
+      en: Polling station boundaries (approximately 69,000 in France)

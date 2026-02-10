@@ -1,0 +1,35 @@
+id: codes-postaux-ban
+name: Contours Codes Postaux BAN
+description:
+  fr: >-
+    Contours calculés des zones de codes postaux à partir de la Base Adresse Nationale.
+    Chaque polygone est une enveloppe convexe autour des adresses utilisant un même code postal.
+    ATTENTION: Millésime 2021, non mis à jour régulièrement. Les contours se chevauchent
+    car les codes postaux ne correspondent pas à des découpages géographiques distincts.
+  en: >-
+    Calculated postal code zone boundaries from the National Address Database.
+    Each polygon is a convex hull around addresses using the same postal code.
+    WARNING: 2021 vintage, not regularly updated. Boundaries overlap because
+    postal codes do not correspond to distinct geographic divisions.
+
+provider: data.gouv.fr
+category: address
+version: "2021"
+url_template: >-
+  https://www.data.gouv.fr/fr/datasets/r/f9cbd039-6c7f-4e1b-aed0-5e361e8de0ec
+archive_extension: geojson
+size_mb: 50
+
+formats:
+  - gpkg
+
+territories:
+  - FRA
+
+layers:
+  - name: CODES_POSTAUX
+    table_key: code_postal_ban
+    geometry_type: MultiPolygon
+    description:
+      fr: Contours des codes postaux (enveloppes convexes BAN)
+      en: Postal code boundaries (BAN convex hulls)

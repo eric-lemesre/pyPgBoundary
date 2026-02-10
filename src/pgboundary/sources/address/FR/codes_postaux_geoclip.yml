@@ -1,0 +1,35 @@
+id: codes-postaux-geoclip
+name: Fond de Carte Codes Postaux Géoclip
+description:
+  fr: >-
+    Fond de carte des codes postaux de France métropolitaine par Géoclip.
+    Inclut les codes postaux supra-communaux avec estimations de population.
+    ATTENTION: Données anciennes (2013-2014), métropole uniquement.
+    Format Shapefile prêt à l'emploi mais non maintenu.
+  en: >-
+    Postal code basemap for metropolitan France by Géoclip.
+    Includes supra-municipal postal codes with population estimates.
+    WARNING: Old data (2013-2014), mainland France only.
+    Ready-to-use Shapefile format but not maintained.
+
+provider: Géoclip
+category: address
+version: "V5"
+url_template: >-
+  http://www.geoclip.fr/data/codes_postaux_V5.zip
+archive_extension: zip
+size_mb: 15
+
+formats:
+  - shp
+
+territories:
+  - FXX
+
+layers:
+  - name: CODES_POSTAUX
+    table_key: code_postal_geoclip
+    geometry_type: MultiPolygon
+    description:
+      fr: Contours des codes postaux (Géoclip 2013)
+      en: Postal code boundaries (Géoclip 2013)

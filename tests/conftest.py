@@ -203,7 +203,7 @@ def mock_ign_download(mock_http_responses: responses.RequestsMock) -> responses.
     # Mock de la réponse HEAD pour obtenir la taille
     mock_http_responses.add(
         responses.HEAD,
-        "https://data.geopf.fr/telechargement/download/ADMIN-EXPRESS-COG/ADMIN-EXPRESS-COG_3-2__SHP_WGS84G_FRA_2024-02-22/ADMIN-EXPRESS-COG_3-2__SHP_WGS84G_FRA_2024-02-22.7z",
+        "https://data.geopf.fr/telechargement/download/ADMIN-EXPRESS-COG/ADMIN-EXPRESS-COG_4-0__GPKG_WGS84G_FRA_2024-01-01/ADMIN-EXPRESS-COG_4-0__GPKG_WGS84G_FRA_2024-01-01.7z",
         headers={"Content-Length": "1024000"},
         status=200,
     )
@@ -211,7 +211,7 @@ def mock_ign_download(mock_http_responses: responses.RequestsMock) -> responses.
     # Mock de la réponse GET pour le téléchargement
     mock_http_responses.add(
         responses.GET,
-        "https://data.geopf.fr/telechargement/download/ADMIN-EXPRESS-COG/ADMIN-EXPRESS-COG_3-2__SHP_WGS84G_FRA_2024-02-22/ADMIN-EXPRESS-COG_3-2__SHP_WGS84G_FRA_2024-02-22.7z",
+        "https://data.geopf.fr/telechargement/download/ADMIN-EXPRESS-COG/ADMIN-EXPRESS-COG_4-0__GPKG_WGS84G_FRA_2024-01-01/ADMIN-EXPRESS-COG_4-0__GPKG_WGS84G_FRA_2024-01-01.7z",
         body=b"fake archive content",
         status=200,
     )

@@ -9,10 +9,8 @@ import pytest
 from shapely.geometry import MultiPolygon, Point, Polygon
 
 from pgboundary.loaders.codes_postaux import CodesPostauxLoader
-from pgboundary.products.codes_postaux import (
-    CODES_POSTAUX_PRODUCTS,
-    get_codes_postaux_product,
-)
+from pgboundary.products.catalog import get_codes_postaux_product
+from pgboundary.products.codes_postaux import CODES_POSTAUX_PRODUCTS
 
 
 class TestCodesPostauxProducts:

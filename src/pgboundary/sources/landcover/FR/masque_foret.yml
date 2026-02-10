@@ -1,0 +1,34 @@
+id: masque-foret
+name: MASQUE FORÊT
+description:
+  fr: >-
+    Masque simplifié des zones forestières de France.
+    Dérivé de la BD FORÊT pour visualisation à petite échelle.
+  en: >-
+    Simplified mask of French forest areas.
+    Derived from BD FORÊT for small-scale visualization.
+
+provider: IGN
+category: landcover
+version: "1-0"
+url_template: >-
+  https://data.geopf.fr/telechargement/download/IGNF_MASQUE-FORET/
+  IGNF_MASQUE-FORET_{version}__{format}_{crs}_{territory}_{date}/
+  IGNF_MASQUE-FORET_{version}__{format}_{crs}_{territory}_{date}.7z
+archive_extension: "7z"
+size_mb: 300
+
+formats:
+  - gpkg
+
+territories:
+  - FRA
+  - FXX
+
+layers:
+  - name: MASQUE_FORET
+    table_key: masque_foret
+    geometry_type: MultiPolygon
+    description:
+      fr: Masque des zones forestières
+      en: Forest area mask

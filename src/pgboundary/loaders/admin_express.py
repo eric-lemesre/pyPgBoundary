@@ -11,8 +11,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pgboundary.exceptions import LoaderError
 from pgboundary.loaders.product_loader import ProductLoader
-from pgboundary.products.admin_express import get_admin_express_product
-from pgboundary.products.catalog import FileFormat
+from pgboundary.products.catalog import FileFormat, get_admin_express_product
 
 if TYPE_CHECKING:
     from pathlib import Path

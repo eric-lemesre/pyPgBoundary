@@ -1,0 +1,36 @@
+id: codes-postaux-laposte
+name: Base Codes Postaux La Poste
+description:
+  fr: >-
+    Base officielle des codes postaux de La Poste (Hexaposte).
+    Fournit la correspondance entre codes postaux et codes INSEE des communes,
+    avec les coordonnées des centroïdes. Mise à jour 2 fois par an.
+    NOTE: Pas de contours polygonaux, uniquement des points.
+  en: >-
+    Official postal code database from La Poste (Hexaposte).
+    Provides correspondence between postal codes and INSEE municipality codes,
+    with centroid coordinates. Updated twice a year.
+    NOTE: No polygon boundaries, only points.
+
+provider: La Poste
+category: address
+version: "latest"
+url_template: >-
+  https://datanova.laposte.fr/data-fair/api/v1/datasets/laposte-hexasmal/
+  metadata-attachments/base-officielle-codes-postaux.csv
+archive_extension: csv
+size_mb: 2
+
+formats:
+  - gpkg
+
+territories:
+  - FRA
+
+layers:
+  - name: CORRESPONDANCE_CP_INSEE
+    table_key: correspondance_cp_insee
+    geometry_type: Point
+    description:
+      fr: Correspondance codes postaux - codes INSEE avec centroïdes
+      en: Postal codes - INSEE codes correspondence with centroids

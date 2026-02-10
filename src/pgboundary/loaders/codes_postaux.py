@@ -25,7 +25,7 @@ from shapely.geometry import MultiPolygon, Point, Polygon
 
 from pgboundary.exceptions import LoaderError
 from pgboundary.loaders.base import BaseLoader
-from pgboundary.products.codes_postaux import get_codes_postaux_product
+from pgboundary.products.catalog import get_codes_postaux_product
 
 if TYPE_CHECKING:
     from pathlib import Path

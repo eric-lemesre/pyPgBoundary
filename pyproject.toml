@@ -100,6 +100,16 @@ Changelog = "https://github.com/eric/pgboundary/blob/master/ChangeLog.md"
 [tool.hatch.build.targets.wheel]
 packages = ["src/pgboundary"]
 
+# Inclure les fichiers YAML de définition des produits
+[tool.hatch.build.targets.wheel.force-include]
+"src/pgboundary/sources/territories" = "pgboundary/sources/territories"
+"src/pgboundary/sources/administrative" = "pgboundary/sources/administrative"
+"src/pgboundary/sources/statistical" = "pgboundary/sources/statistical"
+"src/pgboundary/sources/electoral" = "pgboundary/sources/electoral"
+"src/pgboundary/sources/address" = "pgboundary/sources/address"
+"src/pgboundary/sources/cartography" = "pgboundary/sources/cartography"
+"src/pgboundary/sources/landcover" = "pgboundary/sources/landcover"
+
 # =============================================================================
 # Ruff - Linter & Formatter
 # =============================================================================

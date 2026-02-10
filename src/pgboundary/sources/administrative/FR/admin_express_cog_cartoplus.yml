@@ -1,0 +1,111 @@
+id: admin-express-cog-carto-plus-pe
+name: ADMIN EXPRESS COG CARTO PLUS PE
+description:
+  fr: >-
+    Version enrichie petite échelle avec cantons et collectivités territoriales.
+    Contient le maximum de données administratives.
+  en: >-
+    Enriched small-scale version with cantons and territorial collectivities.
+    Contains maximum administrative data.
+
+provider: IGN
+category: administrative
+version: "4-0"
+url_template: >-
+  https://data.geopf.fr/telechargement/download/ADMIN-EXPRESS-COG-CARTO-PLUS-PE/
+  ADMIN-EXPRESS-COG-CARTO-PLUS-PE_{version}__{format}_{crs}_{territory}_{date}/
+  ADMIN-EXPRESS-COG-CARTO-PLUS-PE_{version}__{format}_{crs}_{territory}_{date}.7z
+archive_extension: "7z"
+size_mb: 250
+
+formats:
+  - gpkg
+
+territories:
+  - FRA
+  - FXX
+  - GLP
+  - MTQ
+  - GUF
+  - REU
+  - MYT
+
+layers:
+  - name: REGION
+    table_key: region
+    geometry_type: MultiPolygon
+    description:
+      fr: Régions administratives
+      en: Administrative regions
+
+  - name: DEPARTEMENT
+    table_key: departement
+    geometry_type: MultiPolygon
+    description:
+      fr: Départements
+      en: Departments
+
+  - name: ARRONDISSEMENT
+    table_key: arrondissement
+    geometry_type: MultiPolygon
+    description:
+      fr: Arrondissements départementaux
+      en: Departmental districts
+
+  - name: EPCI
+    table_key: epci
+    geometry_type: MultiPolygon
+    description:
+      fr: Établissements Publics de Coopération Intercommunale
+      en: Public Establishments for Intercommunal Cooperation
+
+  - name: COMMUNE
+    table_key: commune
+    geometry_type: MultiPolygon
+    description:
+      fr: Communes
+      en: Municipalities
+
+  - name: COMMUNE_ASSOCIEE_OU_DELEGUEE
+    table_key: commune_associee_deleguee
+    geometry_type: MultiPolygon
+    description:
+      fr: Communes associées ou déléguées
+      en: Associated or delegated municipalities
+
+  - name: ARRONDISSEMENT_MUNICIPAL
+    table_key: arrondissement_municipal
+    geometry_type: MultiPolygon
+    description:
+      fr: Arrondissements municipaux (Paris, Lyon, Marseille)
+      en: Municipal districts (Paris, Lyon, Marseille)
+
+  - name: CHFLIEU_COMMUNE
+    table_key: chef_lieu_commune
+    geometry_type: Point
+    description:
+      fr: Chefs-lieux de commune
+      en: Municipal capitals
+
+  - name: CHFLIEU_ARRONDISSEMENT_MUNICIPAL
+    table_key: chef_lieu_arrondissement_municipal
+    geometry_type: Point
+    optional: true
+    description:
+      fr: Chefs-lieux d'arrondissement municipal
+      en: Municipal district capitals
+
+  - name: CANTON
+    table_key: canton
+    geometry_type: MultiPolygon
+    description:
+      fr: Cantons
+      en: Cantons
+
+  - name: COLLECTIVITE_TERRITORIALE
+    table_key: collectivite_territoriale
+    geometry_type: MultiPolygon
+    optional: true
+    description:
+      fr: Collectivités territoriales
+      en: Territorial collectivities
