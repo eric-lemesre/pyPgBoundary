@@ -403,18 +403,17 @@ def select_years(
     """Interactive vintage/year selection.
 
     Args:
-        available_years: List of available years (default: last 5).
+        available_years: List of available years from the catalog.
         preselected: List of preselected years.
 
     Returns:
-        CheckboxResult with the selected years.
+        CheckboxResult with the selected years (cancelled if none available).
     """
-    from datetime import datetime
-
     if not available_years:
-        current_year = datetime.now().year
-        # Current year data is typically not yet available, start from previous year
-        available_years = [str(year) for year in range(current_year - 1, current_year - 6, -1)]
+        console.print(
+            "[yellow]Aucun millésime disponible pour ce produit dans le catalogue.[/yellow]"
+        )
+        return CheckboxResult([], cancelled=True)
 
     if preselected is None:
         preselected = [available_years[0]] if available_years else []
