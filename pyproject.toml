@@ -81,7 +81,7 @@ dev = [
     "pgboundary[test]",
     "ruff>=0.5.0",
     "scipy>=1.11.0",
-    "types-PyYAML>=6.0.0",
+    "types-PyYAML>=6.0.12.20260408",
 ]
 
 [project.scripts]
